@@ -1,0 +1,71 @@
+import express from 'express';
+import cors from 'cors';
+import { Server } from 'http';
+import { authRouter } from '../api/routes/auth';
+import { usersRouter } from '../api/routes/users';
+import { syncRouter } from '../api/routes/sync';
+import { configRouter } from '../api/routes/config';
+import { scheduleRouter } from '../api/routes/schedule';
+import { pathologiesRouter } from '../api/routes/pathologies';
+import { interventionsRouter } from '../api/routes/interventions';
+import { boxAssignmentsRouter } from '../api/routes/box-assignments';
+import { authMiddleware } from '../api/middleware/auth';
+import { initDatabase } from '../database';
+
+let server: Server | null = null;
+let connectedClients = 0;
+
+export async function startServer(port: number): Promise<void> {
+  // Initialize database
+  await initDatabase();
+
+  const app = express();
+
+  app.use(cors());
+  app.use(express.json());
+
+  // Public routes
+  app.use('/api/auth', authRouter);
+
+  // Protected routes
+  app.use('/api/users', authMiddleware, usersRouter);
+  app.use('/api/sync', authMiddleware, syncRouter);
+  app.use('/api/config', authMiddleware, configRouter);
+  app.use('/api/schedule', authMiddleware, scheduleRouter);
+  app.use('/api/pathologies', authMiddleware, pathologiesRouter);
+  app.use('/api/interventions', authMiddleware, interventionsRouter);
+  app.use('/api/box-assignments', authMiddleware, boxAssignmentsRouter);
+
+  // Health check
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  server = app.listen(port, '0.0.0.0', () => {
+    console.log(`✓ Server running on port ${port}`);
+  });
+}
+
+export function stopServer(): void {
+  if (server) {
+    server.close();
+    server = null;
+    console.log('✓ Server stopped');
+  }
+}
+
+export function getServerStatus() {
+  return {
+    running: server !== null,
+    connectedClients,
+    llmStatus: 'not_loaded'
+  };
+}
+
+export function incrementClients() {
+  connectedClients++;
+}
+
+export function decrementClients() {
+  connectedClients--;
+}

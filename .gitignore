@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Production
+build/
+dist/
+dist-electron/
+out/
+
+# Misc
+.DS_Store
+*.pem
+nul
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.iml
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Capacitor / Mobile
+# We track the platform folders (android/ios) but ignore their build artifacts and pods
+# If you prefer to ignore the platforms entirely (generating them on CI), uncomment the next two lines:
+# client/android/
+# client/ios/
+client/android/app/build/
+client/android/.gradle/
+client/ios/App/App/public/
+client/ios/App/Pods/
+
+# Electron
+server/dist-electron/
+server/release/

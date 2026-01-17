@@ -1,0 +1,18 @@
+{
+  "name": "@ncdss/shared",
+  "version": "1.0.0",
+  "description": "Shared types for NCDSS",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}

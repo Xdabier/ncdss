@@ -1,0 +1,22 @@
+{
+  "name": "ncdss",
+  "version": "1.0.0",
+  "description": "Nursing Clinical Decision Support System",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client",
+    "shared"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev --workspace=server",
+    "dev:client": "npm run dev --workspace=client",
+    "dev": "npm run dev:server & npm run dev:client",
+    "build:server": "npm run build --workspace=server",
+    "build:client": "npm run build --workspace=client",
+    "build": "npm run build --workspace=shared && npm run build:server && npm run build:client"
+  },
+  "keywords": ["nursing", "clinical", "decision-support", "healthcare"],
+  "author": "",
+  "license": "MIT"
+}
