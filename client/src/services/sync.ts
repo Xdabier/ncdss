@@ -33,7 +33,7 @@ export async function performSync(localChanges: SyncChange[]): Promise<SyncRespo
   const request: SyncRequest = {
     clientId,
     lastSyncAt,
-    changes: localChanges
+    changes: localChanges,
   };
 
   const response = await api.post('/sync', request);

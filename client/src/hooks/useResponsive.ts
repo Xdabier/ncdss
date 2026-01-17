@@ -33,6 +33,6 @@ export function useResponsive() {
     isDesktop: screenSize === 'desktop',
     isSidebarOpen,
     setIsSidebarOpen,
-    toggleSidebar: () => setIsSidebarOpen(prev => !prev)
+    toggleSidebar: () => setIsSidebarOpen((prev) => !prev),
   };
 }

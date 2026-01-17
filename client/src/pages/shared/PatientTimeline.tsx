@@ -1,6 +1,12 @@
 import React from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../../components/ui/card';
 import { Construction } from 'lucide-react';
 
 export default function PatientTimeline() {
@@ -17,9 +23,7 @@ export default function PatientTimeline() {
               <CardDescription>Cette page sera implémentée dans une future version</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600">
-                Fonctionnalités à venir :
-              </p>
+              <p className="text-gray-600">Fonctionnalités à venir :</p>
               <ul className="list-disc list-inside mt-2 space-y-1 text-gray-600">
                 <li>Vue chronologique du parcours patient</li>
                 <li>Inscription, triage, soins, diagnostic</li>

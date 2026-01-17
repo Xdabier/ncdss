@@ -26,7 +26,7 @@ export function DataTable<T>({
   emptyMessage = 'Aucune donnée',
   emptyIcon,
   onRowClick,
-  keyExtractor
+  keyExtractor,
 }: Props<T>) {
   if (loading) {
     return (
@@ -45,7 +45,7 @@ export function DataTable<T>({
       <table className="w-full">
         <thead>
           <tr className="bg-gray-100 border-b">
-            {columns.map(col => (
+            {columns.map((col) => (
               <th
                 key={String(col.key)}
                 className="px-4 py-3 text-left text-sm font-semibold text-gray-600"
@@ -57,20 +57,15 @@ export function DataTable<T>({
           </tr>
         </thead>
         <tbody>
-          {data.map(item => (
+          {data.map((item) => (
             <tr
               key={keyExtractor(item)}
               className={`border-b hover:bg-gray-50 ${onRowClick ? 'cursor-pointer' : ''}`}
               onClick={() => onRowClick?.(item)}
             >
-              {columns.map(col => (
-                <td
-                  key={String(col.key)}
-                  className="px-4 py-3 text-sm"
-                >
-                  {col.render
-                    ? col.render(item)
-                    : String((item as any)[col.key] ?? '')}
+              {columns.map((col) => (
+                <td key={String(col.key)} className="px-4 py-3 text-sm">
+                  {col.render ? col.render(item) : String((item as any)[col.key] ?? '')}
                 </td>
               ))}
             </tr>

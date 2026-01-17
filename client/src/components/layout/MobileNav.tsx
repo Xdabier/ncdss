@@ -2,10 +2,14 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { IonTabBar, IonTabButton, IonIcon, IonLabel } from '@ionic/react';
 import {
-  homeOutline, home,
-  peopleOutline, people,
-  settingsOutline, settings,
-  calendarOutline, calendar
+  homeOutline,
+  home,
+  peopleOutline,
+  people,
+  settingsOutline,
+  settings,
+  calendarOutline,
+  calendar,
 } from 'ionicons/icons';
 import { useAuthStore } from '../../stores/auth.store';
 import { UserRole } from '@ncdss/shared';
@@ -48,7 +52,9 @@ export function MobileNav() {
           onClick={() => navigate('/supervisor/schedule')}
           selected={location.pathname === '/supervisor/schedule'}
         >
-          <IonIcon icon={location.pathname === '/supervisor/schedule' ? calendar : calendarOutline} />
+          <IonIcon
+            icon={location.pathname === '/supervisor/schedule' ? calendar : calendarOutline}
+          />
           <IonLabel>Planning</IonLabel>
         </IonTabButton>
       )}

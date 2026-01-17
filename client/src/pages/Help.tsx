@@ -17,9 +17,7 @@ export default function Help() {
               <CardDescription>Cette page sera implémentée dans une future version</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600">
-                Fonctionnalités à venir :
-              </p>
+              <p className="text-gray-600">Fonctionnalités à venir :</p>
               <ul className="list-disc list-inside mt-2 space-y-1 text-gray-600">
                 <li>Guide d'utilisation</li>
                 <li>FAQ</li>

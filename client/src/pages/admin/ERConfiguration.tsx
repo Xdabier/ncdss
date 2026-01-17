@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Save, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -101,9 +107,7 @@ export default function ERConfigurationPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Accueil & Triage</CardTitle>
-                  <CardDescription>
-                    Configuration des postes d'accueil et de triage
-                  </CardDescription>
+                  <CardDescription>Configuration des postes d'accueil et de triage</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -115,9 +119,13 @@ export default function ERConfigurationPage() {
                         min="1"
                         max="10"
                         value={config.inscriptionDesks}
-                        onChange={(e) => updateField('inscriptionDesks', parseInt(e.target.value) || 1)}
+                        onChange={(e) =>
+                          updateField('inscriptionDesks', parseInt(e.target.value) || 1)
+                        }
                       />
-                      <p className="text-sm text-gray-500">Nombre de postes d'inscription des patients</p>
+                      <p className="text-sm text-gray-500">
+                        Nombre de postes d'inscription des patients
+                      </p>
                     </div>
 
                     <div className="space-y-2">
@@ -167,7 +175,9 @@ export default function ERConfigurationPage() {
                         min="1"
                         max="20"
                         value={config.surgicalBoxes}
-                        onChange={(e) => updateField('surgicalBoxes', parseInt(e.target.value) || 1)}
+                        onChange={(e) =>
+                          updateField('surgicalBoxes', parseInt(e.target.value) || 1)
+                        }
                       />
                       <p className="text-sm text-gray-500">Boxes pour chirurgie</p>
                     </div>
@@ -209,11 +219,12 @@ export default function ERConfigurationPage() {
                 <CardContent>
                   <div className="text-3xl font-bold text-blue-600">
                     {config.inscriptionDesks +
-                     config.triageBoxes +
-                     config.medicalBoxes +
-                     config.surgicalBoxes +
-                     config.traumaBoxes +
-                     config.sauvBeds} postes
+                      config.triageBoxes +
+                      config.medicalBoxes +
+                      config.surgicalBoxes +
+                      config.traumaBoxes +
+                      config.sauvBeds}{' '}
+                    postes
                   </div>
                   <p className="text-sm text-blue-700 mt-1">
                     Capacité totale du service d'urgences
@@ -223,11 +234,7 @@ export default function ERConfigurationPage() {
 
               {/* Save Button */}
               <div className="flex justify-end">
-                <Button
-                  onClick={handleSave}
-                  disabled={saving}
-                  size="lg"
-                >
+                <Button onClick={handleSave} disabled={saving} size="lg">
                   <Save className="h-4 w-4 mr-2" />
                   {saving ? 'Sauvegarde...' : 'Sauvegarder la configuration'}
                 </Button>

@@ -14,7 +14,7 @@ export function RoleGuard({
   children,
   allowedRoles,
   allowedAssignments,
-  redirectTo = '/dashboard'
+  redirectTo = '/dashboard',
 }: Props) {
   const { user, todayAssignment, isAuthenticated } = useAuthStore();
 

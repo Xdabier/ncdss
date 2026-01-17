@@ -17,7 +17,7 @@ export function Header({ onMenuClick }: Props) {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const minutes = Math.floor(diff / 60000);
-    if (minutes < 1) return 'À l\'instant';
+    if (minutes < 1) return "À l'instant";
     if (minutes < 60) return `Il y a ${minutes} min`;
     const hours = Math.floor(minutes / 60);
     if (hours < 24) return `Il y a ${hours}h`;
@@ -29,12 +29,7 @@ export function Header({ onMenuClick }: Props) {
       <div className="flex items-center justify-between h-16 px-4 lg:px-6">
         {/* Left side - Menu button (mobile only) */}
         <div className="flex items-center space-x-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={onMenuClick}
-          >
+          <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMenuClick}>
             <Menu className="h-5 w-5" />
           </Button>
 
@@ -48,10 +43,9 @@ export function Header({ onMenuClick }: Props) {
         <div className="flex items-center space-x-3">
           {/* Sync status */}
           <div className="hidden sm:flex items-center space-x-2 px-3 py-1.5 bg-gray-50 rounded-lg">
-            <RefreshCw className={cn(
-              "h-4 w-4 text-gray-500",
-              isSyncing && "animate-spin text-blue-600"
-            )} />
+            <RefreshCw
+              className={cn('h-4 w-4 text-gray-500', isSyncing && 'animate-spin text-blue-600')}
+            />
             <div className="text-xs">
               <div className="text-gray-500">{formatLastSync(lastSyncAt)}</div>
             </div>

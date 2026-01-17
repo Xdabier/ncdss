@@ -19,7 +19,7 @@ export function formatWeekRange(weekStart: string): string {
 
   const formatOptions: Intl.DateTimeFormatOptions = {
     day: 'numeric',
-    month: 'short'
+    month: 'short',
   };
 
   return `${start.toLocaleDateString('fr-FR', formatOptions)} - ${end.toLocaleDateString('fr-FR', formatOptions)}`;
@@ -34,7 +34,7 @@ export function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric'
+    year: 'numeric',
   });
 }
 
@@ -44,6 +44,6 @@ export function formatDateTime(dateStr: string): string {
     month: '2-digit',
     year: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   });
 }

@@ -5,7 +5,13 @@ import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '../../components/ui/card';
 import {
   Select,
   SelectContent,
@@ -21,7 +27,7 @@ const roleOptions = [
   { value: UserRole.NURSE, label: 'Infirmier(ère)' },
   { value: UserRole.NURSE_SUPERVISOR, label: 'Surveillant(e)' },
   { value: UserRole.DOCTOR, label: 'Médecin' },
-  { value: UserRole.ADMIN, label: 'Administrateur' }
+  { value: UserRole.ADMIN, label: 'Administrateur' },
 ];
 
 interface FormData {
@@ -47,7 +53,7 @@ export default function UserForm() {
     username: '',
     password: '',
     fullName: '',
-    role: ''
+    role: '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
@@ -69,7 +75,7 @@ export default function UserForm() {
         username: user.username,
         password: '',
         fullName: user.fullName,
-        role: user.role
+        role: user.role,
       });
     } catch (e) {
       setError('Erreur de chargement');
@@ -86,9 +92,9 @@ export default function UserForm() {
     }
 
     if (!formData.username.trim()) {
-      newErrors.username = 'L\'identifiant est requis';
+      newErrors.username = "L'identifiant est requis";
     } else if (formData.username.length < 3) {
-      newErrors.username = 'L\'identifiant doit contenir au moins 3 caractères';
+      newErrors.username = "L'identifiant doit contenir au moins 3 caractères";
     }
 
     if (!isEditing && !formData.password) {
@@ -117,7 +123,7 @@ export default function UserForm() {
       if (isEditing) {
         await api.put(`/users/${id}`, {
           fullName: formData.fullName,
-          role: formData.role
+          role: formData.role,
         });
       } else {
         await api.post('/users', formData);
@@ -132,9 +138,9 @@ export default function UserForm() {
   };
 
   const updateField = (field: keyof FormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
 
@@ -158,7 +164,9 @@ export default function UserForm() {
               {isEditing ? 'Modifier Utilisateur' : 'Nouvel Utilisateur'}
             </h1>
             <p className="text-gray-600 mt-2">
-              {isEditing ? 'Modifiez les informations de l\'utilisateur' : 'Créez un nouveau compte utilisateur'}
+              {isEditing
+                ? "Modifiez les informations de l'utilisateur"
+                : 'Créez un nouveau compte utilisateur'}
             </p>
           </div>
 
@@ -174,9 +182,7 @@ export default function UserForm() {
           <Card>
             <CardHeader>
               <CardTitle>Informations de l'utilisateur</CardTitle>
-              <CardDescription>
-                Remplissez tous les champs obligatoires
-              </CardDescription>
+              <CardDescription>Remplissez tous les champs obligatoires</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Full Name */}
@@ -191,9 +197,7 @@ export default function UserForm() {
                   placeholder="Ex: Marie Dupont"
                   className={errors.fullName ? 'border-red-500' : ''}
                 />
-                {errors.fullName && (
-                  <p className="text-sm text-red-600">{errors.fullName}</p>
-                )}
+                {errors.fullName && <p className="text-sm text-red-600">{errors.fullName}</p>}
               </div>
 
               {/* Username */}
@@ -209,9 +213,7 @@ export default function UserForm() {
                   disabled={isEditing}
                   className={errors.username ? 'border-red-500' : ''}
                 />
-                {errors.username && (
-                  <p className="text-sm text-red-600">{errors.username}</p>
-                )}
+                {errors.username && <p className="text-sm text-red-600">{errors.username}</p>}
                 {isEditing && (
                   <p className="text-sm text-gray-500">L'identifiant ne peut pas être modifié</p>
                 )}
@@ -231,9 +233,7 @@ export default function UserForm() {
                     placeholder="Minimum 6 caractères"
                     className={errors.password ? 'border-red-500' : ''}
                   />
-                  {errors.password && (
-                    <p className="text-sm text-red-600">{errors.password}</p>
-                  )}
+                  {errors.password && <p className="text-sm text-red-600">{errors.password}</p>}
                 </div>
               )}
 
@@ -247,16 +247,14 @@ export default function UserForm() {
                     <SelectValue placeholder="Sélectionner un rôle" />
                   </SelectTrigger>
                   <SelectContent>
-                    {roleOptions.map(option => (
+                    {roleOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.role && (
-                  <p className="text-sm text-red-600">{errors.role}</p>
-                )}
+                {errors.role && <p className="text-sm text-red-600">{errors.role}</p>}
               </div>
             </CardContent>
           </Card>

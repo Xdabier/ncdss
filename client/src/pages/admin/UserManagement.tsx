@@ -21,15 +21,18 @@ const roleLabels: Record<UserRole, string> = {
   [UserRole.NURSE_SUPERVISOR]: 'Surveillant(e)',
   [UserRole.DOCTOR]: 'Médecin',
   [UserRole.ADMIN]: 'Administrateur',
-  [UserRole.SUPER_ADMIN]: 'Super Admin'
+  [UserRole.SUPER_ADMIN]: 'Super Admin',
 };
 
-const roleColors: Record<UserRole, 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'info'> = {
+const roleColors: Record<
+  UserRole,
+  'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'info'
+> = {
   [UserRole.NURSE]: 'info',
   [UserRole.NURSE_SUPERVISOR]: 'warning',
   [UserRole.DOCTOR]: 'success',
   [UserRole.ADMIN]: 'secondary',
-  [UserRole.SUPER_ADMIN]: 'destructive'
+  [UserRole.SUPER_ADMIN]: 'destructive',
 };
 
 export default function UserManagement() {
@@ -66,7 +69,7 @@ export default function UserManagement() {
     try {
       const api = await getApi();
       await api.put(`/users/${user.id}`, {
-        isActive: !user.isActive
+        isActive: !user.isActive,
       });
       loadUsers();
     } catch (error) {

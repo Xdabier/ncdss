@@ -16,5 +16,5 @@ export const useSyncStore = create<SyncState>((set) => ({
 
   stopSync: () => set({ isSyncing: false, lastSyncAt: new Date() }),
 
-  setLastSyncAt: (date: Date) => set({ lastSyncAt: date })
+  setLastSyncAt: (date: Date) => set({ lastSyncAt: date }),
 }));

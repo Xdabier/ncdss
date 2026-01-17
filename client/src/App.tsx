@@ -79,10 +79,38 @@ export default function App() {
         <Route path="/login" element={<Login />} />
 
         {/* General routes (all authenticated users) */}
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-        <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/help"
+          element={
+            <ProtectedRoute>
+              <Help />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Admin routes */}
         <Route
@@ -273,7 +301,9 @@ export default function App() {
           path="/nurse/inscription"
           element={
             <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
+              <RoleGuard
+                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
+              >
                 <InscriptionHome />
               </RoleGuard>
             </ProtectedRoute>
@@ -283,7 +313,9 @@ export default function App() {
           path="/nurse/inscription/register"
           element={
             <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
+              <RoleGuard
+                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
+              >
                 <PatientRegistration />
               </RoleGuard>
             </ProtectedRoute>
@@ -293,7 +325,9 @@ export default function App() {
           path="/nurse/inscription/edit/:id"
           element={
             <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
+              <RoleGuard
+                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
+              >
                 <PatientEdit />
               </RoleGuard>
             </ProtectedRoute>
@@ -305,7 +339,9 @@ export default function App() {
           path="/nurse/triage"
           element={
             <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
+              <RoleGuard
+                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
+              >
                 <TriageQueue />
               </RoleGuard>
             </ProtectedRoute>
@@ -315,7 +351,9 @@ export default function App() {
           path="/nurse/triage/:id/abcde"
           element={
             <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
+              <RoleGuard
+                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
+              >
                 <ABCDEAssessment />
               </RoleGuard>
             </ProtectedRoute>
@@ -325,7 +363,9 @@ export default function App() {
           path="/nurse/triage/:id/vitals"
           element={
             <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
+              <RoleGuard
+                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
+              >
                 <VitalsEntry />
               </RoleGuard>
             </ProtectedRoute>
@@ -335,7 +375,9 @@ export default function App() {
           path="/nurse/triage/:id/score"
           element={
             <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
+              <RoleGuard
+                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
+              >
                 <ScoreReview />
               </RoleGuard>
             </ProtectedRoute>
@@ -345,7 +387,9 @@ export default function App() {
           path="/nurse/triage/:id/esi"
           element={
             <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
+              <RoleGuard
+                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
+              >
                 <ESISelection />
               </RoleGuard>
             </ProtectedRoute>
@@ -355,7 +399,9 @@ export default function App() {
           path="/nurse/triage/:id/orientation"
           element={
             <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
+              <RoleGuard
+                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
+              >
                 <Orientation />
               </RoleGuard>
             </ProtectedRoute>
@@ -365,7 +411,9 @@ export default function App() {
           path="/nurse/triage/:id/summary"
           element={
             <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
+              <RoleGuard
+                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
+              >
                 <PatientSummary />
               </RoleGuard>
             </ProtectedRoute>
@@ -377,7 +425,9 @@ export default function App() {
           path="/nurse/treatment"
           element={
             <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
+              <RoleGuard
+                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
+              >
                 <TreatmentQueue />
               </RoleGuard>
             </ProtectedRoute>
@@ -387,7 +437,9 @@ export default function App() {
           path="/nurse/treatment/:id/care"
           element={
             <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
+              <RoleGuard
+                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
+              >
                 <PatientCare />
               </RoleGuard>
             </ProtectedRoute>
@@ -397,7 +449,9 @@ export default function App() {
           path="/nurse/treatment/:id/vitals"
           element={
             <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
+              <RoleGuard
+                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
+              >
                 <VitalsUpdate />
               </RoleGuard>
             </ProtectedRoute>
@@ -407,7 +461,9 @@ export default function App() {
           path="/nurse/treatment/:id/retriage"
           element={
             <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
+              <RoleGuard
+                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
+              >
                 <ReTriageRequest />
               </RoleGuard>
             </ProtectedRoute>
@@ -417,7 +473,9 @@ export default function App() {
           path="/nurse/treatment/:id/alert"
           element={
             <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
+              <RoleGuard
+                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
+              >
                 <DeteriorationAlert />
               </RoleGuard>
             </ProtectedRoute>

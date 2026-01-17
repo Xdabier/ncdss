@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -31,7 +37,7 @@ export default function ResetPassword() {
       const response = await api.get(`/users/${id}`);
       setUser(response.data);
     } catch (e) {
-      setError('Erreur de chargement de l\'utilisateur');
+      setError("Erreur de chargement de l'utilisateur");
     } finally {
       setLoadingUser(false);
     }
@@ -100,9 +106,7 @@ export default function ResetPassword() {
         <div className="max-w-2xl mx-auto">
           {/* Header */}
           <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-900">
-              Réinitialiser le Mot de Passe
-            </h1>
+            <h1 className="text-3xl font-bold text-gray-900">Réinitialiser le Mot de Passe</h1>
             <p className="text-gray-600 mt-2">
               Définir un nouveau mot de passe pour <strong>{user.fullName}</strong>
             </p>

@@ -5,15 +5,15 @@ const config: CapacitorConfig = {
   appName: 'NCDSS Client',
   webDir: 'dist',
   server: {
-    androidScheme: 'https'
+    androidScheme: 'https',
   },
   plugins: {
     CapacitorSQLite: {
       iosDatabaseLocation: 'Library/CapacitorDatabase',
       iosIsEncryption: false,
-      androidIsEncryption: false
-    }
-  }
+      androidIsEncryption: false,
+    },
+  },
 };
 
 export default config;

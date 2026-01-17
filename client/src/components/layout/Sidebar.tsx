@@ -1,9 +1,30 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Home, Users, BedDouble, Calendar, List, FileText, Settings, LogOut, UserCircle,
-  BarChart3, ClipboardList, Search, BookOpen, Activity, Stethoscope, Heart,
-  HelpCircle, Lock, Upload, Database, Shield, UserPlus, Edit, AlertTriangle
+  Home,
+  Users,
+  BedDouble,
+  Calendar,
+  List,
+  FileText,
+  Settings,
+  LogOut,
+  UserCircle,
+  BarChart3,
+  ClipboardList,
+  Search,
+  BookOpen,
+  Activity,
+  Stethoscope,
+  Heart,
+  HelpCircle,
+  Lock,
+  Upload,
+  Database,
+  Shield,
+  UserPlus,
+  Edit,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth.store';
 import { UserRole, NurseAssignment } from '@ncdss/shared';
@@ -29,7 +50,13 @@ const navItems: NavItem[] = [
     path: '/dashboard',
     label: 'Tableau de bord',
     icon: Home,
-    roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.DOCTOR, UserRole.ADMIN, UserRole.SUPER_ADMIN]
+    roles: [
+      UserRole.NURSE,
+      UserRole.NURSE_SUPERVISOR,
+      UserRole.DOCTOR,
+      UserRole.ADMIN,
+      UserRole.SUPER_ADMIN,
+    ],
   },
 
   // Admin section
@@ -37,43 +64,43 @@ const navItems: NavItem[] = [
     path: '/admin/users',
     label: 'Gestion Utilisateurs',
     icon: Users,
-    roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+    roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
   },
   {
     path: '/admin/er-config',
     label: 'Configuration Urgences',
     icon: Settings,
-    roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+    roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
   },
   {
     path: '/admin/boxes',
     label: 'Gestion Boxes',
     icon: BedDouble,
-    roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+    roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
   },
   {
     path: '/admin/pathologies',
     label: 'Pathologies',
     icon: List,
-    roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+    roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
   },
   {
     path: '/admin/interventions',
     label: 'Interventions ABCDE',
     icon: FileText,
-    roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+    roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
   },
   {
     path: '/admin/audit',
-    label: 'Journal d\'Audit',
+    label: "Journal d'Audit",
     icon: Shield,
-    roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+    roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
   },
   {
     path: '/admin/backup',
     label: 'Sauvegardes',
     icon: Database,
-    roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+    roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
   },
 
   // Supervisor section
@@ -81,25 +108,25 @@ const navItems: NavItem[] = [
     path: '/supervisor/schedule',
     label: 'Planning Hebdomadaire',
     icon: Calendar,
-    roles: [UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]
+    roles: [UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN],
   },
   {
     path: '/supervisor/stats',
     label: 'Statistiques',
     icon: BarChart3,
-    roles: [UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]
+    roles: [UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN],
   },
   {
     path: '/supervisor/queue',
-    label: 'Gestion File d\'Attente',
+    label: "Gestion File d'Attente",
     icon: ClipboardList,
-    roles: [UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]
+    roles: [UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN],
   },
   {
     path: '/supervisor/patients',
     label: 'Tous les Patients',
     icon: Users,
-    roles: [UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]
+    roles: [UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN],
   },
 
   // Nurse - Inscription section
@@ -108,7 +135,7 @@ const navItems: NavItem[] = [
     label: 'Inscription',
     icon: UserPlus,
     roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN],
-    assignments: [NurseAssignment.INSCRIPTION]
+    assignments: [NurseAssignment.INSCRIPTION],
   },
 
   // Nurse - Triage section
@@ -117,7 +144,7 @@ const navItems: NavItem[] = [
     label: 'Triage',
     icon: Activity,
     roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN],
-    assignments: [NurseAssignment.TRIAGE]
+    assignments: [NurseAssignment.TRIAGE],
   },
 
   // Nurse - Treatment section
@@ -126,7 +153,7 @@ const navItems: NavItem[] = [
     label: 'Soins',
     icon: Heart,
     roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN],
-    assignments: [NurseAssignment.TREATMENT]
+    assignments: [NurseAssignment.TREATMENT],
   },
 
   // Doctor section
@@ -134,7 +161,7 @@ const navItems: NavItem[] = [
     path: '/doctor/patients',
     label: 'Mes Patients',
     icon: Stethoscope,
-    roles: [UserRole.DOCTOR, UserRole.SUPER_ADMIN]
+    roles: [UserRole.DOCTOR, UserRole.SUPER_ADMIN],
   },
 
   // Shared/Lookup section
@@ -142,19 +169,25 @@ const navItems: NavItem[] = [
     path: '/patients/search',
     label: 'Recherche Patient',
     icon: Search,
-    roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.DOCTOR, UserRole.ADMIN, UserRole.SUPER_ADMIN]
+    roles: [
+      UserRole.NURSE,
+      UserRole.NURSE_SUPERVISOR,
+      UserRole.DOCTOR,
+      UserRole.ADMIN,
+      UserRole.SUPER_ADMIN,
+    ],
   },
   {
     path: '/lookup/pathologies',
     label: 'Consultation Pathologies',
     icon: BookOpen,
-    roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.DOCTOR, UserRole.SUPER_ADMIN]
+    roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.DOCTOR, UserRole.SUPER_ADMIN],
   },
   {
     path: '/lookup/interventions',
     label: 'Consultation Interventions',
     icon: BookOpen,
-    roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.DOCTOR, UserRole.SUPER_ADMIN]
+    roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.DOCTOR, UserRole.SUPER_ADMIN],
   },
 
   // User settings
@@ -162,19 +195,37 @@ const navItems: NavItem[] = [
     path: '/profile',
     label: 'Mon Profil',
     icon: UserCircle,
-    roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.DOCTOR, UserRole.ADMIN, UserRole.SUPER_ADMIN]
+    roles: [
+      UserRole.NURSE,
+      UserRole.NURSE_SUPERVISOR,
+      UserRole.DOCTOR,
+      UserRole.ADMIN,
+      UserRole.SUPER_ADMIN,
+    ],
   },
   {
     path: '/settings',
     label: 'Paramètres',
     icon: Settings,
-    roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.DOCTOR, UserRole.ADMIN, UserRole.SUPER_ADMIN]
+    roles: [
+      UserRole.NURSE,
+      UserRole.NURSE_SUPERVISOR,
+      UserRole.DOCTOR,
+      UserRole.ADMIN,
+      UserRole.SUPER_ADMIN,
+    ],
   },
   {
     path: '/help',
     label: 'Aide',
     icon: HelpCircle,
-    roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.DOCTOR, UserRole.ADMIN, UserRole.SUPER_ADMIN]
+    roles: [
+      UserRole.NURSE,
+      UserRole.NURSE_SUPERVISOR,
+      UserRole.DOCTOR,
+      UserRole.ADMIN,
+      UserRole.SUPER_ADMIN,
+    ],
   },
 ];
 
@@ -183,7 +234,7 @@ const roleLabels: Record<UserRole, string> = {
   [UserRole.NURSE_SUPERVISOR]: 'Surveillant(e)',
   [UserRole.DOCTOR]: 'Médecin',
   [UserRole.ADMIN]: 'Administrateur',
-  [UserRole.SUPER_ADMIN]: 'Super Admin'
+  [UserRole.SUPER_ADMIN]: 'Super Admin',
 };
 
 export function Sidebar({ onClose }: Props) {
@@ -193,7 +244,7 @@ export function Sidebar({ onClose }: Props) {
 
   if (!user) return null;
 
-  const filteredItems = navItems.filter(item => {
+  const filteredItems = navItems.filter((item) => {
     if (!item.roles.includes(user.role as UserRole)) return false;
     if (item.assignments && user.role === UserRole.NURSE) {
       if (!todayAssignment || !item.assignments.includes(todayAssignment)) {
@@ -250,7 +301,8 @@ export function Sidebar({ onClose }: Props) {
         <div className="px-3 space-y-1">
           {filteredItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+            const isActive =
+              location.pathname === item.path || location.pathname.startsWith(item.path + '/');
 
             return (
               <button
@@ -263,10 +315,7 @@ export function Sidebar({ onClose }: Props) {
                     : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                 )}
               >
-                <Icon className={cn(
-                  'h-5 w-5',
-                  isActive ? 'text-blue-600' : 'text-gray-500'
-                )} />
+                <Icon className={cn('h-5 w-5', isActive ? 'text-blue-600' : 'text-gray-500')} />
                 <span>{item.label}</span>
               </button>
             );

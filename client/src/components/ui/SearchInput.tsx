@@ -12,7 +12,7 @@ export function SearchInput({
   value,
   onChange,
   placeholder = 'Rechercher...',
-  debounceMs = 300
+  debounceMs = 300,
 }: Props) {
   const handleChange = (e: CustomEvent) => {
     onChange(e.detail.value || '');

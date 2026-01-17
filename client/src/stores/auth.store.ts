@@ -9,7 +9,12 @@ interface AuthState {
   todayAssignment: NurseAssignment | null;
   isAuthenticated: boolean;
 
-  setAuth: (user: User, accessToken: string, refreshToken: string, assignment?: NurseAssignment) => Promise<void>;
+  setAuth: (
+    user: User,
+    accessToken: string,
+    refreshToken: string,
+    assignment?: NurseAssignment
+  ) => Promise<void>;
   setAccessToken: (accessToken: string) => Promise<void>;
   clearAuth: () => Promise<void>;
   loadAuth: () => Promise<void>;
@@ -36,7 +41,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       accessToken,
       refreshToken,
       todayAssignment: assignment || null,
-      isAuthenticated: true
+      isAuthenticated: true,
     });
   },
 
@@ -56,7 +61,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       accessToken: null,
       refreshToken: null,
       todayAssignment: null,
-      isAuthenticated: false
+      isAuthenticated: false,
     });
   },
 
@@ -72,7 +77,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         refreshToken,
         user: JSON.parse(userStr),
         todayAssignment: (assignment as NurseAssignment) || null,
-        isAuthenticated: true
+        isAuthenticated: true,
       });
     }
   },
@@ -84,5 +89,5 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
     const { value } = await Preferences.get({ key: 'ncdss_refresh_token' });
     return value;
-  }
+  },
 }));

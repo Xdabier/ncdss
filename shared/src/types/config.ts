@@ -15,7 +15,7 @@ export enum BoxType {
   MEDICAL = 'MEDICAL',
   SURGICAL = 'SURGICAL',
   TRAUMA = 'TRAUMA',
-  SAUV = 'SAUV'
+  SAUV = 'SAUV',
 }
 
 export interface Box {
@@ -26,9 +26,9 @@ export interface Box {
 }
 
 export enum Shift {
-  MORNING = 'MORNING',     // 6h-14h
+  MORNING = 'MORNING', // 6h-14h
   AFTERNOON = 'AFTERNOON', // 14h-22h
-  NIGHT = 'NIGHT'          // 22h-6h
+  NIGHT = 'NIGHT', // 22h-6h
 }
 
 export interface BoxAssignment {

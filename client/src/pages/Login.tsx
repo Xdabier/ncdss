@@ -86,9 +86,7 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl">🏥 NCDSS</CardTitle>
-          <CardDescription>
-            Système d'Aide à la Décision Clinique
-          </CardDescription>
+          <CardDescription>Système d'Aide à la Décision Clinique</CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
@@ -118,12 +116,7 @@ export default function Login() {
             <>
               <div className="text-center text-sm text-muted-foreground mb-4">
                 Serveur: <code className="bg-gray-100 px-2 py-1 rounded">{serverAddress}</code>
-                <Button
-                  variant="link"
-                  size="sm"
-                  onClick={handleChangeServer}
-                  className="ml-2"
-                >
+                <Button variant="link" size="sm" onClick={handleChangeServer} className="ml-2">
                   Changer
                 </Button>
               </div>

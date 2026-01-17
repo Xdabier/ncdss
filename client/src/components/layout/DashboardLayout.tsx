@@ -35,9 +35,7 @@ export function DashboardLayout({ children }: Props) {
         <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
         {/* Page content */}
-        <main>
-          {children}
-        </main>
+        <main>{children}</main>
       </div>
     </div>
   );

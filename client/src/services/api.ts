@@ -23,7 +23,7 @@ export async function getApi(): Promise<AxiosInstance> {
 
   apiInstance = axios.create({
     baseURL: `http://${serverUrl}/api`,
-    timeout: 10000
+    timeout: 10000,
   });
 
   // Response interceptor to handle token refresh
@@ -35,8 +35,10 @@ export async function getApi(): Promise<AxiosInstance> {
       // If error is 401 and we haven't retried yet
       if (error.response?.status === 401 && !originalRequest._retry) {
         // Skip refresh for login and refresh endpoints
-        if (originalRequest.url?.includes('/auth/login') ||
-            originalRequest.url?.includes('/auth/refresh')) {
+        if (
+          originalRequest.url?.includes('/auth/login') ||
+          originalRequest.url?.includes('/auth/refresh')
+        ) {
           return Promise.reject(error);
         }
 
@@ -72,7 +74,9 @@ export async function getApi(): Promise<AxiosInstance> {
           if (user) {
             const currentRefreshToken = await useAuthStore.getState().getRefreshToken();
             if (currentRefreshToken) {
-              await useAuthStore.getState().setAuth(user, accessToken, currentRefreshToken, todayAssignment);
+              await useAuthStore
+                .getState()
+                .setAuth(user, accessToken, currentRefreshToken, todayAssignment);
             }
           }
 

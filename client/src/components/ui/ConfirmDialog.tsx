@@ -20,7 +20,7 @@ export function ConfirmDialog({
   cancelText = 'Annuler',
   confirmColor = 'danger',
   onConfirm,
-  onCancel
+  onCancel,
 }: Props) {
   return (
     <IonAlert
@@ -31,14 +31,14 @@ export function ConfirmDialog({
         {
           text: cancelText,
           role: 'cancel',
-          handler: onCancel
+          handler: onCancel,
         },
         {
           text: confirmText,
           role: 'confirm',
           handler: onConfirm,
-          cssClass: `text-${confirmColor}-600`
-        }
+          cssClass: `text-${confirmColor}-600`,
+        },
       ]}
       onDidDismiss={onCancel}
     />

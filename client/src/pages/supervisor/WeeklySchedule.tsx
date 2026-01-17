@@ -14,12 +14,7 @@ import {
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { getApi } from '../../services/api';
 import { NurseAssignment } from '@ncdss/shared';
-import {
-  getWeekStart,
-  addWeeks,
-  formatWeekRange,
-  getDayName
-} from '../../utils/dateUtils';
+import { getWeekStart, addWeeks, formatWeekRange, getDayName } from '../../utils/dateUtils';
 
 interface NurseSchedule {
   nurseId: string;
@@ -31,14 +26,14 @@ const assignmentOptions = [
   { value: NurseAssignment.OFF, label: '—', variant: 'secondary' as const },
   { value: NurseAssignment.INSCRIPTION, label: 'INS', variant: 'success' as const },
   { value: NurseAssignment.TRIAGE, label: 'TRI', variant: 'warning' as const },
-  { value: NurseAssignment.TREATMENT, label: 'SOI', variant: 'info' as const }
+  { value: NurseAssignment.TREATMENT, label: 'SOI', variant: 'info' as const },
 ];
 
 const assignmentLabels: Record<string, string> = {
   [NurseAssignment.OFF]: 'Repos',
   [NurseAssignment.INSCRIPTION]: 'Inscription',
   [NurseAssignment.TRIAGE]: 'Triage',
-  [NurseAssignment.TREATMENT]: 'Soins'
+  [NurseAssignment.TREATMENT]: 'Soins',
 };
 
 export default function WeeklySchedulePage() {
@@ -76,12 +71,14 @@ export default function WeeklySchedulePage() {
   };
 
   const handleAssignmentChange = (nurseId: string, day: number, value: string) => {
-    setSchedules(prev => prev.map(s => {
-      if (s.nurseId === nurseId) {
-        return { ...s, days: { ...s.days, [day]: value } };
-      }
-      return s;
-    }));
+    setSchedules((prev) =>
+      prev.map((s) => {
+        if (s.nurseId === nurseId) {
+          return { ...s, days: { ...s.days, [day]: value } };
+        }
+        return s;
+      })
+    );
   };
 
   const handleValidate = async () => {
@@ -158,7 +155,7 @@ export default function WeeklySchedulePage() {
 
         {/* Legend */}
         <div className="flex flex-wrap gap-2 mb-6">
-          {assignmentOptions.map(opt => (
+          {assignmentOptions.map((opt) => (
             <Badge key={opt.value} variant={opt.variant}>
               {opt.label} = {assignmentLabels[opt.value]}
             </Badge>
@@ -209,30 +206,35 @@ export default function WeeklySchedulePage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
                       Infirmier(ère)
                     </th>
-                    {[0, 1, 2, 3, 4, 5, 6].map(day => (
-                      <th key={day} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {[0, 1, 2, 3, 4, 5, 6].map((day) => (
+                      <th
+                        key={day}
+                        className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         {getDayName(day)}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {schedules.map(nurse => (
+                  {schedules.map((nurse) => (
                     <tr key={nurse.nurseId} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{nurse.nurseName}</div>
                       </td>
-                      {[0, 1, 2, 3, 4, 5, 6].map(day => (
+                      {[0, 1, 2, 3, 4, 5, 6].map((day) => (
                         <td key={day} className="px-4 py-4 text-center">
                           <Select
                             value={nurse.days[day] || NurseAssignment.OFF}
-                            onValueChange={(value) => handleAssignmentChange(nurse.nurseId, day, value)}
+                            onValueChange={(value) =>
+                              handleAssignmentChange(nurse.nurseId, day, value)
+                            }
                           >
                             <SelectTrigger className="w-24">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {assignmentOptions.map(opt => (
+                              {assignmentOptions.map((opt) => (
                                 <SelectItem key={opt.value} value={opt.value}>
                                   {opt.label}
                                 </SelectItem>

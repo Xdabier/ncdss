@@ -11,14 +11,10 @@ interface Props {
 export function RoleBadge({ role, assignment }: Props) {
   return (
     <div className="flex items-center gap-2 mt-1">
-      <IonBadge color={roleColors[role]}>
-        {roleLabels[role]}
-      </IonBadge>
+      <IonBadge color={roleColors[role]}>{roleLabels[role]}</IonBadge>
 
       {role === UserRole.NURSE && assignment && (
-        <IonBadge color="light">
-          {assignmentLabels[assignment]}
-        </IonBadge>
+        <IonBadge color="light">{assignmentLabels[assignment]}</IonBadge>
       )}
     </div>
   );

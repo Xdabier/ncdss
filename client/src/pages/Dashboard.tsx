@@ -10,8 +10,8 @@ export default function Dashboard() {
   const stats = [
     { name: 'Patients en attente', value: '12', icon: Users, color: 'text-blue-600' },
     { name: 'Boxes occupés', value: '8/15', icon: Activity, color: 'text-green-600' },
-    { name: 'Taux d\'occupation', value: '53%', icon: TrendingUp, color: 'text-purple-600' },
-    { name: 'Temps d\'attente moyen', value: '45 min', icon: Calendar, color: 'text-orange-600' },
+    { name: "Taux d'occupation", value: '53%', icon: TrendingUp, color: 'text-purple-600' },
+    { name: "Temps d'attente moyen", value: '45 min', icon: Calendar, color: 'text-orange-600' },
   ];
 
   return (
@@ -32,9 +32,7 @@ export default function Dashboard() {
             return (
               <Card key={stat.name}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600">
-                    {stat.name}
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium text-gray-600">{stat.name}</CardTitle>
                   <Icon className={`h-5 w-5 ${stat.color}`} />
                 </CardHeader>
                 <CardContent>
@@ -55,7 +53,8 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <p className="text-gray-600">
-              Utilisez le menu de navigation à gauche pour accéder aux différentes fonctionnalités du système.
+              Utilisez le menu de navigation à gauche pour accéder aux différentes fonctionnalités
+              du système.
             </p>
           </CardContent>
         </Card>

@@ -3,14 +3,14 @@ export enum UserRole {
   NURSE_SUPERVISOR = 'NURSE_SUPERVISOR',
   DOCTOR = 'DOCTOR',
   ADMIN = 'ADMIN',
-  SUPER_ADMIN = 'SUPER_ADMIN'
+  SUPER_ADMIN = 'SUPER_ADMIN',
 }
 
 export enum NurseAssignment {
   INSCRIPTION = 'INSCRIPTION',
   TRIAGE = 'TRIAGE',
   TREATMENT = 'TREATMENT',
-  OFF = 'OFF'
+  OFF = 'OFF',
 }
 
 export interface User {
