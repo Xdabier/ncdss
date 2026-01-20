@@ -18,6 +18,7 @@ import UserManagement from './pages/admin/UserManagement';
 import UserForm from './pages/admin/UserForm';
 import ResetPassword from './pages/admin/ResetPassword';
 import BoxManagement from './pages/admin/BoxManagement';
+import BoxAssignments from './pages/admin/BoxAssignments';
 import PathologyList from './pages/admin/PathologyList';
 import PathologyForm from './pages/admin/PathologyForm';
 import PathologyImport from './pages/admin/PathologyImport';
@@ -169,6 +170,16 @@ export default function App() {
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
                 <BoxManagement />
+              </RoleGuard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/box-assignments"
+          element={
+            <ProtectedRoute>
+              <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
+                <BoxAssignments />
               </RoleGuard>
             </ProtectedRoute>
           }

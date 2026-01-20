@@ -25,6 +25,7 @@ import {
   UserPlus,
   Edit,
   AlertTriangle,
+  CalendarClock,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth.store';
 import { UserRole, NurseAssignment } from '@ncdss/shared';
@@ -76,6 +77,12 @@ const navItems: NavItem[] = [
     path: '/admin/boxes',
     label: 'Gestion Boxes',
     icon: BedDouble,
+    roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
+  },
+  {
+    path: '/admin/box-assignments',
+    label: 'Affectation Médecins',
+    icon: CalendarClock,
     roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
   },
   {
