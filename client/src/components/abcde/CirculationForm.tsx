@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -9,6 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
+import { getApi } from '@/services/api.ts';
+import { InterventionChecklist } from './InterventionChecklist';
 
 interface CirculationData {
   heartRate: number;
@@ -18,6 +20,9 @@ interface CirculationData {
   peripheralPulses: string;
   bleeding: boolean;
   interventions: string[];
+  selectedSeveritySigns?: string[];
+  selectedNursingInterventions?: string[];
+  selectedMedicalInterventions?: string[];
   notes?: string;
 }
 
@@ -29,9 +34,38 @@ interface Props {
 }
 
 export function CirculationForm({ data, onChange, onSave, loading }: Props) {
+  const [interventions, setInterventions] = useState<any[]>([]);
+  const [loadingInterventions, setLoadingInterventions] = useState(true);
+
   const updateField = (field: keyof CirculationData, value: any) => {
     onChange({ ...data, [field]: value });
   };
+
+  useEffect(() => {
+    const loadInterventions = async () => {
+      try {
+        const api = await getApi();
+        const res = await api.get('/interventions?category=C');
+        setInterventions(res.data);
+      } catch (error) {
+        console.error('Failed to load interventions:', error);
+      } finally {
+        setLoadingInterventions(false);
+      }
+    };
+    loadInterventions();
+  }, []);
+
+  // Flatten all interventions into categories
+  const allSeveritySigns = Array.from(
+    new Set(interventions.flatMap(i => i.severitySigns || []))
+  );
+  const allNursingInterventions = Array.from(
+    new Set(interventions.flatMap(i => i.nursingInterventions || []))
+  );
+  const allMedicalInterventions = Array.from(
+    new Set(interventions.flatMap(i => i.medicalInterventions || []))
+  );
 
   return (
     <div className="space-y-6">
@@ -112,6 +146,38 @@ export function CirculationForm({ data, onChange, onSave, loading }: Props) {
         />
         <span className="font-medium text-red-600">Saignement actif</span>
       </div>
+
+      {loadingInterventions ? (
+        <div className="text-center py-4 text-gray-500">
+          Chargement des interventions...
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <InterventionChecklist
+            title="Signes de gravité"
+            items={allSeveritySigns}
+            selected={data.selectedSeveritySigns || []}
+            onChange={signs => updateField('selectedSeveritySigns', signs)}
+            colorClass="text-red-600"
+          />
+
+          <InterventionChecklist
+            title="Interventions infirmières"
+            items={allNursingInterventions}
+            selected={data.selectedNursingInterventions || []}
+            onChange={interventions => updateField('selectedNursingInterventions', interventions)}
+            colorClass="text-blue-600"
+          />
+
+          <InterventionChecklist
+            title="Interventions médicales"
+            items={allMedicalInterventions}
+            selected={data.selectedMedicalInterventions || []}
+            onChange={interventions => updateField('selectedMedicalInterventions', interventions)}
+            colorClass="text-green-600"
+          />
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label>Notes & Observations</Label>
