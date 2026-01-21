@@ -575,6 +575,14 @@ export default function App() {
           }
         />
         <Route
+          path="/patients/:id"
+          element={
+            <ProtectedRoute>
+              <PatientDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/patients/:id/timeline"
           element={
             <ProtectedRoute>

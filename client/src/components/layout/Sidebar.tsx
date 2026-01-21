@@ -148,7 +148,7 @@ const navItems: NavItem[] = [
   // Nurse - Triage section
   {
     path: '/nurse/triage',
-    label: 'Triage',
+    label: 'File de triage',
     icon: Activity,
     roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN],
     assignments: [NurseAssignment.TRIAGE],

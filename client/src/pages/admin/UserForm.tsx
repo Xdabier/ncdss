@@ -210,7 +210,7 @@ export default function UserForm() {
                   value={formData.username}
                   onChange={(e) => updateField('username', e.target.value)}
                   placeholder="Ex: mdupont"
-                  disabled={isEditing}
+                  disabled={!!isEditing}
                   className={errors.username ? 'border-red-500' : ''}
                 />
                 {errors.username && <p className="text-sm text-red-600">{errors.username}</p>}

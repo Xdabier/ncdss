@@ -63,6 +63,7 @@ export async function getApi(): Promise<AxiosInstance> {
           }
 
           // Call refresh endpoint
+          if (!apiInstance) throw new Error('API instance not initialized');
           const response = await apiInstance.post('/auth/refresh', { refreshToken });
           const { accessToken, user, todayAssignment } = response.data;
 

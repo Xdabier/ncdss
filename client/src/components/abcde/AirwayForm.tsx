@@ -1,0 +1,89 @@
+import React from 'react';
+import { Label } from '../ui/label';
+import { Button } from '../ui/button';
+
+interface AirwayData {
+  patent: boolean;
+  obstructed: boolean;
+  secretions: boolean;
+  stridor: boolean;
+  interventions: string[];
+  notes?: string;
+}
+
+interface Props {
+  data: Partial<AirwayData>;
+  onChange: (data: Partial<AirwayData>) => void;
+  onSave: () => void;
+  loading?: boolean;
+}
+
+export function AirwayForm({ data, onChange, onSave, loading }: Props) {
+  const updateField = (field: keyof AirwayData, value: any) => {
+    onChange({ ...data, [field]: value });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <h3 className="font-medium text-lg">État des voies aériennes (Airway)</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label className="flex items-center space-x-3 border p-4 rounded-md cursor-pointer hover:bg-gray-50 transition-colors">
+            <input
+              type="checkbox"
+              className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              checked={data.patent || false}
+              onChange={e => updateField('patent', e.target.checked)}
+            />
+            <span className="font-medium">Libres (Patent)</span>
+          </label>
+          
+          <label className="flex items-center space-x-3 border p-4 rounded-md cursor-pointer hover:bg-gray-50 transition-colors">
+            <input
+              type="checkbox"
+              className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-500"
+              checked={data.obstructed || false}
+              onChange={e => updateField('obstructed', e.target.checked)}
+            />
+            <span className="font-medium text-red-600">Obstruées</span>
+          </label>
+
+          <label className="flex items-center space-x-3 border p-4 rounded-md cursor-pointer hover:bg-gray-50 transition-colors">
+            <input
+              type="checkbox"
+              className="h-5 w-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+              checked={data.secretions || false}
+              onChange={e => updateField('secretions', e.target.checked)}
+            />
+            <span className="font-medium text-orange-600">Sécrétions</span>
+          </label>
+
+          <label className="flex items-center space-x-3 border p-4 rounded-md cursor-pointer hover:bg-gray-50 transition-colors">
+            <input
+              type="checkbox"
+              className="h-5 w-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+              checked={data.stridor || false}
+              onChange={e => updateField('stridor', e.target.checked)}
+            />
+            <span className="font-medium text-orange-600">Stridor</span>
+          </label>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Notes & Observations</Label>
+        <textarea
+          className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          value={data.notes || ''}
+          onChange={e => updateField('notes', e.target.value)}
+          placeholder="Détails supplémentaires..."
+        />
+      </div>
+
+      <Button onClick={onSave} disabled={loading} className="w-full" size="lg">
+        {loading ? 'Enregistrement...' : 'Valider et Continuer (B)'}
+      </Button>
+    </div>
+  );
+}
