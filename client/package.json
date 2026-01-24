@@ -18,6 +18,7 @@
     "@capacitor/preferences": "^5.0.7",
     "@ionic/react": "^8.7.17",
     "@ncdss/shared": "^1.0.0",
+    "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-select": "^2.2.6",
     "axios": "^1.6.5",
     "drizzle-orm": "^0.29.3",

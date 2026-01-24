@@ -13,7 +13,9 @@ import { patientsRouter } from '../api/routes/patients';
 import { statsRouter } from '../api/routes/stats';
 import { prescriptionsRouter } from '../api/routes/prescriptions';
 import { diagnosesRouter } from '../api/routes/diagnoses';
+import { auditRouter } from '../api/routes/audit';
 import { authMiddleware } from '../api/middleware/auth';
+import { auditMiddleware } from '../api/middleware/audit';
 import { initDatabase } from '../database';
 
 let server: Server | null = null;
@@ -55,6 +57,9 @@ export async function startServer(port: number): Promise<void> {
   // Public routes
   app.use('/api/auth', authRouter);
 
+  // Audit middleware - logs POST/PUT/DELETE on patients, prescriptions, diagnoses, users
+  app.use('/api', authMiddleware, auditMiddleware);
+
   // Protected routes
   app.use('/api/users', authMiddleware, usersRouter);
   app.use('/api/sync', authMiddleware, syncRouter);
@@ -67,6 +72,7 @@ export async function startServer(port: number): Promise<void> {
   app.use('/api/stats', authMiddleware, statsRouter);
   app.use('/api/prescriptions', authMiddleware, prescriptionsRouter);
   app.use('/api/diagnoses', authMiddleware, diagnosesRouter);
+  app.use('/api/audit-log', authMiddleware, auditRouter);
 
   // Health check
   app.get('/api/health', (req, res) => {

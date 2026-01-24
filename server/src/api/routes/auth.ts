@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
 import { users, weeklySchedule, refreshTokens } from '../../database/schema';
 import { JWT_SECRET } from '../middleware/auth';
+import { logAuditEvent } from '../middleware/audit';
 
 const router = Router();
 const ACCESS_TOKEN_EXPIRY = '15m'; // 15 minutes
@@ -14,6 +15,8 @@ const REFRESH_TOKEN_EXPIRY_DAYS = 7; // 7 days
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
+    const ipAddress = req.ip || req.socket?.remoteAddress || 'unknown';
+    const userAgent = req.get('User-Agent') || 'unknown';
 
     if (!username || !password) {
       return res.status(400).json({ error: "Nom d'utilisateur et mot de passe requis" });
@@ -23,11 +26,25 @@ router.post('/login', async (req, res) => {
     const [user] = await db.select().from(users).where(eq(users.username, username));
 
     if (!user || !user.isActive) {
+      // Log failed login attempt
+      await logAuditEvent('LOGIN_FAILED', 'auth', {
+        reason: !user ? 'user_not_found' : 'user_inactive',
+        attemptedUsername: username,
+        ipAddress,
+        userAgent,
+      }, null, username);
       return res.status(401).json({ error: 'Identifiants invalides' });
     }
 
     const validPassword = await bcrypt.compare(password, user.passwordHash);
     if (!validPassword) {
+      // Log failed login attempt
+      await logAuditEvent('LOGIN_FAILED', 'auth', {
+        reason: 'invalid_password',
+        attemptedUsername: username,
+        ipAddress,
+        userAgent,
+      }, user.id, username);
       return res.status(401).json({ error: 'Identifiants invalides' });
     }
 
@@ -69,6 +86,14 @@ router.post('/login', async (req, res) => {
       token: refreshToken,
       expiresAt: refreshTokenExpiry.toISOString(),
     });
+
+    // Log successful login
+    await logAuditEvent('LOGIN_SUCCESS', 'auth', {
+      role: user.role,
+      todayAssignment,
+      ipAddress,
+      userAgent,
+    }, user.id, user.username);
 
     res.json({
       accessToken,
@@ -200,6 +225,8 @@ router.post('/refresh', async (req, res) => {
 router.post('/logout', async (req, res) => {
   try {
     const { refreshToken } = req.body;
+    const ipAddress = req.ip || req.socket?.remoteAddress || 'unknown';
+    const userAgent = req.get('User-Agent') || 'unknown';
 
     if (!refreshToken) {
       return res.status(400).json({ error: 'Refresh token requis' });
@@ -207,11 +234,25 @@ router.post('/logout', async (req, res) => {
 
     const db = getDb();
 
+    // Find the token to get user info for audit
+    const [tokenRecord] = await db
+      .select()
+      .from(refreshTokens)
+      .where(eq(refreshTokens.token, refreshToken));
+
     // Revoke the refresh token
     await db
       .update(refreshTokens)
       .set({ revokedAt: new Date().toISOString() })
       .where(eq(refreshTokens.token, refreshToken));
+
+    // Log logout
+    if (tokenRecord) {
+      await logAuditEvent('LOGOUT', 'auth', {
+        ipAddress,
+        userAgent,
+      }, tokenRecord.userId);
+    }
 
     res.json({ message: 'Déconnexion réussie' });
   } catch (error) {
