@@ -36,6 +36,15 @@ function isDoctorOrAdmin(role: string): boolean {
   return role === UserRole.DOCTOR || role === UserRole.SUPER_ADMIN;
 }
 
+function canAdminister(role: string): boolean {
+  return role === UserRole.NURSE || role === UserRole.NURSE_SUPERVISOR || role === UserRole.SUPER_ADMIN;
+}
+
+function canManagePrescriptionStatus(role: string): boolean {
+  return role === UserRole.NURSE || role === UserRole.NURSE_SUPERVISOR ||
+         role === UserRole.DOCTOR || role === UserRole.SUPER_ADMIN;
+}
+
 // ============================================================================
 // GET /prescriptions/patient/:patientId
 // List all prescriptions for a patient
@@ -266,9 +275,14 @@ router.post('/', async (req, res) => {
 
 router.post('/:id/administer', async (req, res) => {
   try {
-    const { userId } = (req as any).user;
+    const { userId, role } = (req as any).user;
     const { id } = req.params;
     const { status, notes } = req.body;
+
+    // Role check: Only nurses can administer medications
+    if (!canAdminister(role)) {
+      return res.status(403).json({ error: 'Seuls les infirmiers peuvent administrer les médicaments' });
+    }
 
     // Validate status (accepts uppercase enum values from AdministrationStatus)
     const validStatuses = Object.values(AdministrationStatus);
@@ -392,7 +406,14 @@ router.post('/:id/cancel', async (req, res) => {
 
 router.post('/:id/hold', async (req, res) => {
   try {
+    const { role } = (req as any).user;
     const { id } = req.params;
+
+    // Role check: Nurses and doctors can put prescriptions on hold
+    if (!canManagePrescriptionStatus(role)) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+
     const db = getDb();
 
     // Get prescription
@@ -437,7 +458,14 @@ router.post('/:id/hold', async (req, res) => {
 
 router.post('/:id/resume', async (req, res) => {
   try {
+    const { role } = (req as any).user;
     const { id } = req.params;
+
+    // Role check: Nurses and doctors can resume prescriptions
+    if (!canManagePrescriptionStatus(role)) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+
     const db = getDb();
 
     // Get prescription
@@ -482,7 +510,14 @@ router.post('/:id/resume', async (req, res) => {
 
 router.post('/:id/complete', async (req, res) => {
   try {
+    const { role } = (req as any).user;
     const { id } = req.params;
+
+    // Role check: Nurses and doctors can complete prescriptions
+    if (!canManagePrescriptionStatus(role)) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+
     const db = getDb();
 
     // Get prescription

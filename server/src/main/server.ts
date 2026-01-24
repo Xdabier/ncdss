@@ -19,13 +19,37 @@ import { initDatabase } from '../database';
 let server: Server | null = null;
 let connectedClients = 0;
 
+// CORS Configuration
+const allowedOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
+  : ['http://localhost:3001', 'http://localhost:5173', 'capacitor://localhost'];
+
 export async function startServer(port: number): Promise<void> {
   // Initialize database
   await initDatabase();
 
   const app = express();
 
-  app.use(cors());
+  // Configure CORS with origin validation
+  app.use(cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, same-origin)
+      if (!origin) return callback(null, true);
+
+      // In development, allow all origins
+      if (process.env.NODE_ENV !== 'production') {
+        return callback(null, true);
+      }
+
+      // In production, only allow specified origins
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Accès CORS non autorisé'));
+      }
+    },
+    credentials: true
+  }));
   app.use(express.json());
 
   // Public routes

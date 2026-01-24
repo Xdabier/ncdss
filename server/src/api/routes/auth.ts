@@ -5,9 +5,9 @@ import { eq, and, lt } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
 import { users, weeklySchedule, refreshTokens } from '../../database/schema';
+import { JWT_SECRET } from '../middleware/auth';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'ncdss-secret-key-change-in-production';
 const ACCESS_TOKEN_EXPIRY = '15m'; // 15 minutes
 const REFRESH_TOKEN_EXPIRY_DAYS = 7; // 7 days
 
