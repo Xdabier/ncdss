@@ -49,6 +49,7 @@ import PatientSummary from './pages/nurse/triage/PatientSummary';
 import TreatmentQueue from './pages/nurse/treatment/TreatmentQueue';
 import PatientCare from './pages/nurse/treatment/PatientCare';
 import VitalsUpdate from './pages/nurse/treatment/VitalsUpdate';
+import AssignBox from './pages/nurse/treatment/AssignBox';
 import ReTriageRequest from './pages/nurse/treatment/ReTriageRequest';
 import DeteriorationAlert from './pages/nurse/treatment/DeteriorationAlert';
 
@@ -470,6 +471,18 @@ export default function App() {
                 allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
               >
                 <VitalsUpdate />
+              </RoleGuard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/nurse/treatment/:id/assign-box"
+          element={
+            <ProtectedRoute>
+              <RoleGuard
+                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
+              >
+                <AssignBox />
               </RoleGuard>
             </ProtectedRoute>
           }

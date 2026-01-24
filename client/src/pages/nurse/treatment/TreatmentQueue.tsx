@@ -114,8 +114,8 @@ export default function TreatmentQueue() {
   const criticalCount = patients.filter((p) => (p.esiLevel ?? 5) <= 2).length;
 
   const handleStartTreatment = (patientId: string) => {
-    // Navigate to patient care page which handles box assignment for TRIAGED patients
-    navigate(`/nurse/treatment/${patientId}/care`);
+    // Navigate to box assignment page for TRIAGED patients
+    navigate(`/nurse/treatment/${patientId}/assign-box`);
   };
 
   const handleViewPatient = (patientId: string) => {
