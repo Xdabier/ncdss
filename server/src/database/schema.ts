@@ -278,3 +278,66 @@ export const clinicalPathologies = sqliteTable('clinical_pathologies', {
 
 // Keep old table name as alias for backward compatibility during migration
 export const abcdeInterventions = clinicalPathologies;
+
+// ============================================================================
+// PRESCRIPTIONS
+// ============================================================================
+
+export const prescriptions = sqliteTable('prescriptions', {
+  id: text('id').primaryKey(),
+  patientId: text('patient_id')
+    .notNull()
+    .references(() => patients.id),
+  medicationName: text('medication_name').notNull(),
+  dosage: text('dosage').notNull(),           // e.g., "500mg"
+  route: text('route').notNull(),             // PO, IV, IM, SC, SL, INH, TOP, PR, OPH
+  frequency: text('frequency').notNull(),     // e.g., "3x/jour", "toutes les 8h"
+  duration: text('duration'),                 // e.g., "5 jours"
+  instructions: text('instructions'),         // Special instructions
+  startTime: text('start_time'),
+  endTime: text('end_time'),
+  status: text('status').notNull().default('ACTIVE'), // ACTIVE, COMPLETED, CANCELLED, ON_HOLD
+  administrations: text('administrations'),   // JSON array of administration records
+  prescribedBy: text('prescribed_by')
+    .notNull()
+    .references(() => users.id),
+  prescribedAt: text('prescribed_at').notNull(),
+  cancelledBy: text('cancelled_by').references(() => users.id),
+  cancelledAt: text('cancelled_at'),
+  cancelReason: text('cancel_reason'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ============================================================================
+// DIAGNOSES
+// ============================================================================
+
+export const diagnoses = sqliteTable('diagnoses', {
+  id: text('id').primaryKey(),
+  patientId: text('patient_id')
+    .notNull()
+    .references(() => patients.id),
+  diagnosisCode: text('diagnosis_code'),      // ICD-10 optional
+  diagnosisName: text('diagnosis_name').notNull(),
+  diagnosisType: text('diagnosis_type').notNull(), // PRIMARY, SECONDARY, DIFFERENTIAL
+  severity: text('severity'),                 // MILD, MODERATE, SEVERE, CRITICAL
+  notes: text('notes'),
+  status: text('status').notNull().default('ACTIVE'), // ACTIVE, RESOLVED, RULED_OUT
+  confirmedAt: text('confirmed_at'),
+  resolvedAt: text('resolved_at'),
+  diagnosedBy: text('diagnosed_by')
+    .notNull()
+    .references(() => users.id),
+  diagnosedAt: text('diagnosed_at').notNull(),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});

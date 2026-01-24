@@ -12,3 +12,6 @@ export * from './types/patient';
 
 // ABCDE Assessment types
 export * from './types/abcde';
+
+// Prescription & Diagnosis types
+export * from './types/prescription';
