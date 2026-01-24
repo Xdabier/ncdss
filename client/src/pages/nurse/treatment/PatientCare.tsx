@@ -1091,7 +1091,7 @@ function AdministrationModal({ prescription, isOpen, onClose, onSuccess }: Admin
 
     try {
       const api = await getApi();
-      await api.put(`/prescriptions/${prescription.id}/administer`, {
+      await api.post(`/prescriptions/${prescription.id}/administer`, {
         status,
         notes: notes.trim() || null,
       });

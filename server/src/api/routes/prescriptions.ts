@@ -3,7 +3,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
 import { prescriptions, patients, users } from '../../database/schema';
-import { UserRole } from '@ncdss/shared';
+import { UserRole, AdministrationStatus } from '@ncdss/shared';
 
 const router = Router();
 
@@ -15,7 +15,7 @@ interface Administration {
   id: string;
   time: string;
   nurseId: string;
-  status: 'given' | 'refused' | 'held' | 'not_available';
+  status: AdministrationStatus;
   notes?: string;
 }
 
@@ -270,11 +270,11 @@ router.post('/:id/administer', async (req, res) => {
     const { id } = req.params;
     const { status, notes } = req.body;
 
-    // Validate status
-    const validStatuses = ['given', 'refused', 'held', 'not_available'];
+    // Validate status (accepts uppercase enum values from AdministrationStatus)
+    const validStatuses = Object.values(AdministrationStatus);
     if (!status || !validStatuses.includes(status)) {
       return res.status(400).json({
-        error: 'Statut invalide. Valeurs acceptées: given, refused, held, not_available'
+        error: `Statut invalide. Valeurs acceptées: ${validStatuses.join(', ')}`
       });
     }
 
