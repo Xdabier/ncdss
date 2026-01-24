@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '../../components/ui/select';
 import { ABCDEReviewComponent } from '../../components/doctor/ABCDEReview';
+import { DiagnosisModal } from '../../components/doctor/DiagnosisModal';
 import { getApi } from '../../services/api';
 import { getScoreColor, getScoreLabel } from '../../utils/scoreUtils';
 import { formatDateTime } from '../../utils/dateUtils';
@@ -29,7 +30,6 @@ import {
   DiagnosisStatus,
   PrescriptionStatus,
   MedicationRoute,
-  CreateDiagnosisRequest,
   CreatePrescriptionRequest,
 } from '@ncdss/shared';
 import {
@@ -107,158 +107,6 @@ const esiColors: Record<number, string> = {
   4: 'bg-green-500 text-white',
   5: 'bg-blue-500 text-white',
 };
-
-// Diagnosis Entry Modal
-interface DiagnosisEntryModalProps {
-  patientId: string;
-  onClose: () => void;
-  onSuccess: () => void;
-}
-
-function DiagnosisEntryModal({ patientId, onClose, onSuccess }: DiagnosisEntryModalProps) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<CreateDiagnosisRequest>({
-    patientId,
-    diagnosisName: '',
-    diagnosisCode: '',
-    diagnosisType: DiagnosisType.PRIMARY,
-    severity: DiagnosisSeverity.MODERATE,
-    notes: '',
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.diagnosisName.trim()) {
-      setError('Le nom du diagnostic est requis');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const api = await getApi();
-      await api.post('/diagnoses', form);
-      onSuccess();
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Erreur lors de la création du diagnostic');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold">Nouveau Diagnostic</h2>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          <div>
-            <Label htmlFor="diagnosisName">Nom du diagnostic *</Label>
-            <Input
-              id="diagnosisName"
-              value={form.diagnosisName}
-              onChange={(e) => setForm({ ...form, diagnosisName: e.target.value })}
-              placeholder="Ex: Pneumonie communautaire"
-              className="mt-1"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="diagnosisCode">Code CIM-10 (optionnel)</Label>
-            <Input
-              id="diagnosisCode"
-              value={form.diagnosisCode}
-              onChange={(e) => setForm({ ...form, diagnosisCode: e.target.value })}
-              placeholder="Ex: J18.9"
-              className="mt-1"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Type de diagnostic</Label>
-              <Select
-                value={form.diagnosisType}
-                onValueChange={(v) => setForm({ ...form, diagnosisType: v as DiagnosisType })}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(diagnosisTypeLabels).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label>Sévérité</Label>
-              <Select
-                value={form.severity}
-                onValueChange={(v) => setForm({ ...form, severity: v as DiagnosisSeverity })}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(diagnosisSeverityLabels).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="notes">Notes</Label>
-            <textarea
-              id="notes"
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              placeholder="Observations cliniques..."
-              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              rows={3}
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-              Annuler
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Enregistrement...
-                </>
-              ) : (
-                'Enregistrer'
-              )}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
 
 // Prescription Entry Modal
 interface PrescriptionEntryModalProps {
@@ -1137,16 +985,12 @@ export default function PatientDetail() {
       </div>
 
       {/* Modals */}
-      {showDiagnosisModal && (
-        <DiagnosisEntryModal
-          patientId={patient.id}
-          onClose={() => setShowDiagnosisModal(false)}
-          onSuccess={() => {
-            setShowDiagnosisModal(false);
-            loadDiagnoses();
-          }}
-        />
-      )}
+      <DiagnosisModal
+        isOpen={showDiagnosisModal}
+        patientId={patient.id}
+        onClose={() => setShowDiagnosisModal(false)}
+        onSuccess={loadDiagnoses}
+      />
 
       {showPrescriptionModal && (
         <PrescriptionEntryModal
