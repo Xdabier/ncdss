@@ -33,12 +33,20 @@ router.get('/', async (req, res) => {
       sex: patients.sex,
       nationalId: patients.nationalId,
       chiefComplaint: patients.chiefComplaint,
+      allergies: patients.allergies,
       status: patients.status,
       esiLevel: patients.esiLevel,
       finalOrientation: patients.finalOrientation,
+      suggestedOrientation: patients.suggestedOrientation,
       newsScore: patients.newsScore,
+      gcsScore: patients.gcsScore,
+      qsofaScore: patients.qsofaScore,
+      assignedDoctorId: patients.assignedDoctorId,
+      assignedBoxId: patients.assignedBoxId,
       createdAt: patients.createdAt,
-      triageCompletedAt: patients.triageCompletedAt
+      triageCompletedAt: patients.triageCompletedAt,
+      treatmentStartedAt: patients.treatmentStartedAt,
+      doctorAssignedAt: patients.doctorAssignedAt
     })
     .from(patients);
     
@@ -901,8 +909,12 @@ router.post('/:id/transfer-to-doctor', async (req, res) => {
       return res.status(404).json({ error: 'Patient non trouvé' });
     }
 
-    if (patient.status !== PatientStatus.IN_TREATMENT) {
-      return res.status(400).json({ error: 'Patient doit être en soins infirmiers pour être transféré au médecin' });
+    // Allow transfer for IN_TREATMENT patients or WITH_DOCTOR patients without assigned doctor
+    const canTransfer = patient.status === PatientStatus.IN_TREATMENT ||
+      (patient.status === PatientStatus.WITH_DOCTOR && !patient.assignedDoctorId);
+
+    if (!canTransfer) {
+      return res.status(400).json({ error: 'Patient doit être en soins infirmiers ou en attente de médecin' });
     }
 
     // Validate doctor exists if provided
