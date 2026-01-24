@@ -42,8 +42,8 @@ export default function TriageQueue() {
       const api = await getApi();
       await api.post(`/patients/${patientId}/start-triage`);
 
-      // Redirect to vitals entry
-      navigate(`/nurse/triage/${patientId}/vitals`);
+      // Redirect to ABCDE assessment
+      navigate(`/nurse/triage/${patientId}/abcde`);
     } catch (error) {
       console.error('Error starting triage:', error);
       alert('Erreur lors du démarrage du triage');

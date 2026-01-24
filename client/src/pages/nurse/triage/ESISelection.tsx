@@ -110,13 +110,24 @@ export default function ESISelection() {
     loadPatient();
   }, [id]);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!selectedESI || !id) return;
-    navigate(`/nurse/triage/${id}/orientation`, {
-      state: {
+
+    try {
+      // Save ESI level to database before navigating
+      const api = await getApi();
+      await api.put(`/patients/${id}/esi`, {
         esiLevel: selectedESI,
-      },
-    });
+      });
+
+      navigate(`/nurse/triage/${id}/orientation`, {
+        state: {
+          esiLevel: selectedESI,
+        },
+      });
+    } catch (e: any) {
+      setError(e.response?.data?.error || 'Erreur lors de la sauvegarde du niveau ESI');
+    }
   };
 
   if (loading) {
@@ -159,7 +170,7 @@ export default function ESISelection() {
           </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold">Sélection du Niveau ESI</h1>
-            <p className="text-sm text-gray-600">Étape 6/6 - Index de Sévérité d'Urgence</p>
+            <p className="text-sm text-gray-600">Étape 3/5 - Index de Sévérité d'Urgence</p>
           </div>
         </div>
 

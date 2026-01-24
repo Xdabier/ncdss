@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -9,20 +9,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
-import { getApi } from '@/services/api.ts';
-import { InterventionChecklist } from './InterventionChecklist';
 
 interface DisabilityData {
-  gcsEye: number;
-  gcsVerbal: number;
-  gcsMotor: number;
-  pupils: string;
-  motorResponse: string;
+  gcsEye?: number;
+  gcsVerbal?: number;
+  gcsMotor?: number;
+  gcsTotal?: number;
+  pupils?: string;
+  motorResponse?: string;
   glucoseLevel?: number;
-  interventions: string[];
-  selectedSeveritySigns?: string[];
-  selectedNursingInterventions?: string[];
-  selectedMedicalInterventions?: string[];
+  seizures: boolean;
+  confusion: boolean;
   notes?: string;
 }
 
@@ -34,200 +31,261 @@ interface Props {
 }
 
 export function DisabilityForm({ data, onChange, onSave, loading }: Props) {
-  const [interventions, setInterventions] = useState<any[]>([]);
-  const [loadingInterventions, setLoadingInterventions] = useState(true);
-
-  const updateField = (field: keyof DisabilityData, value: any) => {
+  const updateField = <K extends keyof DisabilityData>(field: K, value: DisabilityData[K]) => {
     onChange({ ...data, [field]: value });
   };
 
-  useEffect(() => {
-    const loadInterventions = async () => {
-      try {
-        const api = await getApi();
-        const res = await api.get('/interventions?category=D');
-        setInterventions(res.data);
-      } catch (error) {
-        console.error('Failed to load interventions:', error);
-      } finally {
-        setLoadingInterventions(false);
-      }
-    };
-    loadInterventions();
-  }, []);
-
-  // Flatten all interventions into categories
-  const allSeveritySigns = Array.from(
-    new Set(interventions.flatMap(i => i.severitySigns || []))
-  );
-  const allNursingInterventions = Array.from(
-    new Set(interventions.flatMap(i => i.nursingInterventions || []))
-  );
-  const allMedicalInterventions = Array.from(
-    new Set(interventions.flatMap(i => i.medicalInterventions || []))
-  );
-
+  // Calculate GCS total
   const gcsTotal = (data.gcsEye || 0) + (data.gcsVerbal || 0) + (data.gcsMotor || 0);
+
+  // GCS color coding
+  const getGCSColor = (gcs: number) => {
+    if (gcs === 0) return 'bg-gray-200 text-gray-600';
+    if (gcs <= 8) return 'bg-red-500 text-white';
+    if (gcs < 12) return 'bg-orange-500 text-white';
+    if (gcs < 15) return 'bg-yellow-500 text-black';
+    return 'bg-green-500 text-white';
+  };
+
+  const getGlucoseColor = (glucose: number | undefined) => {
+    if (glucose === undefined) return 'bg-gray-100';
+    if (glucose < 60 || glucose > 300) return 'bg-red-100 border-red-300';
+    if (glucose < 70 || glucose > 180) return 'bg-yellow-100 border-yellow-300';
+    return 'bg-green-100 border-green-300';
+  };
+
+  // Warning indicators
+  const hasCritical =
+    data.seizures ||
+    data.pupils === 'unequal' ||
+    data.pupils === 'fixed' ||
+    data.motorResponse === 'paralysis' ||
+    data.motorResponse === 'lateralized' ||
+    gcsTotal <= 8 ||
+    (data.glucoseLevel !== undefined && (data.glucoseLevel < 60 || data.glucoseLevel > 300));
+
+  const hasWarnings =
+    hasCritical ||
+    data.confusion ||
+    data.pupils === 'dilated' ||
+    data.motorResponse === 'weakness' ||
+    (gcsTotal > 0 && gcsTotal < 15) ||
+    (data.glucoseLevel !== undefined && (data.glucoseLevel < 70 || data.glucoseLevel > 180));
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h3 className="font-medium text-lg">Neurologique (Disability)</h3>
-        <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-bold">
-          Score GCS: {gcsTotal}/15
+        <h3 className="font-medium text-lg">D - Neurologique (Disability)</h3>
+        <div className={`px-4 py-2 rounded-full font-bold text-lg ${getGCSColor(gcsTotal)}`}>
+          GCS: {gcsTotal || '--'}/15
         </div>
       </div>
 
+      {/* Critical warning banner */}
+      {hasCritical && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-3">
+          <p className="text-red-800 text-sm font-medium">
+            Signes critiques detectes - Evaluation SAUV probable
+          </p>
+        </div>
+      )}
+
+      {/* Glasgow Coma Scale */}
       <div className="space-y-4 border p-4 rounded-md">
-        <h4 className="font-medium">Score de Glasgow (GCS)</h4>
-        
+        <h4 className="font-medium text-sm">Score de Glasgow (GCS)</h4>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Ouverture des yeux (E)</Label>
             <Select
               value={data.gcsEye?.toString()}
-              onValueChange={val => updateField('gcsEye', parseInt(val))}
+              onValueChange={(val) => updateField('gcsEye', parseInt(val))}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Sélectionner" />
+                <SelectValue placeholder="Selectionner" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="4">4 - Spontanée</SelectItem>
-                <SelectItem value="3">3 - À la demande</SelectItem>
-                <SelectItem value="2">2 - À la douleur</SelectItem>
+                <SelectItem value="4">4 - Spontanee</SelectItem>
+                <SelectItem value="3">3 - A la demande</SelectItem>
+                <SelectItem value="2">2 - A la douleur</SelectItem>
                 <SelectItem value="1">1 - Nulle</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label>Réponse verbale (V)</Label>
+            <Label>Reponse verbale (V)</Label>
             <Select
               value={data.gcsVerbal?.toString()}
-              onValueChange={val => updateField('gcsVerbal', parseInt(val))}
+              onValueChange={(val) => updateField('gcsVerbal', parseInt(val))}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Sélectionner" />
+                <SelectValue placeholder="Selectionner" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="5">5 - Orientée</SelectItem>
+                <SelectItem value="5">5 - Orientee</SelectItem>
                 <SelectItem value="4">4 - Confuse</SelectItem>
-                <SelectItem value="3">3 - Inappropriée</SelectItem>
-                <SelectItem value="2">2 - Incompréhensible</SelectItem>
+                <SelectItem value="3">3 - Inappropriee</SelectItem>
+                <SelectItem value="2">2 - Incomprehensible</SelectItem>
                 <SelectItem value="1">1 - Nulle</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label>Réponse motrice (M)</Label>
+            <Label>Reponse motrice (M)</Label>
             <Select
               value={data.gcsMotor?.toString()}
-              onValueChange={val => updateField('gcsMotor', parseInt(val))}
+              onValueChange={(val) => updateField('gcsMotor', parseInt(val))}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Sélectionner" />
+                <SelectValue placeholder="Selectionner" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="6">6 - À la commande</SelectItem>
-                <SelectItem value="5">5 - Orientée à la douleur</SelectItem>
-                <SelectItem value="4">4 - Évitement</SelectItem>
-                <SelectItem value="3">3 - Décortication</SelectItem>
-                <SelectItem value="2">2 - Décérébration</SelectItem>
+                <SelectItem value="6">6 - A la commande</SelectItem>
+                <SelectItem value="5">5 - Orientee a la douleur</SelectItem>
+                <SelectItem value="4">4 - Evitement</SelectItem>
+                <SelectItem value="3">3 - Decortication</SelectItem>
+                <SelectItem value="2">2 - Decerebration</SelectItem>
                 <SelectItem value="1">1 - Nulle</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
+
+        {/* GCS interpretation */}
+        {gcsTotal > 0 && (
+          <div className={`p-2 rounded text-sm ${
+            gcsTotal <= 8 ? 'bg-red-100 text-red-800' :
+            gcsTotal < 12 ? 'bg-orange-100 text-orange-800' :
+            gcsTotal < 15 ? 'bg-yellow-100 text-yellow-800' :
+            'bg-green-100 text-green-800'
+          }`}>
+            {gcsTotal <= 8 ? 'Coma - Intubation a considerer' :
+             gcsTotal < 12 ? 'Alteration severe de la conscience' :
+             gcsTotal < 15 ? 'Alteration moderee de la conscience' :
+             'Conscience normale'}
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Neurological Assessment */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label>Pupilles</Label>
           <Select
             value={data.pupils}
-            onValueChange={val => updateField('pupils', val)}
+            onValueChange={(val) => updateField('pupils', val)}
           >
-            <SelectTrigger>
-              <SelectValue placeholder="Sélectionner" />
+            <SelectTrigger className={
+              data.pupils === 'unequal' || data.pupils === 'fixed' ? 'border-red-300 bg-red-50' :
+              data.pupils === 'dilated' || data.pupils === 'constricted' ? 'border-yellow-300 bg-yellow-50' :
+              data.pupils === 'PEARL' ? 'border-green-300 bg-green-50' : ''
+            }>
+              <SelectValue placeholder="Selectionner" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="PEARL">Réactives (PEARL)</SelectItem>
-              <SelectItem value="unequal">Anisocorie</SelectItem>
-              <SelectItem value="dilated">Mydriase</SelectItem>
-              <SelectItem value="constricted">Myosis</SelectItem>
+              <SelectItem value="PEARL">Reactives (PEARL)</SelectItem>
+              <SelectItem value="dilated">Mydriase bilaterale</SelectItem>
+              <SelectItem value="constricted">Myosis bilateral</SelectItem>
+              <SelectItem value="unequal">Anisocorie (CRITIQUE)</SelectItem>
+              <SelectItem value="fixed">Areactives (CRITIQUE)</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-2">
-          <Label>Réponse Motrice Globale</Label>
+          <Label>Reponse Motrice Globale</Label>
           <Select
             value={data.motorResponse}
-            onValueChange={val => updateField('motorResponse', val)}
+            onValueChange={(val) => updateField('motorResponse', val)}
           >
-            <SelectTrigger>
-              <SelectValue placeholder="Sélectionner" />
+            <SelectTrigger className={
+              data.motorResponse === 'paralysis' || data.motorResponse === 'lateralized' ? 'border-red-300 bg-red-50' :
+              data.motorResponse === 'weakness' ? 'border-yellow-300 bg-yellow-50' :
+              data.motorResponse === 'normal' ? 'border-green-300 bg-green-50' : ''
+            }>
+              <SelectValue placeholder="Selectionner" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="normal">Normale</SelectItem>
               <SelectItem value="weakness">Faiblesse</SelectItem>
-              <SelectItem value="paralysis">Paralysie</SelectItem>
+              <SelectItem value="lateralized">Deficit lateralise (CRITIQUE)</SelectItem>
+              <SelectItem value="paralysis">Paralysie (CRITIQUE)</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label>Glycémie Capillaire (g/L)</Label>
+        <div className={`space-y-2 p-3 rounded-lg border-2 ${getGlucoseColor(data.glucoseLevel)}`}>
+          <Label className="font-medium">Glycemie Capillaire (mg/dL)</Label>
           <Input
             type="number"
-            step="0.01"
-            value={data.glucoseLevel || ''}
-            onChange={e => updateField('glucoseLevel', parseFloat(e.target.value))}
-            placeholder="Ex: 1.10"
+            value={data.glucoseLevel ?? ''}
+            onChange={(e) => {
+              const val = e.target.value === '' ? undefined : parseInt(e.target.value);
+              updateField('glucoseLevel', val as number);
+            }}
+            placeholder="Ex: 100"
+            className="bg-white"
           />
+          <div className="text-xs text-gray-500">Normal: 70-180 mg/dL</div>
         </div>
       </div>
 
-      {loadingInterventions ? (
-        <div className="text-center py-4 text-gray-500">
-          Chargement des interventions...
-        </div>
-      ) : (
-        <div className="space-y-6">
-          <InterventionChecklist
-            title="Signes de gravité"
-            items={allSeveritySigns}
-            selected={data.selectedSeveritySigns || []}
-            onChange={signs => updateField('selectedSeveritySigns', signs)}
-            colorClass="text-red-600"
+      {/* Clinical Signs */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <label className={`flex items-center space-x-3 border p-3 rounded-md cursor-pointer transition-colors ${
+          data.seizures ? 'bg-red-50 border-red-300' : 'hover:bg-gray-50 border-red-200'
+        }`}>
+          <input
+            type="checkbox"
+            className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-500"
+            checked={data.seizures || false}
+            onChange={(e) => updateField('seizures', e.target.checked)}
           />
+          <span className="font-medium text-sm text-red-600">Convulsions / Crise comitiale (CRITIQUE)</span>
+        </label>
 
-          <InterventionChecklist
-            title="Interventions infirmières"
-            items={allNursingInterventions}
-            selected={data.selectedNursingInterventions || []}
-            onChange={interventions => updateField('selectedNursingInterventions', interventions)}
-            colorClass="text-blue-600"
+        <label className={`flex items-center space-x-3 border p-3 rounded-md cursor-pointer transition-colors ${
+          data.confusion ? 'bg-orange-50 border-orange-300' : 'hover:bg-gray-50 border-orange-200'
+        }`}>
+          <input
+            type="checkbox"
+            className="h-5 w-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+            checked={data.confusion || false}
+            onChange={(e) => updateField('confusion', e.target.checked)}
           />
+          <span className="font-medium text-sm text-orange-600">Confusion / Desorientation</span>
+        </label>
+      </div>
 
-          <InterventionChecklist
-            title="Interventions médicales"
-            items={allMedicalInterventions}
-            selected={data.selectedMedicalInterventions || []}
-            onChange={interventions => updateField('selectedMedicalInterventions', interventions)}
-            colorClass="text-green-600"
-          />
-        </div>
-      )}
+      {/* Status summary */}
+      <div className={`p-3 rounded-md ${
+        hasCritical ? 'bg-red-50 border border-red-200' :
+        hasWarnings ? 'bg-orange-50 border border-orange-200' :
+        'bg-green-50 border border-green-200'
+      }`}>
+        <p className={`text-sm font-medium ${
+          hasCritical ? 'text-red-800' :
+          hasWarnings ? 'text-orange-800' :
+          'text-green-800'
+        }`}>
+          Etat neurologique: {
+            hasCritical ? 'Deficit neurologique critique - Intervention immediate requise' :
+            hasWarnings ? 'Anomalies detectees - Surveillance rapprochee' :
+            'Examen neurologique normal'
+          }
+        </p>
+      </div>
 
+      {/* Notes */}
       <div className="space-y-2">
         <Label>Notes & Observations</Label>
         <textarea
-          className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           value={data.notes || ''}
-          onChange={e => updateField('notes', e.target.value)}
-          placeholder="Détails supplémentaires..."
+          onChange={(e) => updateField('notes', e.target.value)}
+          placeholder="Details supplementaires sur l'etat neurologique..."
         />
       </div>
 

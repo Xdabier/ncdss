@@ -40,7 +40,8 @@ import PatientRegistration from './pages/nurse/PatientRegistration';
 import PatientEdit from './pages/nurse/PatientEdit';
 import TriageQueue from './pages/nurse/triage/TriageQueue';
 import ABCDEAssessment from './pages/nurse/triage/ABCDEAssessment';
-import VitalsEntry from './pages/nurse/triage/VitalsEntry';
+import SuggestionsReview from './pages/nurse/triage/SuggestionsReview';
+// VitalsEntry removed - vitals are now collected in ABCDE forms
 import ScoreReview from './pages/nurse/triage/ScoreReview';
 import ESISelection from './pages/nurse/triage/ESISelection';
 import Orientation from './pages/nurse/triage/Orientation';
@@ -370,14 +371,19 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        {/* Legacy vitals route - redirect to ABCDE */}
         <Route
           path="/nurse/triage/:id/vitals"
+          element={<Navigate to="../abcde" replace />}
+        />
+        <Route
+          path="/nurse/triage/:id/suggestions"
           element={
             <ProtectedRoute>
               <RoleGuard
                 allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
               >
-                <VitalsEntry />
+                <SuggestionsReview />
               </RoleGuard>
             </ProtectedRoute>
           }

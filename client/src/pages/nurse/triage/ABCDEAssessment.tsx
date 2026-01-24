@@ -109,8 +109,8 @@ export default function ABCDEAssessment() {
       if (currentIndex < categories.length - 1) {
         setCurrentCategory(categories[currentIndex + 1]);
       } else {
-        // Finished E - navigate to Score Review
-        navigate(`/nurse/triage/${id}/score`);
+        // Finished E - navigate to Suggestions Review for clinical decision support
+        navigate(`/nurse/triage/${id}/suggestions`);
       }
       
       await loadPatient(); // Refresh data
@@ -139,17 +139,18 @@ export default function ABCDEAssessment() {
             </Button>
             <div>
               <h1 className="text-2xl font-bold">{patient.fullName}</h1>
-              <p className="text-gray-500">
+              <p className="text-sm text-gray-600">Étape 1/5 - Évaluation ABCDE</p>
+              <p className="text-gray-500 text-sm">
                 {patient.age} ans, {patient.sex === 'MALE' ? 'Homme' : 'Femme'} • {patient.chiefComplaint}
               </p>
             </div>
           </div>
           <Button
             variant="outline"
-            onClick={() => navigate(`/nurse/triage/${id}/score`)}
+            onClick={() => navigate(`/nurse/triage/${id}/suggestions`)}
             className="hidden md:flex"
           >
-            Passer aux Scores <ArrowRight className="h-4 w-4 ml-2" />
+            Voir les Suggestions <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
         </div>
 

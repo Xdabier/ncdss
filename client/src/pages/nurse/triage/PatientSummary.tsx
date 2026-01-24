@@ -196,7 +196,7 @@ export default function PatientSummary() {
           </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold">Résumé du Triage</h1>
-            <p className="text-sm text-gray-600">Étape 8/8 - Confirmation finale</p>
+            <p className="text-sm text-gray-600">Étape 5/5 - Confirmation finale</p>
           </div>
         </div>
 
@@ -355,7 +355,7 @@ export default function PatientSummary() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate(`/nurse/triage/${id}/vitals`)}
+                onClick={() => navigate(`/nurse/triage/${id}/abcde`)}
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Modifier

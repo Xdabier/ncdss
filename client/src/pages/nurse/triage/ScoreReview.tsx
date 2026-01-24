@@ -79,7 +79,7 @@ export default function ScoreReview() {
           </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold">Révision des Scores</h1>
-            <p className="text-sm text-gray-600">Étape 5/6 - Scores calculés</p>
+            <p className="text-sm text-gray-600">Étape 2/5 - Scores calculés</p>
           </div>
         </div>
 

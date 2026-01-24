@@ -16,7 +16,8 @@ export enum Orientation {
   SAUV = 'SAUV',
   MEDICAL = 'MEDICAL',
   SURGICAL = 'SURGICAL',
-  TRAUMA = 'TRAUMA'
+  TRAUMA = 'TRAUMA',
+  PEDIATRIC = 'PEDIATRIC'
 }
 
 export enum OrientationSource {

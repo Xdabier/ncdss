@@ -51,7 +51,17 @@ const ORIENTATION_OPTIONS: OrientationOption[] = [
     bgColor: 'bg-orange-100',
     borderColor: 'border-orange-500',
   },
+  {
+    value: OrientationType.PEDIATRIC,
+    label: 'PÉDIATRIE',
+    description: 'Box pédiatrique',
+    color: 'text-green-900',
+    bgColor: 'bg-green-100',
+    borderColor: 'border-green-500',
+  },
 ];
+
+const PEDIATRIC_AGE_THRESHOLD = 15; // Show PEDIATRIE option for patients under 15 years
 
 interface OrientationSuggestion {
   suggestion: OrientationType;
@@ -181,6 +191,15 @@ export default function Orientation() {
 
   const isOverride = selectedOrientation && selectedOrientation !== suggestion.suggestion;
 
+  // Filter orientation options based on patient age
+  const availableOrientations = ORIENTATION_OPTIONS.filter(option => {
+    // Show PEDIATRIC only for patients under the threshold age
+    if (option.value === OrientationType.PEDIATRIC) {
+      return patient.age < PEDIATRIC_AGE_THRESHOLD;
+    }
+    return true;
+  });
+
   return (
     <DashboardLayout>
       <div className="p-6 max-w-5xl mx-auto">
@@ -191,7 +210,7 @@ export default function Orientation() {
           </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold">Orientation Patient</h1>
-            <p className="text-sm text-gray-600">Étape 7/8 - Choix de l'orientation</p>
+            <p className="text-sm text-gray-600">Étape 4/5 - Choix de l'orientation</p>
           </div>
         </div>
 
@@ -289,7 +308,7 @@ export default function Orientation() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {ORIENTATION_OPTIONS.map((option) => (
+              {availableOrientations.map((option) => (
                 <Card
                   key={option.value}
                   className={`cursor-pointer transition-all border-2 ${

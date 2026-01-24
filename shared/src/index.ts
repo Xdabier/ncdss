@@ -9,3 +9,6 @@ export * from './types/sync';
 
 // Patient types
 export * from './types/patient';
+
+// ABCDE Assessment types
+export * from './types/abcde';
