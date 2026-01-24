@@ -16,6 +16,12 @@ import {
   FileText,
   LogOut,
   Play,
+  Pill,
+  Loader2,
+  CheckCircle,
+  XCircle,
+  Pause,
+  HelpCircle,
 } from 'lucide-react';
 import { DashboardLayout } from '../../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -30,7 +36,7 @@ import {
   SelectValue,
 } from '../../../components/ui/select';
 import { getApi } from '../../../services/api';
-import { Patient, PatientStatus, Box, User as UserType } from '@ncdss/shared';
+import { Patient, PatientStatus, Box, User as UserType, Prescription, MedicationRoute, AdministrationStatus } from '@ncdss/shared';
 import { formatDateTime } from '../../../utils/dateUtils';
 
 // Treatment note interface
@@ -78,6 +84,27 @@ const dischargeTypes = [
   { value: 'deceased', label: 'Décès' },
 ];
 
+// Medication route labels in French
+const routeLabels: Record<MedicationRoute, string> = {
+  [MedicationRoute.PO]: 'PO',
+  [MedicationRoute.IV]: 'IV',
+  [MedicationRoute.IM]: 'IM',
+  [MedicationRoute.SC]: 'SC',
+  [MedicationRoute.SL]: 'SL',
+  [MedicationRoute.INH]: 'INH',
+  [MedicationRoute.TOP]: 'TOP',
+  [MedicationRoute.PR]: 'PR',
+  [MedicationRoute.OPH]: 'OPH',
+};
+
+// Administration status labels and colors
+const administrationStatusConfig: Record<AdministrationStatus, { label: string; color: string; icon: React.ElementType }> = {
+  [AdministrationStatus.GIVEN]: { label: 'Administré', color: 'text-green-600', icon: CheckCircle },
+  [AdministrationStatus.REFUSED]: { label: 'Refusé', color: 'text-red-600', icon: XCircle },
+  [AdministrationStatus.HELD]: { label: 'Retenu', color: 'text-orange-600', icon: Pause },
+  [AdministrationStatus.NOT_AVAILABLE]: { label: 'Non disponible', color: 'text-gray-600', icon: HelpCircle },
+};
+
 export default function PatientCare() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -85,12 +112,15 @@ export default function PatientCare() {
   const [notes, setNotes] = useState<TreatmentNote[]>([]);
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [doctors, setDoctors] = useState<UserType[]>([]);
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
   const [newNote, setNewNote] = useState('');
   const [noteType, setNoteType] = useState('observation');
   const [addingNote, setAddingNote] = useState(false);
   const [showReTriageModal, setShowReTriageModal] = useState(false);
   const [showDischargeModal, setShowDischargeModal] = useState(false);
+  const [showAdministrationModal, setShowAdministrationModal] = useState(false);
+  const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
@@ -103,10 +133,11 @@ export default function PatientCare() {
     try {
       setLoading(true);
       const api = await getApi();
-      const [patientRes, boxesRes, doctorsRes] = await Promise.all([
+      const [patientRes, boxesRes, doctorsRes, prescriptionsRes] = await Promise.all([
         api.get(`/patients/${id}`),
         api.get('/config/boxes'),
         api.get('/users/by-role/DOCTOR'),
+        api.get(`/prescriptions/patient/${id}?status=ACTIVE`),
       ]);
 
       setPatient(patientRes.data);
@@ -125,6 +156,7 @@ export default function PatientCare() {
       setBoxes(boxesRes.data.filter((b: Box) => b.isActive));
       // API already filters by isActive, no need to filter again
       setDoctors(doctorsRes.data);
+      setPrescriptions(prescriptionsRes.data);
     } catch (error) {
       console.error('Error loading patient:', error);
     } finally {
@@ -219,6 +251,32 @@ export default function PatientCare() {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleOpenAdministration = (prescription: Prescription): void => {
+    setSelectedPrescription(prescription);
+    setShowAdministrationModal(true);
+  };
+
+  const handleAdministrationSuccess = async (): Promise<void> => {
+    // Reload prescriptions after administration
+    try {
+      const api = await getApi();
+      const prescriptionsRes = await api.get(`/prescriptions/patient/${id}?status=ACTIVE`);
+      setPrescriptions(prescriptionsRes.data);
+    } catch (error) {
+      console.error('Error reloading prescriptions:', error);
+    }
+  };
+
+  // Get last administration time for a prescription
+  const getLastAdministration = (prescription: Prescription): string | null => {
+    if (!prescription.administrations || prescription.administrations.length === 0) {
+      return null;
+    }
+    // administrations are stored with most recent last
+    const lastAdmin = prescription.administrations[prescription.administrations.length - 1];
+    return lastAdmin.time;
   };
 
   // Loading state
@@ -526,6 +584,123 @@ export default function PatientCare() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Prescriptions Section */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Pill className="h-5 w-5 text-purple-500" />
+                  Prescriptions Actives
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {prescriptions.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <Pill className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>Aucune prescription active</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {prescriptions.map((prescription) => {
+                      const lastAdminTime = getLastAdministration(prescription);
+                      return (
+                        <div
+                          key={prescription.id}
+                          className="p-4 border rounded-lg bg-gray-50"
+                        >
+                          {/* Prescription header */}
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <h4 className="font-semibold text-gray-900">
+                                {prescription.medicationName}
+                              </h4>
+                              <p className="text-sm text-gray-600">
+                                {prescription.dosage} - {routeLabels[prescription.route]}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                {prescription.frequency}
+                                {prescription.duration && ` (${prescription.duration})`}
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              className="bg-purple-600 hover:bg-purple-700"
+                              onClick={() => handleOpenAdministration(prescription)}
+                            >
+                              <Pill className="h-4 w-4 mr-1" />
+                              Administrer
+                            </Button>
+                          </div>
+
+                          {/* Instructions if any */}
+                          {prescription.instructions && (
+                            <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                              {prescription.instructions}
+                            </div>
+                          )}
+
+                          {/* Last administration */}
+                          {lastAdminTime && (
+                            <div className="text-xs text-gray-500 mb-2">
+                              <Clock className="h-3 w-3 inline mr-1" />
+                              Dernière administration: {formatDateTime(lastAdminTime)}
+                            </div>
+                          )}
+
+                          {/* Prescriber info */}
+                          <div className="text-xs text-gray-400">
+                            Prescrit par {prescription.prescribedByName || 'Médecin'} le{' '}
+                            {formatDateTime(prescription.prescribedAt)}
+                          </div>
+
+                          {/* Administration history (last 5) */}
+                          {prescription.administrations && prescription.administrations.length > 0 && (
+                            <div className="mt-3 pt-3 border-t">
+                              <p className="text-xs font-medium text-gray-500 mb-2">
+                                Historique d'administration:
+                              </p>
+                              <div className="space-y-1">
+                                {prescription.administrations
+                                  .slice(-5)
+                                  .reverse()
+                                  .map((admin) => {
+                                    const statusConfig = administrationStatusConfig[admin.status];
+                                    const StatusIcon = statusConfig.icon;
+                                    return (
+                                      <div
+                                        key={admin.id}
+                                        className="flex items-center gap-2 text-xs"
+                                      >
+                                        <StatusIcon className={`h-3 w-3 ${statusConfig.color}`} />
+                                        <span className={statusConfig.color}>
+                                          {statusConfig.label}
+                                        </span>
+                                        <span className="text-gray-400">
+                                          - {formatDateTime(admin.time)}
+                                        </span>
+                                        {admin.nurseName && (
+                                          <span className="text-gray-400">
+                                            par {admin.nurseName}
+                                          </span>
+                                        )}
+                                        {admin.notes && (
+                                          <span className="text-gray-500 italic truncate max-w-[150px]">
+                                            ({admin.notes})
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           {/* Right Column - Status & Actions (1/3 width) */}
@@ -756,6 +931,19 @@ export default function PatientCare() {
           loading={actionLoading}
         />
       )}
+
+      {/* Administration Modal */}
+      {showAdministrationModal && selectedPrescription && (
+        <AdministrationModal
+          prescription={selectedPrescription}
+          isOpen={showAdministrationModal}
+          onClose={() => {
+            setShowAdministrationModal(false);
+            setSelectedPrescription(null);
+          }}
+          onSuccess={handleAdministrationSuccess}
+        />
+      )}
     </DashboardLayout>
   );
 }
@@ -874,6 +1062,180 @@ function DischargeModal({ onConfirm, onCancel, loading }: DischargeModalProps) {
             disabled={loading}
           >
             {loading ? 'En cours...' : 'Confirmer Sortie'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Administration Modal Component
+interface AdministrationModalProps {
+  prescription: Prescription;
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function AdministrationModal({ prescription, isOpen, onClose, onSuccess }: AdministrationModalProps) {
+  const [status, setStatus] = useState<AdministrationStatus>(AdministrationStatus.GIVEN);
+  const [notes, setNotes] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (): Promise<void> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const api = await getApi();
+      await api.put(`/prescriptions/${prescription.id}/administer`, {
+        status,
+        notes: notes.trim() || null,
+      });
+
+      // Reset form
+      setStatus(AdministrationStatus.GIVEN);
+      setNotes('');
+
+      onSuccess();
+      onClose();
+    } catch (err: unknown) {
+      console.error('Error administering prescription:', err);
+      const axiosError = err as { response?: { data?: { error?: string } } };
+      setError(
+        axiosError.response?.data?.error ||
+        'Erreur lors de l\'enregistrement de l\'administration'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClose = (): void => {
+    if (!loading) {
+      setStatus(AdministrationStatus.GIVEN);
+      setNotes('');
+      setError(null);
+      onClose();
+    }
+  };
+
+  // Administration status options with French labels
+  const administrationOptions = [
+    { value: AdministrationStatus.GIVEN, label: 'Administré', description: 'Le médicament a été donné au patient' },
+    { value: AdministrationStatus.REFUSED, label: 'Refusé par le patient', description: 'Le patient a refusé le médicament' },
+    { value: AdministrationStatus.HELD, label: 'Retenu (raison médicale)', description: 'Administration reportée pour raison médicale' },
+    { value: AdministrationStatus.NOT_AVAILABLE, label: 'Non disponible', description: 'Médicament non disponible en pharmacie' },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
+
+      {/* Modal Content */}
+      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 z-10">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-purple-100">
+              <Pill className="h-5 w-5 text-purple-600" />
+            </div>
+            <h2 className="text-lg font-semibold">Administration</h2>
+          </div>
+          <button
+            onClick={handleClose}
+            disabled={loading}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <X className="h-5 w-5 text-gray-500" />
+          </button>
+        </div>
+
+        {/* Prescription info */}
+        <div className="p-4 bg-gray-50 border-b">
+          <h4 className="font-semibold text-gray-900">{prescription.medicationName}</h4>
+          <p className="text-sm text-gray-600">
+            {prescription.dosage} - {routeLabels[prescription.route]} - {prescription.frequency}
+          </p>
+        </div>
+
+        {/* Form */}
+        <div className="p-4 space-y-4">
+          {/* Error message */}
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
+          {/* Status selection */}
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-700">
+              Statut de l'administration <span className="text-red-500">*</span>
+            </label>
+            {administrationOptions.map((option) => (
+              <label
+                key={option.value}
+                className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                  status === option.value
+                    ? 'border-purple-500 bg-purple-50'
+                    : 'border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="administrationStatus"
+                  value={option.value}
+                  checked={status === option.value}
+                  onChange={(e) => setStatus(e.target.value as AdministrationStatus)}
+                  className="mt-1 text-purple-600 focus:ring-purple-500"
+                  disabled={loading}
+                />
+                <div>
+                  <p className="font-medium text-gray-900">{option.label}</p>
+                  <p className="text-sm text-gray-500">{option.description}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Notes (optionnel)
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Notes supplémentaires..."
+              className="w-full border rounded-lg p-3 min-h-[80px] focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              disabled={loading}
+            />
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 p-4 border-t bg-gray-50 rounded-b-lg">
+          <Button variant="outline" className="flex-1" onClick={handleClose} disabled={loading}>
+            Annuler
+          </Button>
+          <Button
+            className="flex-1 bg-purple-600 hover:bg-purple-700"
+            onClick={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Enregistrement...
+              </>
+            ) : (
+              'Confirmer'
+            )}
           </Button>
         </div>
       </div>
