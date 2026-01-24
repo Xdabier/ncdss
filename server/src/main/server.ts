@@ -11,6 +11,7 @@ import { interventionsRouter } from '../api/routes/interventions';
 import { boxAssignmentsRouter } from '../api/routes/box-assignments';
 import { patientsRouter } from '../api/routes/patients';
 import { statsRouter } from '../api/routes/stats';
+import { prescriptionsRouter } from '../api/routes/prescriptions';
 import { authMiddleware } from '../api/middleware/auth';
 import { initDatabase } from '../database';
 
@@ -39,6 +40,7 @@ export async function startServer(port: number): Promise<void> {
   app.use('/api/box-assignments', authMiddleware, boxAssignmentsRouter);
   app.use('/api/patients', authMiddleware, patientsRouter);
   app.use('/api/stats', authMiddleware, statsRouter);
+  app.use('/api/prescriptions', authMiddleware, prescriptionsRouter);
 
   // Health check
   app.get('/api/health', (req, res) => {
