@@ -87,7 +87,23 @@ export interface Patient {
   // Assignment
   assignedBoxId?: string;
   assignedDoctorId?: string;
-  
+
+  // Treatment Tracking
+  treatmentStartedAt?: string;
+  treatmentNurseId?: string;
+  treatmentNotes?: string;         // JSON array of notes
+  doctorAssignedAt?: string;
+
+  // Discharge
+  dischargedAt?: string;
+  dischargedBy?: string;
+  dischargeNotes?: string;
+  dischargeType?: string;          // home, admission, transfer, left_ama, deceased
+
+  // Re-triage
+  retriageRequested?: boolean;
+  retriageReason?: string;
+
   // Status & Tracking
   status: PatientStatus;
   registeredBy: string;
