@@ -13,6 +13,7 @@ import {
   extractExposureSigns
 } from '../../services/signExtractor';
 import { matchFindingsToPathologies } from '../../services/pathologyMatcher';
+import { getLLMProvider, PreDiagnosisContext } from '../../services/llm';
 
 const router = Router();
 
@@ -979,6 +980,147 @@ router.post('/:id/discharge', async (req, res) => {
   } catch (error) {
     console.error('Discharge error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// ============================================================================
+// AI PRE-DIAGNOSIS (LLM Integration)
+// ============================================================================
+
+// Check AI service availability
+router.get('/:id/ai-status', async (req, res) => {
+  try {
+    const llm = getLLMProvider();
+    const available = await llm.isAvailable();
+    res.json({ available, provider: 'ollama-local' });
+  } catch (error) {
+    console.error('AI status check error:', error);
+    res.json({ available: false, provider: 'ollama-local' });
+  }
+});
+
+// Generate AI pre-diagnosis suggestions
+router.post('/:id/ai-prediagnosis', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = getDb();
+
+    // Load patient
+    const [patient] = await db.select().from(patients).where(eq(patients.id, id));
+    if (!patient) {
+      return res.status(404).json({ error: 'Patient non trouvé' });
+    }
+
+    // Get LLM provider
+    const llm = getLLMProvider();
+
+    // Build context from patient data
+    const context: PreDiagnosisContext = {
+      chiefComplaint: patient.chiefComplaint || '',
+      age: patient.age,
+      sex: patient.sex,
+      vitals: {
+        temperature: patient.temperature ?? undefined,
+        heartRate: patient.heartRate ?? undefined,
+        respiratoryRate: patient.respiratoryRate ?? undefined,
+        bloodPressure: patient.systolicBP && patient.diastolicBP
+          ? `${patient.systolicBP}/${patient.diastolicBP}`
+          : undefined,
+        oxygenSaturation: patient.oxygenSaturation ?? undefined
+      },
+      abcdeFindings: {
+        airway: patient.abcdeAirway ? JSON.parse(patient.abcdeAirway) : undefined,
+        breathing: patient.abcdeBreathing ? JSON.parse(patient.abcdeBreathing) : undefined,
+        circulation: patient.abcdeCirculation ? JSON.parse(patient.abcdeCirculation) : undefined,
+        disability: patient.abcdeDisability ? JSON.parse(patient.abcdeDisability) : undefined,
+        exposure: patient.abcdeExposure ? JSON.parse(patient.abcdeExposure) : undefined
+      },
+      scores: {
+        news: patient.newsScore ?? undefined,
+        gcs: patient.gcsScore ?? undefined,
+        qsofa: patient.qsofaScore ?? undefined
+      },
+      medicalHistory: patient.chronicConditions
+        ? patient.chronicConditions.split(',').map((s: string) => s.trim())
+        : undefined,
+      allergies: patient.allergies ?? undefined
+    };
+
+    // Generate pre-diagnosis
+    const suggestion = await llm.generatePreDiagnosis(context);
+
+    res.json(suggestion);
+  } catch (error) {
+    console.error('AI pre-diagnosis error:', error);
+    res.status(500).json({ error: 'Erreur du service d\'IA' });
+  }
+});
+
+// Generate AI pre-diagnosis with streaming (SSE)
+router.get('/:id/ai-prediagnosis-stream', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = getDb();
+
+    // Load patient
+    const [patient] = await db.select().from(patients).where(eq(patients.id, id));
+    if (!patient) {
+      res.status(404).json({ error: 'Patient non trouvé' });
+      return;
+    }
+
+    // Set SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+    res.flushHeaders();
+
+    // Get LLM provider
+    const llm = getLLMProvider();
+
+    // Build context from patient data
+    const context: PreDiagnosisContext = {
+      chiefComplaint: patient.chiefComplaint || '',
+      age: patient.age,
+      sex: patient.sex,
+      vitals: {
+        temperature: patient.temperature ?? undefined,
+        heartRate: patient.heartRate ?? undefined,
+        respiratoryRate: patient.respiratoryRate ?? undefined,
+        bloodPressure: patient.systolicBP && patient.diastolicBP
+          ? `${patient.systolicBP}/${patient.diastolicBP}`
+          : undefined,
+        oxygenSaturation: patient.oxygenSaturation ?? undefined
+      },
+      abcdeFindings: {
+        airway: patient.abcdeAirway ? JSON.parse(patient.abcdeAirway) : undefined,
+        breathing: patient.abcdeBreathing ? JSON.parse(patient.abcdeBreathing) : undefined,
+        circulation: patient.abcdeCirculation ? JSON.parse(patient.abcdeCirculation) : undefined,
+        disability: patient.abcdeDisability ? JSON.parse(patient.abcdeDisability) : undefined,
+        exposure: patient.abcdeExposure ? JSON.parse(patient.abcdeExposure) : undefined
+      },
+      scores: {
+        news: patient.newsScore ?? undefined,
+        gcs: patient.gcsScore ?? undefined,
+        qsofa: patient.qsofaScore ?? undefined
+      },
+      medicalHistory: patient.chronicConditions
+        ? patient.chronicConditions.split(',').map((s: string) => s.trim())
+        : undefined,
+      allergies: patient.allergies ?? undefined
+    };
+
+    // Stream pre-diagnosis generation
+    await llm.generatePreDiagnosisStream(context, (chunk) => {
+      res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+    });
+
+    res.end();
+  } catch (error) {
+    console.error('AI pre-diagnosis stream error:', error);
+    res.write(`data: ${JSON.stringify({ type: 'error', error: 'Erreur du service d\'IA' })}\n\n`);
+    res.end();
   }
 });
 

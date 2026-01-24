@@ -12,11 +12,20 @@ import {
 } from '../ui/select';
 import { getApi } from '../../services/api';
 
+interface InitialDiagnosisData {
+  diagnosisCode?: string;
+  diagnosisName?: string;
+  diagnosisType?: string;
+  severity?: string;
+  notes?: string;
+}
+
 interface DiagnosisModalProps {
   isOpen: boolean;
   onClose: () => void;
   patientId: string;
   onSuccess: () => void;
+  initialData?: InitialDiagnosisData;
 }
 
 // Diagnosis type enum values
@@ -53,16 +62,26 @@ export function DiagnosisModal({
   onClose,
   patientId,
   onSuccess,
+  initialData,
 }: DiagnosisModalProps): React.ReactElement | null {
-  const [formData, setFormData] = useState<FormData>({
-    diagnosisCode: '',
-    diagnosisName: '',
-    diagnosisType: '',
-    severity: '',
-    notes: '',
+  const getInitialFormData = (): FormData => ({
+    diagnosisCode: initialData?.diagnosisCode || '',
+    diagnosisName: initialData?.diagnosisName || '',
+    diagnosisType: initialData?.diagnosisType || '',
+    severity: initialData?.severity || '',
+    notes: initialData?.notes || '',
   });
+
+  const [formData, setFormData] = useState<FormData>(getInitialFormData());
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Update form when initialData changes (e.g., from AI suggestion)
+  React.useEffect(() => {
+    if (isOpen) {
+      setFormData(getInitialFormData());
+    }
+  }, [isOpen, initialData]);
 
   if (!isOpen) return null;
 

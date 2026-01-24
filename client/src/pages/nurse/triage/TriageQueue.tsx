@@ -26,8 +26,9 @@ export default function TriageQueue() {
   const loadPatients = async () => {
     try {
       const api = await getApi();
+      // Fetch both waiting patients and those currently being triaged
       const response = await api.get('/patients', {
-        params: { status: PatientStatus.REGISTERED }
+        params: { status: [PatientStatus.REGISTERED, PatientStatus.IN_TRIAGE] }
       });
       setPatients(response.data);
     } catch (error) {
@@ -50,11 +51,16 @@ export default function TriageQueue() {
     }
   };
 
+  const handleResumeTriage = (patientId: string) => {
+    // Navigate directly to ABCDE assessment without calling start-triage again
+    navigate(`/nurse/triage/${patientId}/abcde`);
+  };
+
   const columns: Column<Patient>[] = [
     {
       key: 'fullName',
       header: 'Patient',
-      width: '30%',
+      width: '25%',
       render: (p) => (
         <div>
           <div className="font-medium">{p.fullName}</div>
@@ -65,13 +71,27 @@ export default function TriageQueue() {
     {
       key: 'chiefComplaint',
       header: 'Motif',
-      width: '35%',
+      width: '30%',
       render: (p) => p.chiefComplaint || <span className="text-gray-400">—</span>
+    },
+    {
+      key: 'status',
+      header: 'Statut',
+      width: '15%',
+      render: (p) => (
+        p.status === PatientStatus.IN_TRIAGE ? (
+          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+            En cours
+          </Badge>
+        ) : (
+          <Badge variant="outline">En attente</Badge>
+        )
+      )
     },
     {
       key: 'createdAt',
       header: "Heure d'arrivée",
-      width: '20%',
+      width: '15%',
       render: (p) => formatDateTime(p.createdAt).split(' ')[1]
     },
     {
@@ -79,15 +99,28 @@ export default function TriageQueue() {
       header: 'Actions',
       width: '15%',
       render: (p) => (
-        <Button
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleStartTriage(p.id);
-          }}
-        >
-          Commencer triage
-        </Button>
+        p.status === PatientStatus.IN_TRIAGE ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleResumeTriage(p.id);
+            }}
+          >
+            Reprendre
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleStartTriage(p.id);
+            }}
+          >
+            Commencer
+          </Button>
+        )
       )
     }
   ];
@@ -97,9 +130,14 @@ export default function TriageQueue() {
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">File de Triage</h1>
-          <Badge variant={patients.length > 0 ? 'destructive' : 'outline'} className="text-lg px-4 py-2">
-            {patients.length} patient{patients.length !== 1 ? 's' : ''} en attente
-          </Badge>
+          <div className="flex gap-2">
+            <Badge variant="outline" className="text-sm px-3 py-1">
+              {patients.filter(p => p.status === PatientStatus.REGISTERED).length} en attente
+            </Badge>
+            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 text-sm px-3 py-1">
+              {patients.filter(p => p.status === PatientStatus.IN_TRIAGE).length} en cours
+            </Badge>
+          </div>
         </div>
 
         {/* Patients Table */}
@@ -109,7 +147,7 @@ export default function TriageQueue() {
             data={patients}
             loading={loading}
             keyExtractor={(p) => p.id}
-            emptyMessage="Aucun patient en attente de triage"
+            emptyMessage="Aucun patient à trier"
           />
         </div>
 
@@ -120,7 +158,7 @@ export default function TriageQueue() {
               <div className="flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
                 <div className="text-sm text-blue-800">
-                  <p className="font-medium mb-1">Aucun patient en attente</p>
+                  <p className="font-medium mb-1">Aucun patient à trier</p>
                   <p>La liste se rafraîchit automatiquement toutes les 30 secondes.</p>
                 </div>
               </div>

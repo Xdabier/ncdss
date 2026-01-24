@@ -17,6 +17,7 @@ import {
 import { ABCDEReviewComponent } from '../../components/doctor/ABCDEReview';
 import { DiagnosisModal } from '../../components/doctor/DiagnosisModal';
 import { DoctorDischargeModal } from '../../components/doctor/DoctorDischargeModal';
+import { AIPreDiagnosisPanel } from '../../components/shared/AIPreDiagnosisPanel';
 import { getApi } from '../../services/api';
 import { getScoreColor, getScoreLabel } from '../../utils/scoreUtils';
 import { formatDateTime } from '../../utils/dateUtils';
@@ -286,6 +287,13 @@ export default function PatientDetail() {
   const [showDiagnosisModal, setShowDiagnosisModal] = useState(false);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [showDischargeModal, setShowDischargeModal] = useState(false);
+  const [aiDiagnosisInitialData, setAiDiagnosisInitialData] = useState<{
+    diagnosisCode?: string;
+    diagnosisName?: string;
+    diagnosisType?: string;
+    severity?: string;
+    notes?: string;
+  } | undefined>(undefined);
 
   const loadPatient = useCallback(async () => {
     if (!id) return;
@@ -339,6 +347,31 @@ export default function PatientDetail() {
     d => d.diagnosisType === DiagnosisType.PRIMARY &&
          (d.status === DiagnosisStatus.ACTIVE || d.confirmedAt)
   );
+
+  // Handle AI suggestion selection
+  const handleUseAISuggestion = (suggestion: {
+    diagnosis: string;
+    confidence: number;
+    reasoning: string;
+    urgency: 'routine' | 'urgent' | 'emergent';
+    icd10Code?: string;
+  }) => {
+    // Map urgency to severity
+    const severityMap: Record<string, string> = {
+      emergent: 'CRITICAL',
+      urgent: 'SEVERE',
+      routine: 'MODERATE',
+    };
+
+    setAiDiagnosisInitialData({
+      diagnosisCode: suggestion.icd10Code || '',
+      diagnosisName: suggestion.diagnosis,
+      diagnosisType: 'DIFFERENTIAL', // AI suggestions start as differential
+      severity: severityMap[suggestion.urgency] || '',
+      notes: `Suggestion IA (confiance: ${suggestion.confidence}%): ${suggestion.reasoning}`,
+    });
+    setShowDiagnosisModal(true);
+  };
 
   // Parse allergies
   const allergies = patient?.allergies ? patient.allergies.split(',').map(a => a.trim()).filter(Boolean) : [];
@@ -654,6 +687,12 @@ export default function PatientDetail() {
 
           {/* Right Column - 1/3 width */}
           <div className="space-y-6">
+            {/* AI Pre-Diagnosis Panel */}
+            <AIPreDiagnosisPanel
+              patientId={patient.id}
+              onUseSuggestion={handleUseAISuggestion}
+            />
+
             {/* Diagnoses Section */}
             <Card>
               <CardHeader className="pb-2">
@@ -661,7 +700,10 @@ export default function PatientDetail() {
                   <CardTitle className="text-lg">Diagnostics</CardTitle>
                   <Button
                     size="sm"
-                    onClick={() => setShowDiagnosisModal(true)}
+                    onClick={() => {
+                      setAiDiagnosisInitialData(undefined);
+                      setShowDiagnosisModal(true);
+                    }}
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     Ajouter
@@ -863,8 +905,12 @@ export default function PatientDetail() {
       <DiagnosisModal
         isOpen={showDiagnosisModal}
         patientId={patient.id}
-        onClose={() => setShowDiagnosisModal(false)}
+        onClose={() => {
+          setShowDiagnosisModal(false);
+          setAiDiagnosisInitialData(undefined);
+        }}
         onSuccess={loadDiagnoses}
+        initialData={aiDiagnosisInitialData}
       />
 
       {showPrescriptionModal && (

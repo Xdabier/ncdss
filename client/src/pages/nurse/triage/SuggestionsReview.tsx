@@ -6,6 +6,7 @@ import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
+import { AIPreDiagnosisPanel } from '../../../components/shared/AIPreDiagnosisPanel';
 import { getApi } from '../../../services/api';
 import { Patient } from '@ncdss/shared';
 import type { AnalysisResult, PathologyMatch } from '@ncdss/shared';
@@ -338,6 +339,9 @@ export default function SuggestionsReview() {
                 </CardContent>
               </Card>
             )}
+
+            {/* AI Pre-Diagnosis Panel */}
+            <AIPreDiagnosisPanel patientId={id!} />
 
             {/* Minimal footer metadata */}
             <p className="text-xs text-gray-400 text-center">
