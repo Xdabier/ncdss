@@ -41,6 +41,7 @@ const ORIENTATION_LABELS: Record<OrientationType, string> = {
   [OrientationType.MEDICAL]: 'MÉDICAL - Box médical',
   [OrientationType.SURGICAL]: 'CHIRURGICAL - Box chirurgical',
   [OrientationType.TRAUMA]: 'TRAUMATO - Box traumatologie',
+  [OrientationType.PEDIATRIC]: 'PÉDIATRIQUE - Box pédiatrie',
 };
 
 export default function PatientSummary() {
