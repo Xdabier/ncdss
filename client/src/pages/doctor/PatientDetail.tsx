@@ -16,6 +16,7 @@ import {
 } from '../../components/ui/select';
 import { ABCDEReviewComponent } from '../../components/doctor/ABCDEReview';
 import { DiagnosisModal } from '../../components/doctor/DiagnosisModal';
+import { DoctorDischargeModal } from '../../components/doctor/DoctorDischargeModal';
 import { getApi } from '../../services/api';
 import { getScoreColor, getScoreLabel } from '../../utils/scoreUtils';
 import { formatDateTime } from '../../utils/dateUtils';
@@ -272,134 +273,6 @@ function PrescriptionEntryModal({ patientId, onClose, onSuccess }: PrescriptionE
   );
 }
 
-// Discharge Modal
-interface DischargeModalProps {
-  patient: Patient;
-  hasPrimaryDiagnosis: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-}
-
-function DischargeModal({ patient, hasPrimaryDiagnosis, onClose, onSuccess }: DischargeModalProps) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [dischargeType, setDischargeType] = useState('home');
-  const [dischargeNotes, setDischargeNotes] = useState('');
-
-  const handleDischarge = async () => {
-    if (!hasPrimaryDiagnosis) {
-      setError('Un diagnostic principal est requis pour la sortie');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const api = await getApi();
-      await api.put(`/patients/${patient.id}/discharge`, {
-        dischargeType,
-        dischargeNotes,
-      });
-      onSuccess();
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Erreur lors de la sortie du patient');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold">Sortie du Patient</h2>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="p-4 space-y-4">
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {!hasPrimaryDiagnosis && (
-            <Alert variant="warning" className="bg-yellow-50 border-yellow-200">
-              <AlertTriangle className="h-4 w-4 text-yellow-600" />
-              <AlertDescription className="text-yellow-800">
-                Un diagnostic principal est requis avant la sortie du patient.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <div>
-            <p className="font-medium text-gray-900 mb-2">
-              Patient : {patient.fullName}
-            </p>
-            <p className="text-sm text-gray-600">
-              {patient.age} ans, {patient.sex === Sex.MALE ? 'Homme' : 'Femme'}
-            </p>
-          </div>
-
-          <div>
-            <Label>Type de sortie</Label>
-            <Select value={dischargeType} onValueChange={setDischargeType}>
-              <SelectTrigger className="mt-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(dischargeTypeLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="dischargeNotes">Notes de sortie</Label>
-            <textarea
-              id="dischargeNotes"
-              value={dischargeNotes}
-              onChange={(e) => setDischargeNotes(e.target.value)}
-              placeholder="Consignes de sortie, rendez-vous de suivi..."
-              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              rows={4}
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-              Annuler
-            </Button>
-            <Button
-              onClick={handleDischarge}
-              disabled={loading || !hasPrimaryDiagnosis}
-              variant={hasPrimaryDiagnosis ? 'default' : 'secondary'}
-            >
-              {loading ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Traitement...
-                </>
-              ) : (
-                <>
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Confirmer la sortie
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function PatientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -461,8 +334,10 @@ export default function PatientDetail() {
     loadAll();
   }, [loadAll]);
 
+  // Check if patient has at least one PRIMARY diagnosis that is ACTIVE or CONFIRMED
   const hasPrimaryDiagnosis = diagnoses.some(
-    d => d.diagnosisType === DiagnosisType.PRIMARY && d.status !== DiagnosisStatus.RULED_OUT
+    d => d.diagnosisType === DiagnosisType.PRIMARY &&
+         (d.status === DiagnosisStatus.ACTIVE || d.confirmedAt)
   );
 
   // Parse allergies
@@ -526,7 +401,7 @@ export default function PatientDetail() {
         <div className="p-6">
           <Button
             variant="ghost"
-            onClick={() => navigate('/doctor/my-patients')}
+            onClick={() => navigate('/doctor/patients')}
             className="mb-4"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -552,7 +427,7 @@ export default function PatientDetail() {
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
-              onClick={() => navigate('/doctor/my-patients')}
+              onClick={() => navigate('/doctor/patients')}
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Retour
@@ -1003,18 +878,17 @@ export default function PatientDetail() {
         />
       )}
 
-      {showDischargeModal && (
-        <DischargeModal
-          patient={patient}
-          hasPrimaryDiagnosis={hasPrimaryDiagnosis}
-          onClose={() => setShowDischargeModal(false)}
-          onSuccess={() => {
-            setShowDischargeModal(false);
-            loadPatient();
-            navigate('/doctor/my-patients');
-          }}
-        />
-      )}
+      <DoctorDischargeModal
+        isOpen={showDischargeModal}
+        patient={patient}
+        diagnoses={diagnoses}
+        onClose={() => setShowDischargeModal(false)}
+        onSuccess={() => {
+          setShowDischargeModal(false);
+          loadPatient();
+          navigate('/doctor/patients');
+        }}
+      />
     </DashboardLayout>
   );
 }
