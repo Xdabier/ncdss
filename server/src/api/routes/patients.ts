@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { eq, and, like, desc, gte } from 'drizzle-orm';
+import { eq, and, like, desc, gte, inArray } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
 import { patients, users, presentingComplaints, boxes } from '../../database/schema';
@@ -31,21 +31,30 @@ router.get('/', async (req, res) => {
       fullName: patients.fullName,
       age: patients.age,
       sex: patients.sex,
+      nationalId: patients.nationalId,
       chiefComplaint: patients.chiefComplaint,
       status: patients.status,
       esiLevel: patients.esiLevel,
       finalOrientation: patients.finalOrientation,
+      newsScore: patients.newsScore,
       createdAt: patients.createdAt,
-      newsScore: patients.newsScore
+      triageCompletedAt: patients.triageCompletedAt
     })
     .from(patients);
     
     const conditions = [];
-    
+
+    // Handle status filter - supports single value or array
     if (status) {
-      conditions.push(eq(patients.status, status as string));
+      if (Array.isArray(status)) {
+        // Multiple statuses: ?status=TRIAGED&status=IN_TREATMENT
+        conditions.push(inArray(patients.status, status as string[]));
+      } else {
+        // Single status: ?status=TRIAGED
+        conditions.push(eq(patients.status, status as string));
+      }
     }
-    
+
     if (search) {
       conditions.push(like(patients.fullName, `%${search}%`));
     }

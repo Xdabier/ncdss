@@ -26,6 +26,18 @@ export async function getApi(): Promise<AxiosInstance> {
     timeout: 10000,
   });
 
+  // Request interceptor to add auth token
+  apiInstance.interceptors.request.use(
+    async (config) => {
+      const token = await useAuthStore.getState().getAccessToken();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    },
+    (error) => Promise.reject(error)
+  );
+
   // Response interceptor to handle token refresh
   apiInstance.interceptors.response.use(
     (response) => response,

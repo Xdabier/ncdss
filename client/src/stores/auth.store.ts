@@ -18,6 +18,7 @@ interface AuthState {
   setAccessToken: (accessToken: string) => Promise<void>;
   clearAuth: () => Promise<void>;
   loadAuth: () => Promise<void>;
+  getAccessToken: () => Promise<string | null>;
   getRefreshToken: () => Promise<string | null>;
 }
 
@@ -80,6 +81,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: true,
       });
     }
+  },
+
+  getAccessToken: async () => {
+    const state = get();
+    if (state.accessToken) {
+      return state.accessToken;
+    }
+    const { value } = await Preferences.get({ key: 'ncdss_access_token' });
+    return value;
   },
 
   getRefreshToken: async () => {
