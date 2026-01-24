@@ -2,7 +2,7 @@ export interface ElectronAPI {
   getServerStatus: () => Promise<{
     running: boolean;
     connectedClients: number;
-    llmStatus: string;
+    llmStatus: 'not_loaded' | 'loading' | 'ready' | 'error';
     ip: string;
   }>;
   startServer: () => Promise<void>;

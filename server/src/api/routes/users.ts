@@ -14,25 +14,22 @@ router.get('/', async (req, res) => {
     const { search, role, isActive } = req.query;
     const db = getDb();
 
-    let query = db.select({
-      id: users.id,
-      username: users.username,
-      fullName: users.fullName,
-      role: users.role,
-      isActive: users.isActive,
-      createdAt: users.createdAt,
-      updatedAt: users.updatedAt
-    }).from(users);
+    let query = db
+      .select({
+        id: users.id,
+        username: users.username,
+        fullName: users.fullName,
+        role: users.role,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      })
+      .from(users);
 
     const conditions = [];
 
     if (search) {
-      conditions.push(
-        or(
-          like(users.username, `%${search}%`),
-          like(users.fullName, `%${search}%`)
-        )
-      );
+      conditions.push(or(like(users.username, `%${search}%`), like(users.fullName, `%${search}%`)));
     }
 
     if (role) {
@@ -59,17 +56,18 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const db = getDb();
-    const [user] = await db.select({
-      id: users.id,
-      username: users.username,
-      fullName: users.fullName,
-      role: users.role,
-      isActive: users.isActive,
-      createdAt: users.createdAt,
-      updatedAt: users.updatedAt
-    })
-    .from(users)
-    .where(eq(users.id, req.params.id));
+    const [user] = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        fullName: users.fullName,
+        role: users.role,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      })
+      .from(users)
+      .where(eq(users.id, req.params.id));
 
     if (!user) {
       return res.status(404).json({ error: 'Utilisateur non trouvé' });
@@ -117,7 +115,7 @@ router.post('/', async (req, res) => {
     // Check if username exists
     const [existing] = await db.select().from(users).where(eq(users.username, username));
     if (existing) {
-      return res.status(400).json({ error: 'Ce nom d\'utilisateur existe déjà' });
+      return res.status(400).json({ error: "Ce nom d'utilisateur existe déjà" });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -132,20 +130,21 @@ router.post('/', async (req, res) => {
       role,
       isActive: true,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     });
 
-    const [newUser] = await db.select({
-      id: users.id,
-      username: users.username,
-      fullName: users.fullName,
-      role: users.role,
-      isActive: users.isActive,
-      createdAt: users.createdAt,
-      updatedAt: users.updatedAt
-    })
-    .from(users)
-    .where(eq(users.id, id));
+    const [newUser] = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        fullName: users.fullName,
+        role: users.role,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      })
+      .from(users)
+      .where(eq(users.id, id));
 
     res.status(201).json(newUser);
   } catch (error) {
@@ -191,17 +190,18 @@ router.put('/:id', async (req, res) => {
 
     await db.update(users).set(updateData).where(eq(users.id, id));
 
-    const [updated] = await db.select({
-      id: users.id,
-      username: users.username,
-      fullName: users.fullName,
-      role: users.role,
-      isActive: users.isActive,
-      createdAt: users.createdAt,
-      updatedAt: users.updatedAt
-    })
-    .from(users)
-    .where(eq(users.id, id));
+    const [updated] = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        fullName: users.fullName,
+        role: users.role,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      })
+      .from(users)
+      .where(eq(users.id, id));
 
     res.json(updated);
   } catch (error) {
@@ -235,15 +235,20 @@ router.post('/:id/reset-password', async (req, res) => {
 
     // Prevent resetting SUPER_ADMIN password unless caller is SUPER_ADMIN
     if (existing.role === 'SUPER_ADMIN' && callerRole !== 'SUPER_ADMIN') {
-      return res.status(403).json({ error: 'Impossible de modifier le mot de passe d\'un Super Admin' });
+      return res
+        .status(403)
+        .json({ error: "Impossible de modifier le mot de passe d'un Super Admin" });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    await db.update(users).set({
-      passwordHash,
-      updatedAt: new Date().toISOString()
-    }).where(eq(users.id, id));
+    await db
+      .update(users)
+      .set({
+        passwordHash,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(users.id, id));
 
     res.json({ message: 'Mot de passe réinitialisé' });
   } catch (error) {
@@ -256,15 +261,13 @@ router.post('/:id/reset-password', async (req, res) => {
 router.get('/by-role/:role', async (req, res) => {
   try {
     const db = getDb();
-    const result = await db.select({
-      id: users.id,
-      fullName: users.fullName
-    })
-    .from(users)
-    .where(and(
-      eq(users.role, req.params.role),
-      eq(users.isActive, true)
-    ));
+    const result = await db
+      .select({
+        id: users.id,
+        fullName: users.fullName,
+      })
+      .from(users)
+      .where(and(eq(users.role, req.params.role), eq(users.isActive, true)));
 
     res.json(result);
   } catch (error) {

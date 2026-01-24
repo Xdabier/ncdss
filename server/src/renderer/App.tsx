@@ -30,7 +30,10 @@ export default function App() {
 
     // Get initial status
     window.electron.getServerStatus().then(setStatus).catch(console.error);
-    window.electron.getIP().then((ip) => setStatus((s) => ({ ...s, ip }))).catch(console.error);
+    window.electron
+      .getIP()
+      .then((ip) => setStatus((s) => ({ ...s, ip })))
+      .catch(console.error);
 
     // Listen for status updates
     window.electron.onServerStatus((newStatus: ServerStatus) => {
@@ -54,9 +57,7 @@ export default function App() {
         {/* Header */}
         <div className="bg-blue-600 text-white p-4 rounded-lg shadow-lg text-center">
           <h1 className="text-2xl font-bold">🏥 NCDSS Server</h1>
-          <p className="text-sm text-blue-100 mt-1">
-            Système d'Aide à la Décision Clinique
-          </p>
+          <p className="text-sm text-blue-100 mt-1">Système d'Aide à la Décision Clinique</p>
         </div>
 
         {/* Status Panel */}

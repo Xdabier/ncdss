@@ -19,12 +19,25 @@ export async function initDatabase() {
 
   db = drizzle(sqlite, { schema });
 
-  // Run migrations (skip if no migration files exist)
+  // Run migrations
   try {
-    migrate(db, { migrationsFolder: path.join(__dirname, 'migrations') });
+    const migrationsFolder = path.join(__dirname, 'migrations');
+    console.log('Running migrations from:', migrationsFolder);
+
+    // Temporarily disable FKs for migration safety
+    sqlite.pragma('foreign_keys = OFF');
+
+    migrate(db, { migrationsFolder });
+
+    // Re-enable FKs
+    sqlite.pragma('foreign_keys = ON');
+
     console.log('✓ Migrations applied');
   } catch (error) {
-    // Silently skip if no migrations - tables are created from schema
+    console.error('Migration failed:', error);
+    // Re-enable FKs even on error
+    sqlite.pragma('foreign_keys = ON');
+    throw error;
   }
 
   // Create refresh_tokens table if it doesn't exist
@@ -40,6 +53,10 @@ export async function initDatabase() {
 }
 
 export function getDb() {
+  // Check for global db (used by standalone server)
+  if ((global as any).__db) {
+    return (global as any).__db;
+  }
   if (!db) throw new Error('Database not initialized');
   return db;
 }
@@ -50,7 +67,7 @@ export function closeDatabase() {
   }
 }
 
-async function seedDefaultAdmin() {
+export async function seedDefaultAdmin() {
   try {
     const existingUsers = await getDb().select().from(schema.users).limit(1);
 
@@ -65,7 +82,7 @@ async function seedDefaultAdmin() {
         role: 'SUPER_ADMIN',
         isActive: true,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       });
 
       console.log('✓ Default admin created: admin / admin123');
@@ -75,7 +92,7 @@ async function seedDefaultAdmin() {
   }
 }
 
-async function seedDefaultERConfig() {
+export async function seedDefaultERConfig() {
   try {
     const existingConfig = await getDb().select().from(schema.erConfiguration).limit(1);
 
@@ -89,7 +106,7 @@ async function seedDefaultERConfig() {
         traumaBoxes: 2,
         sauvBeds: 4,
         updatedBy: null,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       });
 
       console.log('✓ Default ER configuration created');
@@ -102,9 +119,9 @@ async function seedDefaultERConfig() {
 async function createRefreshTokensTable() {
   try {
     // Check if table exists
-    const tableExists = sqlite.prepare(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='refresh_tokens'"
-    ).get();
+    const tableExists = sqlite
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='refresh_tokens'")
+      .get();
 
     if (!tableExists) {
       console.log('Creating refresh_tokens table...');

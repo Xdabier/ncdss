@@ -11,21 +11,22 @@ router.get('/', async (req, res) => {
   try {
     const db = getDb();
 
-    const result = await db.select({
-      id: boxAssignments.id,
-      boxId: boxAssignments.boxId,
-      boxName: boxes.name,
-      boxType: boxes.boxType,
-      doctorId: boxAssignments.doctorId,
-      doctorName: users.fullName,
-      shift: boxAssignments.shift,
-      effectiveDate: boxAssignments.effectiveDate,
-      isActive: boxAssignments.isActive
-    })
-    .from(boxAssignments)
-    .innerJoin(boxes, eq(boxAssignments.boxId, boxes.id))
-    .innerJoin(users, eq(boxAssignments.doctorId, users.id))
-    .where(eq(boxAssignments.isActive, true));
+    const result = await db
+      .select({
+        id: boxAssignments.id,
+        boxId: boxAssignments.boxId,
+        boxName: boxes.name,
+        boxType: boxes.boxType,
+        doctorId: boxAssignments.doctorId,
+        doctorName: users.fullName,
+        shift: boxAssignments.shift,
+        effectiveDate: boxAssignments.effectiveDate,
+        isActive: boxAssignments.isActive,
+      })
+      .from(boxAssignments)
+      .innerJoin(boxes, eq(boxAssignments.boxId, boxes.id))
+      .innerJoin(users, eq(boxAssignments.doctorId, users.id))
+      .where(eq(boxAssignments.isActive, true));
 
     res.json(result);
   } catch (error) {
@@ -46,13 +47,16 @@ router.post('/', async (req, res) => {
     const db = getDb();
 
     // Deactivate existing assignment for this box/shift if any
-    await db.update(boxAssignments)
+    await db
+      .update(boxAssignments)
       .set({ isActive: false })
-      .where(and(
-        eq(boxAssignments.boxId, boxId),
-        eq(boxAssignments.shift, shift),
-        eq(boxAssignments.isActive, true)
-      ));
+      .where(
+        and(
+          eq(boxAssignments.boxId, boxId),
+          eq(boxAssignments.shift, shift),
+          eq(boxAssignments.isActive, true)
+        )
+      );
 
     // Create new assignment
     const id = randomUUID();
@@ -62,7 +66,7 @@ router.post('/', async (req, res) => {
       doctorId,
       shift,
       effectiveDate,
-      isActive: true
+      isActive: true,
     });
 
     res.status(201).json({ id });
@@ -81,7 +85,8 @@ router.delete('/:id', async (req, res) => {
     }
 
     const db = getDb();
-    await db.update(boxAssignments)
+    await db
+      .update(boxAssignments)
       .set({ isActive: false })
       .where(eq(boxAssignments.id, req.params.id));
 

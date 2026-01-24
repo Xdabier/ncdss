@@ -21,7 +21,7 @@ router.post('/', async (req, res) => {
 
     const response: SyncResponse = {
       serverChanges,
-      syncedAt: new Date().toISOString()
+      syncedAt: new Date().toISOString(),
     };
 
     res.json(response);
@@ -41,14 +41,17 @@ async function processChange(change: SyncChange, clientId: string) {
     tableName: change.table,
     recordId: change.recordId,
     operation: change.operation,
-    syncedAt: new Date().toISOString()
+    syncedAt: new Date().toISOString(),
   });
 
   // TODO: Actually apply changes to respective tables
   // This will be implemented per-table in Week 2
 }
 
-async function getServerChanges(lastSyncAt: string, excludeClientId: string): Promise<SyncChange[]> {
+async function getServerChanges(
+  lastSyncAt: string,
+  excludeClientId: string
+): Promise<SyncChange[]> {
   // TODO: Query all tables for changes since lastSyncAt
   // Exclude changes that came from the requesting client
   return [];

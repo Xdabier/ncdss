@@ -14,35 +14,34 @@ router.get('/:weekStart', async (req, res) => {
     const db = getDb();
 
     // Get all nurses
-    const nurses = await db.select({
-      id: users.id,
-      fullName: users.fullName
-    })
-    .from(users)
-    .where(and(
-      eq(users.role, 'NURSE'),
-      eq(users.isActive, true)
-    ));
+    const nurses = await db
+      .select({
+        id: users.id,
+        fullName: users.fullName,
+      })
+      .from(users)
+      .where(and(eq(users.role, 'NURSE'), eq(users.isActive, true)));
 
     // Get schedule entries for this week
-    const schedules = await db.select()
+    const schedules = await db
+      .select()
       .from(weeklySchedule)
       .where(eq(weeklySchedule.weekStart, weekStart));
 
     // Build response: nurse -> day -> assignment
-    const result = nurses.map(nurse => {
-      const nurseSchedules = schedules.filter(s => s.nurseId === nurse.id);
+    const result = nurses.map((nurse) => {
+      const nurseSchedules = schedules.filter((s) => s.nurseId === nurse.id);
       const days: Record<number, string> = {};
 
       for (let i = 0; i < 7; i++) {
-        const daySchedule = nurseSchedules.find(s => s.dayOfWeek === i);
+        const daySchedule = nurseSchedules.find((s) => s.dayOfWeek === i);
         days[i] = daySchedule?.assignedRole || NurseAssignment.OFF;
       }
 
       return {
         nurseId: nurse.id,
         nurseName: nurse.fullName,
-        days
+        days,
       };
     });
 
@@ -69,8 +68,7 @@ router.post('/:weekStart', async (req, res) => {
     const db = getDb();
 
     // Delete existing schedules for this week
-    await db.delete(weeklySchedule)
-      .where(eq(weeklySchedule.weekStart, weekStart));
+    await db.delete(weeklySchedule).where(eq(weeklySchedule.weekStart, weekStart));
 
     // Insert new schedules
     const entries = [];
@@ -85,7 +83,7 @@ router.post('/:weekStart', async (req, res) => {
             dayOfWeek: day,
             assignedRole: assignment,
             createdBy: userId,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
           });
         }
       }

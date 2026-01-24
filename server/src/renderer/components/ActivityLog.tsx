@@ -17,9 +17,7 @@ export function ActivityLog({ logs }: Props) {
   return (
     <Card className="border-none shadow-none">
       <CardHeader className="pb-3 px-4">
-        <CardTitle className="text-sm font-semibold text-gray-600">
-          📋 Activité récente
-        </CardTitle>
+        <CardTitle className="text-sm font-semibold text-gray-600">📋 Activité récente</CardTitle>
       </CardHeader>
       <CardContent className="px-4 pb-4">
         <div

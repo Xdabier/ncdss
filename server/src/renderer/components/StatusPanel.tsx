@@ -41,17 +41,17 @@ export function StatusPanel({ status }: Props) {
               status.llmStatus === 'ready'
                 ? 'success'
                 : status.llmStatus === 'loading'
-                ? 'warning'
-                : 'outline'
+                  ? 'warning'
+                  : 'outline'
             }
           >
             {status.llmStatus === 'ready'
               ? '✓ Prêt'
               : status.llmStatus === 'loading'
-              ? '⏳ Chargement...'
-              : status.llmStatus === 'error'
-              ? '✗ Erreur'
-              : 'Non chargé'}
+                ? '⏳ Chargement...'
+                : status.llmStatus === 'error'
+                  ? '✗ Erreur'
+                  : 'Non chargé'}
           </Badge>
         </div>
       </CardContent>

@@ -9,6 +9,8 @@ import { scheduleRouter } from '../api/routes/schedule';
 import { pathologiesRouter } from '../api/routes/pathologies';
 import { interventionsRouter } from '../api/routes/interventions';
 import { boxAssignmentsRouter } from '../api/routes/box-assignments';
+import { patientsRouter } from '../api/routes/patients';
+import { statsRouter } from '../api/routes/stats';
 import { authMiddleware } from '../api/middleware/auth';
 import { initDatabase } from '../database';
 
@@ -35,6 +37,8 @@ export async function startServer(port: number): Promise<void> {
   app.use('/api/pathologies', authMiddleware, pathologiesRouter);
   app.use('/api/interventions', authMiddleware, interventionsRouter);
   app.use('/api/box-assignments', authMiddleware, boxAssignmentsRouter);
+  app.use('/api/patients', authMiddleware, patientsRouter);
+  app.use('/api/stats', authMiddleware, statsRouter);
 
   // Health check
   app.get('/api/health', (req, res) => {
@@ -58,7 +62,7 @@ export function getServerStatus() {
   return {
     running: server !== null,
     connectedClients,
-    llmStatus: 'not_loaded'
+    llmStatus: 'not_loaded',
   };
 }
 

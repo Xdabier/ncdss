@@ -17,9 +17,9 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
     },
-    title: 'NCDSS Server'
+    title: 'NCDSS Server',
   });
 
   if (isDev) {
@@ -46,7 +46,7 @@ app.whenReady().then(async () => {
     running: true,
     ip: `${ip}:${PORT}`,
     connectedClients: 0,
-    llmStatus: 'not_loaded'
+    llmStatus: 'not_loaded',
   });
 
   // Log to renderer
@@ -59,7 +59,7 @@ ipcMain.handle('get-server-status', () => {
   const ip = getLocalIP();
   return {
     ...status,
-    ip: `${ip}:${PORT}`
+    ip: `${ip}:${PORT}`,
   };
 });
 
@@ -70,7 +70,7 @@ ipcMain.handle('start-server', async () => {
     running: true,
     ip: `${ip}:${PORT}`,
     connectedClients: 0,
-    llmStatus: 'not_loaded'
+    llmStatus: 'not_loaded',
   });
 });
 
@@ -81,7 +81,7 @@ ipcMain.handle('stop-server', () => {
     running: false,
     ip: `${ip}:${PORT}`,
     connectedClients: 0,
-    llmStatus: 'not_loaded'
+    llmStatus: 'not_loaded',
   });
 });
 

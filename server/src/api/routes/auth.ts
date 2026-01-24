@@ -38,23 +38,24 @@ router.post('/login', async (req, res) => {
       const dayOfWeek = (today.getDay() + 6) % 7; // Convert to Mon=0
       const weekStart = getWeekStart(today);
 
-      const [schedule] = await db.select()
+      const [schedule] = await db
+        .select()
         .from(weeklySchedule)
-        .where(and(
-          eq(weeklySchedule.nurseId, user.id),
-          eq(weeklySchedule.weekStart, weekStart),
-          eq(weeklySchedule.dayOfWeek, dayOfWeek)
-        ));
+        .where(
+          and(
+            eq(weeklySchedule.nurseId, user.id),
+            eq(weeklySchedule.weekStart, weekStart),
+            eq(weeklySchedule.dayOfWeek, dayOfWeek)
+          )
+        );
 
       todayAssignment = schedule?.assignedRole || 'OFF';
     }
 
     // Generate access token (short-lived)
-    const accessToken = jwt.sign(
-      { userId: user.id, role: user.role },
-      JWT_SECRET,
-      { expiresIn: ACCESS_TOKEN_EXPIRY }
-    );
+    const accessToken = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, {
+      expiresIn: ACCESS_TOKEN_EXPIRY,
+    });
 
     // Generate refresh token (long-lived)
     const refreshToken = randomUUID();
@@ -66,7 +67,7 @@ router.post('/login', async (req, res) => {
       id: randomUUID(),
       userId: user.id,
       token: refreshToken,
-      expiresAt: refreshTokenExpiry.toISOString()
+      expiresAt: refreshTokenExpiry.toISOString(),
     });
 
     res.json({
@@ -79,9 +80,9 @@ router.post('/login', async (req, res) => {
         role: user.role,
         isActive: user.isActive,
         createdAt: user.createdAt,
-        updatedAt: user.updatedAt
+        updatedAt: user.updatedAt,
       },
-      todayAssignment
+      todayAssignment,
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -157,23 +158,24 @@ router.post('/refresh', async (req, res) => {
       const dayOfWeek = (today.getDay() + 6) % 7; // Convert to Mon=0
       const weekStart = getWeekStart(today);
 
-      const [schedule] = await db.select()
+      const [schedule] = await db
+        .select()
         .from(weeklySchedule)
-        .where(and(
-          eq(weeklySchedule.nurseId, user.id),
-          eq(weeklySchedule.weekStart, weekStart),
-          eq(weeklySchedule.dayOfWeek, dayOfWeek)
-        ));
+        .where(
+          and(
+            eq(weeklySchedule.nurseId, user.id),
+            eq(weeklySchedule.weekStart, weekStart),
+            eq(weeklySchedule.dayOfWeek, dayOfWeek)
+          )
+        );
 
       todayAssignment = schedule?.assignedRole || 'OFF';
     }
 
     // Generate new access token
-    const accessToken = jwt.sign(
-      { userId: user.id, role: user.role },
-      JWT_SECRET,
-      { expiresIn: ACCESS_TOKEN_EXPIRY }
-    );
+    const accessToken = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, {
+      expiresIn: ACCESS_TOKEN_EXPIRY,
+    });
 
     res.json({
       accessToken,
@@ -184,9 +186,9 @@ router.post('/refresh', async (req, res) => {
         role: user.role,
         isActive: user.isActive,
         createdAt: user.createdAt,
-        updatedAt: user.updatedAt
+        updatedAt: user.updatedAt,
       },
-      todayAssignment
+      todayAssignment,
     });
   } catch (error) {
     console.error('Refresh token error:', error);
@@ -225,9 +227,7 @@ router.post('/cleanup-tokens', async (req, res) => {
     const now = new Date().toISOString();
 
     // Delete expired refresh tokens
-    await db
-      .delete(refreshTokens)
-      .where(lt(refreshTokens.expiresAt, now));
+    await db.delete(refreshTokens).where(lt(refreshTokens.expiresAt, now));
 
     res.json({ message: 'Tokens expirés nettoyés' });
   } catch (error) {

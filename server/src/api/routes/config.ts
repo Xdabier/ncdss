@@ -30,20 +30,15 @@ router.put('/er', async (req, res) => {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
 
-    const {
-      inscriptionDesks,
-      triageBoxes,
-      medicalBoxes,
-      surgicalBoxes,
-      traumaBoxes,
-      sauvBeds
-    } = req.body;
+    const { inscriptionDesks, triageBoxes, medicalBoxes, surgicalBoxes, traumaBoxes, sauvBeds } =
+      req.body;
 
     const db = getDb();
     const [existing] = await db.select().from(erConfiguration).limit(1);
 
     if (existing) {
-      await db.update(erConfiguration)
+      await db
+        .update(erConfiguration)
         .set({
           inscriptionDesks,
           triageBoxes,
@@ -52,7 +47,7 @@ router.put('/er', async (req, res) => {
           traumaBoxes,
           sauvBeds,
           updatedBy: userId,
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
         })
         .where(eq(erConfiguration.id, existing.id));
     }
@@ -63,7 +58,7 @@ router.put('/er', async (req, res) => {
       medicalBoxes,
       surgicalBoxes,
       traumaBoxes,
-      sauvBeds
+      sauvBeds,
     });
 
     const [updated] = await db.select().from(erConfiguration).limit(1);
@@ -102,19 +97,44 @@ async function regenerateBoxes(config: {
   const boxesToCreate: { id: string; name: string; boxType: string; isActive: boolean }[] = [];
 
   for (let i = 1; i <= config.triageBoxes; i++) {
-    boxesToCreate.push({ id: randomUUID(), name: `Box Triage ${i}`, boxType: BoxType.TRIAGE, isActive: true });
+    boxesToCreate.push({
+      id: randomUUID(),
+      name: `Box Triage ${i}`,
+      boxType: BoxType.TRIAGE,
+      isActive: true,
+    });
   }
   for (let i = 1; i <= config.medicalBoxes; i++) {
-    boxesToCreate.push({ id: randomUUID(), name: `Box Médical ${i}`, boxType: BoxType.MEDICAL, isActive: true });
+    boxesToCreate.push({
+      id: randomUUID(),
+      name: `Box Médical ${i}`,
+      boxType: BoxType.MEDICAL,
+      isActive: true,
+    });
   }
   for (let i = 1; i <= config.surgicalBoxes; i++) {
-    boxesToCreate.push({ id: randomUUID(), name: `Box Chirurgical ${i}`, boxType: BoxType.SURGICAL, isActive: true });
+    boxesToCreate.push({
+      id: randomUUID(),
+      name: `Box Chirurgical ${i}`,
+      boxType: BoxType.SURGICAL,
+      isActive: true,
+    });
   }
   for (let i = 1; i <= config.traumaBoxes; i++) {
-    boxesToCreate.push({ id: randomUUID(), name: `Box Traumato ${i}`, boxType: BoxType.TRAUMA, isActive: true });
+    boxesToCreate.push({
+      id: randomUUID(),
+      name: `Box Traumato ${i}`,
+      boxType: BoxType.TRAUMA,
+      isActive: true,
+    });
   }
   for (let i = 1; i <= config.sauvBeds; i++) {
-    boxesToCreate.push({ id: randomUUID(), name: `SAUV Lit ${i}`, boxType: BoxType.SAUV, isActive: true });
+    boxesToCreate.push({
+      id: randomUUID(),
+      name: `SAUV Lit ${i}`,
+      boxType: BoxType.SAUV,
+      isActive: true,
+    });
   }
 
   if (boxesToCreate.length > 0) {

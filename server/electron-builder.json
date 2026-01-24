@@ -1,13 +1,11 @@
 {
   "appId": "com.ncdss.server",
   "productName": "NCDSS Server",
+  "electronVersion": "28.3.3",
   "directories": {
     "output": "release"
   },
-  "files": [
-    "dist-electron/**/*",
-    "package.json"
-  ],
+  "files": ["dist-electron/**/*", "package.json"],
   "win": {
     "target": ["nsis"]
   },
