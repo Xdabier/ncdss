@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, BedDouble, AlertTriangle, Check, Play } from 'lucide-react';
+import { ArrowLeft, BedDouble, AlertTriangle, Check, Play, Users, Filter } from 'lucide-react';
 import { DashboardLayout } from '../../../components/layout/DashboardLayout';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { getApi } from '../../../services/api';
-import { Patient, Box, BoxType, Sex } from '@ncdss/shared';
+import { Patient, Box, BoxType, Sex, PatientStatus } from '@ncdss/shared';
+
+// Box occupancy info
+interface BoxOccupancy {
+  patientCount: number;
+  patientNames: string[];
+}
 
 // ESI color mapping
 const esiColors: Record<number, string> = {
@@ -51,12 +57,14 @@ export default function AssignBox() {
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [boxes, setBoxes] = useState<Box[]>([]);
+  const [boxOccupancy, setBoxOccupancy] = useState<Map<string, BoxOccupancy>>(new Map());
   const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null);
+  const [showAllBoxes, setShowAllBoxes] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load patient and boxes
+  // Load patient, boxes, and occupancy
   useEffect(() => {
     const loadData = async () => {
       if (!id) return;
@@ -66,13 +74,41 @@ export default function AssignBox() {
         setError(null);
         const api = await getApi();
 
-        const [patientRes, boxesRes] = await Promise.all([
+        const [patientRes, boxesRes, occupancyRes] = await Promise.all([
           api.get(`/patients/${id}`),
           api.get('/config/boxes'),
+          // Get patients currently in treatment or with doctor (have a box assigned)
+          api.get('/patients', {
+            params: {
+              status: [PatientStatus.IN_TREATMENT, PatientStatus.WITH_DOCTOR].join(','),
+            },
+          }),
         ]);
 
         setPatient(patientRes.data);
-        setBoxes(boxesRes.data.filter((b: Box) => b.isActive));
+        const activeBoxes = boxesRes.data.filter((b: Box) => b.isActive);
+        setBoxes(activeBoxes);
+
+        // Calculate occupancy per box
+        const occupancyMap = new Map<string, BoxOccupancy>();
+        const patientsInBoxes = occupancyRes.data as Patient[];
+
+        // Initialize all boxes with 0 occupancy
+        activeBoxes.forEach((box: Box) => {
+          occupancyMap.set(box.id, { patientCount: 0, patientNames: [] });
+        });
+
+        // Count patients per box
+        patientsInBoxes.forEach((p: Patient) => {
+          if (p.assignedBoxId) {
+            const existing = occupancyMap.get(p.assignedBoxId) || { patientCount: 0, patientNames: [] };
+            existing.patientCount++;
+            existing.patientNames.push(p.fullName);
+            occupancyMap.set(p.assignedBoxId, existing);
+          }
+        });
+
+        setBoxOccupancy(occupancyMap);
       } catch (e: unknown) {
         const err = e as { response?: { data?: { error?: string } } };
         setError(err.response?.data?.error || 'Erreur de chargement des données');
@@ -98,6 +134,69 @@ export default function AssignBox() {
 
     const allowedTypes = orientationToBoxTypes[patient.finalOrientation] || [];
     return boxes.filter((box) => !allowedTypes.includes(box.boxType as BoxType));
+  };
+
+  // Get availability status for a box
+  const getAvailabilityStatus = (boxId: string): { color: string; label: string; bgColor: string } => {
+    const occupancy = boxOccupancy.get(boxId);
+    const count = occupancy?.patientCount ?? 0;
+
+    if (count === 0) {
+      return { color: 'text-green-600', label: 'Disponible', bgColor: 'bg-green-100' };
+    } else if (count === 1) {
+      return { color: 'text-yellow-600', label: 'Occupé (1)', bgColor: 'bg-yellow-100' };
+    } else {
+      return { color: 'text-red-600', label: `Occupé (${count})`, bgColor: 'bg-red-100' };
+    }
+  };
+
+  // Render a single box card
+  const renderBoxCard = (box: Box, isRecommended: boolean): React.ReactElement => {
+    const availability = getAvailabilityStatus(box.id);
+    const occupancy = boxOccupancy.get(box.id);
+    const isSelected = selectedBoxId === box.id;
+
+    return (
+      <button
+        key={box.id}
+        onClick={() => setSelectedBoxId(box.id)}
+        disabled={submitting}
+        className={`p-4 rounded-lg border-2 text-left transition-all ${
+          isSelected
+            ? isRecommended
+              ? 'border-green-500 bg-green-50 ring-2 ring-green-200'
+              : 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
+            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+        } ${submitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-semibold">{box.name}</span>
+          {isSelected && (
+            <Check className={`h-5 w-5 ${isRecommended ? 'text-green-600' : 'text-blue-600'}`} />
+          )}
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-500">
+            {boxTypeLabels[box.boxType] || box.boxType}
+          </span>
+          <span className={`text-xs px-2 py-1 rounded ${availability.bgColor} ${availability.color}`}>
+            {availability.label}
+          </span>
+        </div>
+        {/* Show patient names if occupied */}
+        {occupancy && occupancy.patientCount > 0 && (
+          <div className="mt-2 pt-2 border-t border-gray-100">
+            <div className="flex items-center gap-1 text-xs text-gray-500">
+              <Users className="h-3 w-3" />
+              <span className="truncate">
+                {occupancy.patientNames.slice(0, 2).join(', ')}
+                {occupancy.patientNames.length > 2 && ` +${occupancy.patientNames.length - 2}`}
+              </span>
+            </div>
+          </div>
+        )}
+      </button>
+    );
   };
 
   const handleStartTreatment = async (boxId?: string): Promise<void> => {
@@ -256,8 +355,23 @@ export default function AssignBox() {
           </Alert>
         )}
 
+        {/* Show All Boxes Toggle */}
+        {patient?.finalOrientation && (
+          <div className="mb-4 flex items-center justify-end">
+            <Button
+              variant={showAllBoxes ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowAllBoxes(!showAllBoxes)}
+              className="gap-2"
+            >
+              <Filter className="h-4 w-4" />
+              {showAllBoxes ? 'Afficher les boxes recommandés' : 'Afficher tous les boxes'}
+            </Button>
+          </div>
+        )}
+
         {/* Recommended Boxes Section */}
-        {recommendedBoxes.length > 0 && (
+        {recommendedBoxes.length > 0 && !showAllBoxes && (
           <Card className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -270,62 +384,24 @@ export default function AssignBox() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {recommendedBoxes.map((box) => (
-                  <button
-                    key={box.id}
-                    onClick={() => setSelectedBoxId(box.id)}
-                    disabled={submitting}
-                    className={`p-4 rounded-lg border-2 text-left transition-all ${
-                      selectedBoxId === box.id
-                        ? 'border-green-500 bg-green-50 ring-2 ring-green-200'
-                        : 'border-gray-200 hover:border-green-300 hover:bg-gray-50'
-                    } ${submitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold">{box.name}</span>
-                      {selectedBoxId === box.id && <Check className="h-5 w-5 text-green-600" />}
-                    </div>
-                    <span className="text-sm text-gray-500">
-                      {boxTypeLabels[box.boxType] || box.boxType}
-                    </span>
-                  </button>
-                ))}
+                {recommendedBoxes.map((box) => renderBoxCard(box, true))}
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Other Boxes Section */}
-        {otherBoxes.length > 0 && (
+        {/* Other Boxes Section - shown when showAllBoxes is true or no recommended boxes */}
+        {((otherBoxes.length > 0 && !showAllBoxes) || (showAllBoxes && boxes.length > 0)) && (
           <Card className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <BedDouble className="h-5 w-5 text-gray-400" />
-                Autres Boxes Disponibles
+                {showAllBoxes ? 'Tous les Boxes' : 'Autres Boxes Disponibles'}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {otherBoxes.map((box) => (
-                  <button
-                    key={box.id}
-                    onClick={() => setSelectedBoxId(box.id)}
-                    disabled={submitting}
-                    className={`p-4 rounded-lg border-2 text-left transition-all ${
-                      selectedBoxId === box.id
-                        ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
-                        : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
-                    } ${submitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold">{box.name}</span>
-                      {selectedBoxId === box.id && <Check className="h-5 w-5 text-blue-600" />}
-                    </div>
-                    <span className="text-sm text-gray-500">
-                      {boxTypeLabels[box.boxType] || box.boxType}
-                    </span>
-                  </button>
-                ))}
+                {(showAllBoxes ? boxes : otherBoxes).map((box) => renderBoxCard(box, false))}
               </div>
             </CardContent>
           </Card>

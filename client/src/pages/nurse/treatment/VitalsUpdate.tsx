@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, Activity, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, Activity, AlertTriangle, TrendingUp, TrendingDown, Minus, CheckCircle } from 'lucide-react';
 import { DashboardLayout } from '../../../components/layout/DashboardLayout';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -10,6 +10,20 @@ import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { getApi } from '../../../services/api';
 import { Patient, Sex } from '@ncdss/shared';
+
+interface PreviousScores {
+  newsScore: number | null;
+  gcsScore: number | null;
+  qsofaScore: number | null;
+}
+
+interface ScoreChange {
+  name: string;
+  previous: number | null;
+  current: number | null;
+  change: number;
+  isWorse: boolean; // For NEWS/qSOFA higher is worse, for GCS lower is worse
+}
 
 interface VitalsFormData {
   temperature: string;
@@ -42,7 +56,9 @@ export default function VitalsUpdate() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
+  const [previousScores, setPreviousScores] = useState<PreviousScores | null>(null);
+  const [scoreChanges, setScoreChanges] = useState<ScoreChange[]>([]);
 
   const [formData, setFormData] = useState<VitalsFormData>({
     temperature: '',
@@ -70,6 +86,13 @@ export default function VitalsUpdate() {
         const response = await api.get(`/patients/${id}`);
         const patientData: Patient = response.data;
         setPatient(patientData);
+
+        // Store previous scores for comparison after update
+        setPreviousScores({
+          newsScore: patientData.newsScore ?? null,
+          gcsScore: patientData.gcsScore ?? null,
+          qsofaScore: patientData.qsofaScore ?? null,
+        });
 
         // Pre-fill existing vitals
         setFormData({
@@ -103,7 +126,76 @@ export default function VitalsUpdate() {
 
   const updateField = (field: keyof VitalsFormData, value: string | number): void => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    setSuccess(false);
+    setShowComparison(false);
+  };
+
+  // Calculate score changes for display
+  const calculateScoreChanges = (newPatient: Patient): ScoreChange[] => {
+    const changes: ScoreChange[] = [];
+
+    // NEWS: higher is worse
+    const newNews = newPatient.newsScore ?? null;
+    const prevNews = previousScores?.newsScore ?? null;
+    if (newNews !== null || prevNews !== null) {
+      const change = (newNews ?? 0) - (prevNews ?? 0);
+      changes.push({
+        name: 'NEWS',
+        previous: prevNews,
+        current: newNews,
+        change,
+        isWorse: change > 0,
+      });
+    }
+
+    // GCS: lower is worse
+    const newGcs = newPatient.gcsScore ?? null;
+    const prevGcs = previousScores?.gcsScore ?? null;
+    if (newGcs !== null || prevGcs !== null) {
+      const change = (newGcs ?? 15) - (prevGcs ?? 15);
+      changes.push({
+        name: 'GCS',
+        previous: prevGcs,
+        current: newGcs,
+        change,
+        isWorse: change < 0,
+      });
+    }
+
+    // qSOFA: higher is worse
+    const newQsofa = newPatient.qsofaScore ?? null;
+    const prevQsofa = previousScores?.qsofaScore ?? null;
+    if (newQsofa !== null || prevQsofa !== null) {
+      const change = (newQsofa ?? 0) - (prevQsofa ?? 0);
+      changes.push({
+        name: 'qSOFA',
+        previous: prevQsofa,
+        current: newQsofa,
+        change,
+        isWorse: change > 0,
+      });
+    }
+
+    return changes;
+  };
+
+  // Check if there's significant deterioration
+  const hasSignificantDeterioration = (): boolean => {
+    const newsChange = scoreChanges.find(s => s.name === 'NEWS');
+    if (newsChange) {
+      // NEWS increased by 3+ or now >= 7
+      if (newsChange.change >= 3 || (newsChange.current ?? 0) >= 7) {
+        return true;
+      }
+    }
+    const gcsChange = scoreChanges.find(s => s.name === 'GCS');
+    if (gcsChange && gcsChange.change <= -3) {
+      return true;
+    }
+    const qsofaChange = scoreChanges.find(s => s.name === 'qSOFA');
+    if (qsofaChange && (qsofaChange.current ?? 0) >= 2) {
+      return true;
+    }
+    return false;
   };
 
   const handleSubmit = async (): Promise<void> => {
@@ -111,7 +203,7 @@ export default function VitalsUpdate() {
 
     setSaving(true);
     setError(null);
-    setSuccess(false);
+    setShowComparison(false);
 
     try {
       const api = await getApi();
@@ -136,13 +228,20 @@ export default function VitalsUpdate() {
       const response = await api.put(`/patients/${id}/vitals`, vitalsData);
 
       // Update patient with response data
-      setPatient(response.data);
-      setSuccess(true);
+      const updatedPatient = response.data as Patient;
+      setPatient(updatedPatient);
 
-      // Navigate back to patient care after a brief delay
-      setTimeout(() => {
-        navigate(`/nurse/treatment/${id}/care`);
-      }, 1500);
+      // Calculate and show score changes
+      const changes = calculateScoreChanges(updatedPatient);
+      setScoreChanges(changes);
+      setShowComparison(true);
+
+      // Update previous scores for future comparisons
+      setPreviousScores({
+        newsScore: updatedPatient.newsScore ?? null,
+        gcsScore: updatedPatient.gcsScore ?? null,
+        qsofaScore: updatedPatient.qsofaScore ?? null,
+      });
     } catch (e: unknown) {
       const error = e as { response?: { data?: { error?: string } } };
       setError(error.response?.data?.error || 'Erreur d\'enregistrement des constantes');
@@ -237,13 +336,107 @@ export default function VitalsUpdate() {
           </CardContent>
         </Card>
 
-        {/* Success Message */}
-        {success && (
-          <Alert className="mb-6 bg-green-50 border-green-200">
-            <AlertDescription className="text-green-700">
-              Constantes mises à jour avec succès. Redirection...
-            </AlertDescription>
-          </Alert>
+        {/* Score Comparison After Save */}
+        {showComparison && (
+          <Card className={`mb-6 ${hasSignificantDeterioration() ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-200'}`}>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                {hasSignificantDeterioration() ? (
+                  <>
+                    <AlertTriangle className="h-5 w-5 text-red-600" />
+                    <span className="text-red-700">Détérioration Détectée</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <span className="text-green-700">Constantes Mises à Jour</span>
+                  </>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* Score Changes Display */}
+              <div className="space-y-3">
+                {scoreChanges.map((score) => {
+                  const changeText = score.change === 0
+                    ? 'stable'
+                    : score.change > 0
+                      ? `+${score.change}`
+                      : `${score.change}`;
+
+                  const changeColor = score.change === 0
+                    ? 'text-gray-600'
+                    : score.isWorse
+                      ? 'text-red-600'
+                      : 'text-green-600';
+
+                  const ChangeIcon = score.change === 0
+                    ? Minus
+                    : score.isWorse
+                      ? TrendingUp
+                      : TrendingDown;
+
+                  // For GCS, trending down is worse
+                  const actualIcon = score.name === 'GCS'
+                    ? (score.change === 0 ? Minus : score.isWorse ? TrendingDown : TrendingUp)
+                    : ChangeIcon;
+
+                  return (
+                    <div
+                      key={score.name}
+                      className={`flex items-center justify-between p-3 rounded-lg ${
+                        score.isWorse && score.change !== 0 ? 'bg-red-100' : 'bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="font-semibold text-gray-900">{score.name}</span>
+                        <span className="text-gray-500">
+                          {score.previous ?? '—'} → {score.current ?? '—'}
+                        </span>
+                      </div>
+                      <div className={`flex items-center gap-1 font-semibold ${changeColor}`}>
+                        {React.createElement(actualIcon, { className: 'h-4 w-4' })}
+                        <span>({changeText})</span>
+                        {score.isWorse && score.change !== 0 && (
+                          <span className="ml-2 text-xs bg-red-200 text-red-800 px-2 py-0.5 rounded">
+                            {score.name === 'NEWS' && (score.current ?? 0) >= 7 ? 'CRITIQUE' : 'DÉTÉRIORATION'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Deterioration Alert */}
+              {hasSignificantDeterioration() && (
+                <Alert variant="destructive" className="mt-4">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Attention:</strong> Une détérioration significative a été détectée.
+                    Envisagez d'alerter le médecin ou de demander une ré-évaluation.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Navigation Buttons */}
+              <div className="flex gap-3 mt-4 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowComparison(false)}
+                  className="flex-1"
+                >
+                  Modifier à nouveau
+                </Button>
+                <Button
+                  onClick={() => navigate(`/nurse/treatment/${id}/care`)}
+                  className={`flex-1 ${hasSignificantDeterioration() ? 'bg-red-600 hover:bg-red-700' : ''}`}
+                >
+                  Retourner aux soins
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Error Message */}
@@ -447,16 +640,18 @@ export default function VitalsUpdate() {
           </CardContent>
         </Card>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-4">
-          <Button variant="outline" onClick={() => navigate(`/nurse/treatment/${id}/care`)} disabled={saving}>
-            Annuler
-          </Button>
-          <Button onClick={handleSubmit} disabled={saving} className="min-w-[180px]">
-            <Save className="h-4 w-4 mr-2" />
-            {saving ? 'Enregistrement...' : 'Enregistrer les Constantes'}
-          </Button>
-        </div>
+        {/* Actions - Hide when showing comparison */}
+        {!showComparison && (
+          <div className="flex justify-end gap-4">
+            <Button variant="outline" onClick={() => navigate(`/nurse/treatment/${id}/care`)} disabled={saving}>
+              Annuler
+            </Button>
+            <Button onClick={handleSubmit} disabled={saving} className="min-w-[180px]">
+              <Save className="h-4 w-4 mr-2" />
+              {saving ? 'Enregistrement...' : 'Enregistrer les Constantes'}
+            </Button>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );
