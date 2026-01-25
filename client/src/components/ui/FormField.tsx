@@ -1,22 +1,26 @@
 import React, { ReactNode } from 'react';
-import { IonItem, IonLabel, IonNote } from '@ionic/react';
+import { Label } from './label';
+import { cn } from '../../lib/utils';
 
 interface Props {
   label: string;
   error?: string;
   required?: boolean;
   children: ReactNode;
+  className?: string;
 }
 
-export function FormField({ label, error, required, children }: Props) {
+export function FormField({ label, error, required, children, className }: Props) {
   return (
-    <IonItem className={error ? 'ion-invalid' : ''}>
-      <IonLabel position="stacked">
+    <div className={cn("space-y-2", className)}>
+      <Label className="flex items-center gap-1">
         {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
-      </IonLabel>
+        {required && <span className="text-destructive">*</span>}
+      </Label>
       {children}
-      {error && <IonNote slot="error">{error}</IonNote>}
-    </IonItem>
+      {error && (
+        <p className="text-sm text-destructive">{error}</p>
+      )}
+    </div>
   );
 }

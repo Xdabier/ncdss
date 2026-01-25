@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { IonSpinner } from '@ionic/react';
+import { Loader2, LucideIcon } from 'lucide-react';
 import { EmptyState } from './EmptyState';
 
 export interface Column<T> {
@@ -14,7 +14,7 @@ interface Props<T> {
   data: T[];
   loading?: boolean;
   emptyMessage?: string;
-  emptyIcon?: string;
+  emptyIcon?: LucideIcon;
   onRowClick?: (item: T) => void;
   keyExtractor: (item: T) => string;
 }
@@ -31,7 +31,7 @@ export function DataTable<T>({
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
-        <IonSpinner />
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
