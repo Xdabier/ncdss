@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -18,6 +18,9 @@ import {
   Zap,
   Brain,
   StopCircle,
+  Clock,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 
 interface AISuggestion {
@@ -38,6 +41,17 @@ interface AIPreDiagnosisResponse {
   thinkingEnabled: boolean;
 }
 
+type SavedPreDiagnosisStatus = 'pending' | 'generating' | 'completed' | 'failed' | null;
+
+interface SavedPreDiagnosis {
+  exists: boolean;
+  status: SavedPreDiagnosisStatus;
+  result: AIPreDiagnosisResponse | null;
+  errorMessage: string | null;
+  generatedAt: string | null;
+  triggerSource: string | null;
+}
+
 interface AIPreDiagnosisPanelProps {
   patientId: string;
   onUseSuggestion?: (suggestion: AISuggestion) => void;
@@ -55,6 +69,12 @@ const urgencyLabels: Record<string, string> = {
   routine: 'Routine',
 };
 
+const triggerSourceLabels: Record<string, string> = {
+  manual_nurse: 'Infirmier',
+  manual_doctor: 'Medecin',
+  auto_triage_complete: 'Automatique (fin triage)',
+};
+
 export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnosisPanelProps) {
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
@@ -64,22 +84,40 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
   const [showAllTests, setShowAllTests] = useState(false);
   const [showThinking, setShowThinking] = useState(false);
 
+  // Saved pre-diagnosis state
+  const [savedPreDiagnosis, setSavedPreDiagnosis] = useState<SavedPreDiagnosis | null>(null);
+  const [loadingSaved, setLoadingSaved] = useState(true);
+
   // Streaming state
   const [streamingThinking, setStreamingThinking] = useState('');
   const [streamingResponse, setStreamingResponse] = useState('');
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Check AI availability on mount
-  useEffect(() => {
-    checkAIStatus();
-    // Cleanup EventSource on unmount
-    return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
+  // Load saved pre-diagnosis on mount
+  const loadSavedPreDiagnosis = useCallback(async () => {
+    try {
+      setLoadingSaved(true);
+      const api = await getApi();
+      const response = await api.get(`/patients/${patientId}/ai-prediagnosis`);
+      setSavedPreDiagnosis(response.data);
+
+      // If we have a completed result, set it
+      if (response.data.exists && response.data.status === 'completed' && response.data.result) {
+        setResult(response.data.result);
       }
-    };
+
+      // If there was a saved error, display it
+      if (response.data.exists && response.data.status === 'failed' && response.data.errorMessage) {
+        setError(response.data.errorMessage);
+      }
+    } catch (err) {
+      console.error('Failed to load saved pre-diagnosis:', err);
+    } finally {
+      setLoadingSaved(false);
+    }
   }, [patientId]);
 
+  // Check AI availability on mount
   const checkAIStatus = async () => {
     try {
       setCheckingStatus(true);
@@ -94,11 +132,65 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
     }
   };
 
-  const stopGeneration = () => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
+  // Initial load
+  useEffect(() => {
+    checkAIStatus();
+    loadSavedPreDiagnosis();
+
+    // Cleanup on unmount
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, [patientId, loadSavedPreDiagnosis]);
+
+  // Poll when status is 'generating'
+  useEffect(() => {
+    if (savedPreDiagnosis?.status !== 'generating') {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      return;
     }
+
+    const pollForResult = async () => {
+      try {
+        const api = await getApi();
+        const response = await api.get(`/patients/${patientId}/ai-prediagnosis`);
+        setSavedPreDiagnosis(response.data);
+
+        if (response.data.status !== 'generating') {
+          // Generation finished
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+
+          if (response.data.status === 'completed' && response.data.result) {
+            setResult(response.data.result);
+            setError(null);
+          } else if (response.data.status === 'failed') {
+            setError(response.data.errorMessage || 'Erreur lors de la generation');
+          }
+        }
+      } catch (err) {
+        console.error('Polling error:', err);
+      }
+    };
+
+    // Start polling
+    pollingIntervalRef.current = setInterval(pollForResult, 2000);
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, [savedPreDiagnosis?.status, patientId]);
+
+  const stopGeneration = () => {
     setLoading(false);
   };
 
@@ -163,6 +255,8 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
                 setStreamingResponse(prev => prev + data.content);
               } else if (data.type === 'done') {
                 setResult(data.result);
+                // Refresh saved state
+                await loadSavedPreDiagnosis();
                 setLoading(false);
                 return;
               } else if (data.type === 'error') {
@@ -191,20 +285,51 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
     return 'bg-orange-500';
   };
 
-  // Loading state
-  if (checkingStatus) {
+  // Loading saved pre-diagnosis state
+  if (loadingSaved || checkingStatus) {
     return (
       <Card className="border-dashed">
         <CardContent className="flex items-center justify-center py-8">
           <RefreshCw className="h-5 w-5 animate-spin text-gray-400 mr-2" />
-          <span className="text-gray-500">Verification du service IA...</span>
+          <span className="text-gray-500">
+            {loadingSaved ? 'Chargement du pre-diagnostic...' : 'Verification du service IA...'}
+          </span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Background generation in progress (from complete-triage)
+  if (savedPreDiagnosis?.status === 'generating' && !loading) {
+    return (
+      <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-white">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Bot className="h-5 w-5 text-purple-600" />
+            Pre-diagnostic IA
+            <Badge variant="outline" className="text-xs text-purple-600 border-purple-300">
+              En cours
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center py-6">
+            <div className="relative">
+              <Bot className="h-10 w-10 text-purple-600" />
+              <RefreshCw className="h-4 w-4 text-purple-600 animate-spin absolute -bottom-1 -right-1" />
+            </div>
+            <p className="text-sm text-purple-600 mt-3 font-medium">Generation en cours...</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Le pre-diagnostic a ete declenche automatiquement
+            </p>
+          </div>
         </CardContent>
       </Card>
     );
   }
 
   // AI Not Available
-  if (aiAvailable === false) {
+  if (aiAvailable === false && !result) {
     return (
       <Card className="border-dashed border-gray-300 bg-gray-50">
         <CardHeader className="pb-2">
@@ -218,7 +343,7 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
             <WifiOff className="h-10 w-10 text-gray-400 mb-3" />
             <p className="text-gray-600 font-medium mb-1">Service IA non disponible</p>
             <p className="text-sm text-gray-500 mb-4">
-              Verifiez que Ollama est en cours d'execution
+              Verifiez que le modele LLM est en cours d'execution
             </p>
             <Button variant="outline" size="sm" onClick={checkAIStatus}>
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -239,7 +364,7 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
             <Bot className="h-5 w-5 text-purple-600" />
             Pre-diagnostic IA
             <Badge variant="outline" className="text-xs text-purple-600 border-purple-300">
-              Ollama
+              LLM Local
             </Badge>
             {result?.thinkingEnabled && (
               <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">
@@ -249,7 +374,7 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
             )}
           </CardTitle>
           {result && (
-            <Button variant="ghost" size="sm" onClick={generatePreDiagnosis} disabled={loading}>
+            <Button variant="ghost" size="sm" onClick={generatePreDiagnosis} disabled={loading} title="Regenerer">
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
           )}
@@ -258,11 +383,26 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
       <CardContent>
         {error && (
           <Alert variant="destructive" className="mb-4">
+            <XCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
 
-        {!result && !loading && (
+        {/* Show saved status if failed and no result */}
+        {savedPreDiagnosis?.status === 'failed' && !result && !loading && (
+          <div className="flex flex-col items-center py-4">
+            <XCircle className="h-8 w-8 text-red-400 mb-3" />
+            <p className="text-sm text-gray-600 mb-2 text-center">
+              La generation precedente a echoue
+            </p>
+            <Button onClick={generatePreDiagnosis} className="bg-purple-600 hover:bg-purple-700">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Reessayer
+            </Button>
+          </div>
+        )}
+
+        {!result && !loading && savedPreDiagnosis?.status !== 'failed' && (
           <div className="flex flex-col items-center py-4">
             <Sparkles className="h-8 w-8 text-purple-400 mb-3" />
             <p className="text-sm text-gray-600 mb-4 text-center">
@@ -364,7 +504,7 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
               <Alert className="bg-amber-50 border-amber-200">
                 <AlertTriangle className="h-4 w-4 text-amber-600" />
                 <AlertDescription className="text-amber-800">
-                  {result.warnings.join(' • ')}
+                  {result.warnings.join(' - ')}
                 </AlertDescription>
               </Alert>
             )}
@@ -453,13 +593,26 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
               </div>
             )}
 
-            {/* Timestamp */}
-            <p className="text-xs text-gray-400 text-center pt-2">
-              Genere le {new Date(result.generatedAt).toLocaleTimeString('fr-FR', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </p>
+            {/* Timestamp and Source */}
+            <div className="flex items-center justify-between text-xs text-gray-400 pt-2 border-t">
+              <div className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                <span>
+                  Genere le {new Date(result.generatedAt).toLocaleString('fr-FR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+              </div>
+              {savedPreDiagnosis?.triggerSource && (
+                <div className="flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" />
+                  <span>{triggerSourceLabels[savedPreDiagnosis.triggerSource] || savedPreDiagnosis.triggerSource}</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </CardContent>

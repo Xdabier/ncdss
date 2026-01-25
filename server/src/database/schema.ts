@@ -341,3 +341,41 @@ export const diagnoses = sqliteTable('diagnoses', {
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
 });
+
+// ============================================================================
+// AI PRE-DIAGNOSIS
+// Stores AI-generated pre-diagnosis results for persistence
+// ============================================================================
+
+export const aiPrediagnosis = sqliteTable('ai_prediagnosis', {
+  id: text('id').primaryKey(),
+  patientId: text('patient_id')
+    .notNull()
+    .references(() => patients.id, { onDelete: 'cascade' }),
+
+  // Status: 'pending' | 'generating' | 'completed' | 'failed'
+  status: text('status').notNull().default('pending'),
+
+  // Result (JSON blobs matching PreDiagnosisSuggestion)
+  suggestions: text('suggestions'),           // JSON array
+  recommendedTests: text('recommended_tests'), // JSON array
+  warnings: text('warnings'),                 // JSON array
+  thinkingTrace: text('thinking_trace'),
+  thinkingEnabled: integer('thinking_enabled', { mode: 'boolean' }).default(false),
+
+  // Error tracking
+  errorMessage: text('error_message'),
+
+  // Audit
+  generatedBy: text('generated_by').references(() => users.id),
+  triggerSource: text('trigger_source'), // 'manual_nurse' | 'manual_doctor' | 'auto_triage_complete'
+
+  // Timestamps
+  generatedAt: text('generated_at'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});

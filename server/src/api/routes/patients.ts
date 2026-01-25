@@ -14,6 +14,7 @@ import {
 } from '../../services/signExtractor';
 import { matchFindingsToPathologies } from '../../services/pathologyMatcher';
 import { getLLMProvider, PreDiagnosisContext } from '../../services/llm';
+import * as aiPreDiagnosisService from '../../services/ai-prediagnosis-service';
 
 const router = Router();
 
@@ -680,6 +681,7 @@ router.put('/:id/esi', async (req, res) => {
 router.post('/:id/complete-triage', async (req, res) => {
   try {
     const { id } = req.params;
+    const { userId } = (req as any).user;
     const { esiLevel, suggestedOrientation, orientationSource, finalOrientation, overrideReason } = req.body;
     const db = getDb();
 
@@ -713,6 +715,17 @@ router.post('/:id/complete-triage', async (req, res) => {
       triageCompletedAt: now,
       updatedAt: now
     }).where(eq(patients.id, id));
+
+    // Trigger background AI pre-diagnosis generation if not already done
+    const existingPreDiagnosis = await aiPreDiagnosisService.getByPatientId(id);
+    if (!existingPreDiagnosis || existingPreDiagnosis.status === 'failed') {
+      // Background generation - don't await, let it run in background
+      aiPreDiagnosisService.triggerBackgroundGeneration(
+        id,
+        userId,
+        'auto_triage_complete'
+      );
+    }
 
     const [updated] = await db.select().from(patients).where(eq(patients.id, id));
     res.json(updated);
@@ -987,6 +1000,39 @@ router.post('/:id/discharge', async (req, res) => {
 // AI PRE-DIAGNOSIS (LLM Integration)
 // ============================================================================
 
+// Get saved AI pre-diagnosis
+router.get('/:id/ai-prediagnosis', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const saved = await aiPreDiagnosisService.getByPatientId(id);
+
+    if (!saved) {
+      return res.json({ exists: false, status: null, result: null });
+    }
+
+    res.json({
+      exists: true,
+      status: saved.status,
+      result: saved.status === 'completed' ? {
+        suggestions: JSON.parse(saved.suggestions || '[]'),
+        recommendedTests: JSON.parse(saved.recommendedTests || '[]'),
+        warnings: JSON.parse(saved.warnings || '[]'),
+        thinkingTrace: saved.thinkingTrace,
+        thinkingEnabled: saved.thinkingEnabled,
+        generatedAt: saved.generatedAt,
+        available: true
+      } : null,
+      errorMessage: saved.status === 'failed' ? saved.errorMessage : null,
+      generatedAt: saved.generatedAt,
+      triggerSource: saved.triggerSource
+    });
+  } catch (error) {
+    console.error('Get AI pre-diagnosis error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 // Check AI service availability
 router.get('/:id/ai-status', async (req, res) => {
   try {
@@ -1003,6 +1049,7 @@ router.get('/:id/ai-status', async (req, res) => {
 router.post('/:id/ai-prediagnosis', async (req, res) => {
   try {
     const { id } = req.params;
+    const { userId, role } = (req as any).user;
     const db = getDb();
 
     // Load patient
@@ -1010,6 +1057,13 @@ router.post('/:id/ai-prediagnosis', async (req, res) => {
     if (!patient) {
       return res.status(404).json({ error: 'Patient non trouvé' });
     }
+
+    // Determine trigger source based on role
+    const triggerSource: aiPreDiagnosisService.AITriggerSource =
+      role === 'DOCTOR' ? 'manual_doctor' : 'manual_nurse';
+
+    // Set status to 'generating'
+    await aiPreDiagnosisService.createOrUpdate(id, userId, triggerSource);
 
     // Get LLM provider
     const llm = getLLMProvider();
@@ -1049,17 +1103,25 @@ router.post('/:id/ai-prediagnosis', async (req, res) => {
     // Generate pre-diagnosis
     const suggestion = await llm.generatePreDiagnosis(context);
 
+    // Save the result to database
+    await aiPreDiagnosisService.saveResult(id, suggestion);
+
     res.json(suggestion);
-  } catch (error) {
+  } catch (error: any) {
+    const { id } = req.params;
     console.error('AI pre-diagnosis error:', error);
+    // Update status to failed
+    await aiPreDiagnosisService.updateStatus(id, 'failed', error.message || 'Erreur du service d\'IA');
     res.status(500).json({ error: 'Erreur du service d\'IA' });
   }
 });
 
 // Generate AI pre-diagnosis with streaming (SSE)
 router.get('/:id/ai-prediagnosis-stream', async (req, res) => {
+  const { id } = req.params;
+  const { userId, role } = (req as any).user;
+
   try {
-    const { id } = req.params;
     const db = getDb();
 
     // Load patient
@@ -1068,6 +1130,13 @@ router.get('/:id/ai-prediagnosis-stream', async (req, res) => {
       res.status(404).json({ error: 'Patient non trouvé' });
       return;
     }
+
+    // Determine trigger source based on role
+    const triggerSource: aiPreDiagnosisService.AITriggerSource =
+      role === 'DOCTOR' ? 'manual_doctor' : 'manual_nurse';
+
+    // Set status to 'generating'
+    await aiPreDiagnosisService.createOrUpdate(id, userId, triggerSource);
 
     // Set SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
@@ -1111,14 +1180,38 @@ router.get('/:id/ai-prediagnosis-stream', async (req, res) => {
       allergies: patient.allergies ?? undefined
     };
 
-    // Stream pre-diagnosis generation
-    await llm.generatePreDiagnosisStream(context, (chunk) => {
+    // Stream pre-diagnosis generation and save result when done
+    await llm.generatePreDiagnosisStream(context, async (chunk) => {
       res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+
+      // Save result to database when generation completes
+      if (chunk.type === 'done' && chunk.result) {
+        try {
+          await aiPreDiagnosisService.saveResult(id, chunk.result);
+        } catch (saveError) {
+          console.error('Failed to save AI pre-diagnosis result:', saveError);
+        }
+      }
+
+      // Update status to failed on error
+      if (chunk.type === 'error') {
+        try {
+          await aiPreDiagnosisService.updateStatus(id, 'failed', chunk.error || 'Erreur inconnue');
+        } catch (updateError) {
+          console.error('Failed to update AI pre-diagnosis status:', updateError);
+        }
+      }
     });
 
     res.end();
-  } catch (error) {
+  } catch (error: any) {
     console.error('AI pre-diagnosis stream error:', error);
+    // Update status to failed
+    try {
+      await aiPreDiagnosisService.updateStatus(id, 'failed', error.message || 'Erreur du service d\'IA');
+    } catch (updateError) {
+      console.error('Failed to update AI pre-diagnosis status:', updateError);
+    }
     res.write(`data: ${JSON.stringify({ type: 'error', error: 'Erreur du service d\'IA' })}\n\n`);
     res.end();
   }
