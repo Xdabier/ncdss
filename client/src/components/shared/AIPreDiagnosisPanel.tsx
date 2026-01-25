@@ -21,6 +21,10 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
+  Activity,
+  Stethoscope,
+  FileSearch,
+  ListChecks,
 } from 'lucide-react';
 
 interface AISuggestion {
@@ -75,6 +79,183 @@ const triggerSourceLabels: Record<string, string> = {
   auto_triage_complete: 'Automatique (fin triage)',
 };
 
+// Analysis phases for the loading animation
+const analysisPhases = [
+  { icon: FileSearch, label: 'Lecture du dossier patient...', duration: 2000 },
+  { icon: Activity, label: 'Analyse des signes vitaux...', duration: 3000 },
+  { icon: Stethoscope, label: 'Evaluation clinique ABCDE...', duration: 4000 },
+  { icon: Brain, label: 'Raisonnement diagnostique...', duration: 5000 },
+  { icon: ListChecks, label: 'Generation des suggestions...', duration: 6000 },
+];
+
+// Animated loading component
+function AILoadingAnimation({
+  streamActivity,
+  thinkingActive,
+  responseActive
+}: {
+  streamActivity: number;
+  thinkingActive: boolean;
+  responseActive: boolean;
+}) {
+  const [currentPhase, setCurrentPhase] = useState(0);
+  const [dots, setDots] = useState<{ id: number; x: number; y: number; scale: number }[]>([]);
+  const [waveOffset, setWaveOffset] = useState(0);
+  const dotIdRef = useRef(0);
+
+  // Animate the brain wave
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setWaveOffset(prev => prev + 0.3);
+    }, 50);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Progress through phases based on stream activity
+  useEffect(() => {
+    if (responseActive && currentPhase < analysisPhases.length - 1) {
+      setCurrentPhase(analysisPhases.length - 1);
+    } else if (thinkingActive && currentPhase < analysisPhases.length - 2) {
+      const timer = setTimeout(() => {
+        setCurrentPhase(prev => Math.min(prev + 1, analysisPhases.length - 2));
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [thinkingActive, responseActive, currentPhase]);
+
+  // Create floating dots on stream activity
+  useEffect(() => {
+    if (streamActivity > 0) {
+      const newDot = {
+        id: dotIdRef.current++,
+        x: Math.random() * 60 + 20,
+        y: Math.random() * 40 + 30,
+        scale: Math.random() * 0.5 + 0.5,
+      };
+      setDots(prev => [...prev.slice(-8), newDot]);
+    }
+  }, [streamActivity]);
+
+  // Clean up old dots
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setDots(prev => prev.slice(1));
+    }, 800);
+    return () => clearInterval(timer);
+  }, []);
+
+  const CurrentIcon = analysisPhases[currentPhase]?.icon || Brain;
+  const currentLabel = analysisPhases[currentPhase]?.label || 'Analyse en cours...';
+
+  return (
+    <div className="relative py-8 px-4">
+      {/* Background glow effect */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className={`w-32 h-32 rounded-full bg-purple-200 opacity-30 blur-xl transition-all duration-500 ${
+          streamActivity > 0 ? 'scale-125' : 'scale-100'
+        }`} />
+      </div>
+
+      {/* Central icon with pulse rings */}
+      <div className="relative flex flex-col items-center">
+        {/* Pulse rings */}
+        <div className="absolute">
+          <div className={`w-20 h-20 rounded-full border-2 border-purple-300 animate-ping opacity-20`} />
+        </div>
+        <div className="absolute">
+          <div
+            className={`w-24 h-24 rounded-full border border-purple-200 transition-all duration-300 ${
+              streamActivity > 0 ? 'scale-110 opacity-40' : 'scale-100 opacity-20'
+            }`}
+            style={{ animation: 'pulse 2s ease-in-out infinite' }}
+          />
+        </div>
+
+        {/* Main icon container */}
+        <div className={`relative z-10 w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-purple-700
+          flex items-center justify-center shadow-lg transition-transform duration-200 ${
+            streamActivity > 0 ? 'scale-110' : 'scale-100'
+          }`}
+        >
+          <CurrentIcon className="h-8 w-8 text-white" />
+
+          {/* Activity indicator */}
+          {(thinkingActive || responseActive) && (
+            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-green-500
+              flex items-center justify-center border-2 border-white">
+              <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+            </div>
+          )}
+        </div>
+
+        {/* Floating activity dots */}
+        {dots.map(dot => (
+          <div
+            key={dot.id}
+            className="absolute w-2 h-2 rounded-full bg-purple-400 animate-float-up opacity-60"
+            style={{
+              left: `${dot.x}%`,
+              top: `${dot.y}%`,
+              transform: `scale(${dot.scale})`,
+            }}
+          />
+        ))}
+
+        {/* Phase label */}
+        <div className="mt-6 text-center">
+          <p className="text-sm font-medium text-purple-700 transition-all duration-300">
+            {currentLabel}
+          </p>
+
+          {/* Progress dots */}
+          <div className="flex justify-center gap-1.5 mt-3">
+            {analysisPhases.map((_, idx) => (
+              <div
+                key={idx}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  idx <= currentPhase
+                    ? 'w-4 bg-purple-500'
+                    : 'w-1.5 bg-purple-200'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Subtle brain wave animation at bottom */}
+        <div className="mt-4 flex items-center gap-0.5">
+          {[...Array(12)].map((_, i) => (
+            <div
+              key={i}
+              className="w-1 bg-purple-300 rounded-full transition-all duration-75"
+              style={{
+                height: `${8 + Math.sin(waveOffset + i * 0.5) * 6 + (streamActivity > 0 ? 4 : 0)}px`,
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* CSS for float animation */}
+      <style>{`
+        @keyframes float-up {
+          0% {
+            opacity: 0.6;
+            transform: translateY(0) scale(var(--scale, 1));
+          }
+          100% {
+            opacity: 0;
+            transform: translateY(-30px) scale(0.5);
+          }
+        }
+        .animate-float-up {
+          animation: float-up 1s ease-out forwards;
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnosisPanelProps) {
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
@@ -91,6 +272,7 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
   // Streaming state
   const [streamingThinking, setStreamingThinking] = useState('');
   const [streamingResponse, setStreamingResponse] = useState('');
+  const [streamActivity, setStreamActivity] = useState(0); // Counter for animation reactivity
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load saved pre-diagnosis on mount
@@ -201,7 +383,8 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
       setResult(null);
       setStreamingThinking('');
       setStreamingResponse('');
-      setShowThinking(true); // Auto-expand thinking while streaming
+      setStreamActivity(0);
+      setShowThinking(false); // Don't auto-expand during streaming
 
       const serverUrl = await getServerUrl();
       if (!serverUrl) {
@@ -251,8 +434,10 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
 
               if (data.type === 'thinking') {
                 setStreamingThinking(prev => prev + data.content);
+                setStreamActivity(prev => prev + 1);
               } else if (data.type === 'response') {
                 setStreamingResponse(prev => prev + data.content);
+                setStreamActivity(prev => prev + 1);
               } else if (data.type === 'done') {
                 setResult(data.result);
                 // Refresh saved state
@@ -313,16 +498,14 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col items-center py-6">
-            <div className="relative">
-              <Bot className="h-10 w-10 text-purple-600" />
-              <RefreshCw className="h-4 w-4 text-purple-600 animate-spin absolute -bottom-1 -right-1" />
-            </div>
-            <p className="text-sm text-purple-600 mt-3 font-medium">Generation en cours...</p>
-            <p className="text-xs text-gray-500 mt-1">
-              Le pre-diagnostic a ete declenche automatiquement
-            </p>
-          </div>
+          <AILoadingAnimation
+            streamActivity={0}
+            thinkingActive={true}
+            responseActive={false}
+          />
+          <p className="text-xs text-gray-500 text-center -mt-2">
+            Le pre-diagnostic a ete declenche automatiquement
+          </p>
         </CardContent>
       </Card>
     );
@@ -417,52 +600,12 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
 
         {loading && (
           <div className="space-y-4">
-            {/* Streaming Thinking Display */}
-            {streamingThinking && (
-              <div className="border rounded-lg overflow-hidden">
-                <div className="flex items-center justify-between p-3 bg-blue-50">
-                  <div className="flex items-center gap-2 text-blue-700">
-                    <Brain className="h-4 w-4 animate-pulse" />
-                    <span className="font-medium">L'IA reflechit...</span>
-                  </div>
-                </div>
-                <div className="p-3 bg-blue-50/50 border-t border-blue-100 max-h-48 overflow-y-auto">
-                  <pre className="whitespace-pre-wrap text-sm text-gray-700 font-mono leading-relaxed">
-                    {streamingThinking}
-                    <span className="animate-pulse">|</span>
-                  </pre>
-                </div>
-              </div>
-            )}
-
-            {/* Streaming Response Display */}
-            {streamingResponse && (
-              <div className="border rounded-lg overflow-hidden">
-                <div className="p-3 bg-purple-50">
-                  <div className="flex items-center gap-2 text-purple-700">
-                    <Bot className="h-4 w-4" />
-                    <span className="font-medium">Generation de la reponse...</span>
-                  </div>
-                </div>
-                <div className="p-3 bg-purple-50/50 border-t border-purple-100 max-h-32 overflow-y-auto">
-                  <pre className="whitespace-pre-wrap text-sm text-gray-700 font-mono">
-                    {streamingResponse}
-                    <span className="animate-pulse">|</span>
-                  </pre>
-                </div>
-              </div>
-            )}
-
-            {/* Loading indicator when no streaming content yet */}
-            {!streamingThinking && !streamingResponse && (
-              <div className="flex flex-col items-center py-6">
-                <div className="relative">
-                  <Bot className="h-10 w-10 text-purple-600" />
-                  <RefreshCw className="h-4 w-4 text-purple-600 animate-spin absolute -bottom-1 -right-1" />
-                </div>
-                <p className="text-sm text-purple-600 mt-3">Connexion au modele...</p>
-              </div>
-            )}
+            {/* Animated loading visualization */}
+            <AILoadingAnimation
+              streamActivity={streamActivity}
+              thinkingActive={streamingThinking.length > 0}
+              responseActive={streamingResponse.length > 0}
+            />
 
             {/* Stop button */}
             <div className="flex justify-center">
