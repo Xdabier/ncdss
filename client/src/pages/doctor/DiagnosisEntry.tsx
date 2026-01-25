@@ -1,38 +1,32 @@
-import React from 'react';
+import { useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '../../components/ui/card';
-import { Construction } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
+/**
+ * DiagnosisEntry page redirects to PatientDetail where the DiagnosisModal
+ * provides full diagnosis entry functionality with AI suggestions.
+ */
 export default function DiagnosisEntry() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (id) {
+      // Redirect to patient detail page where diagnosis modal can be opened
+      navigate(`/doctor/patient/${id}`, { replace: true });
+    } else {
+      // No patient ID provided, go back to patients list
+      navigate('/doctor/patients', { replace: true });
+    }
+  }, [id, navigate]);
+
+  // Show loading while redirecting
   return (
     <DashboardLayout>
-      <div className="p-6">
-        <div className="max-w-3xl mx-auto">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Construction className="h-6 w-6 text-orange-500" />
-                Saisie Diagnostic
-              </CardTitle>
-              <CardDescription>Cette page sera implémentée dans une future version</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">Fonctionnalités à venir :</p>
-              <ul className="list-disc list-inside mt-2 space-y-1 text-gray-600">
-                <li>Saisie du diagnostic principal</li>
-                <li>Diagnostics différentiels</li>
-                <li>Codage CIM-10</li>
-                <li>Plan de traitement</li>
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="flex items-center justify-center h-full py-20">
+        <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
+        <span className="ml-3 text-gray-500">Redirection...</span>
       </div>
     </DashboardLayout>
   );

@@ -22,6 +22,9 @@ import {
   XCircle,
   Pause,
   HelpCircle,
+  Ban,
+  PlayCircle,
+  CheckSquare,
 } from 'lucide-react';
 import { DashboardLayout } from '../../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -36,7 +39,7 @@ import {
   SelectValue,
 } from '../../../components/ui/select';
 import { getApi } from '../../../services/api';
-import { Patient, PatientStatus, Box, User as UserType, Prescription, MedicationRoute, AdministrationStatus } from '@ncdss/shared';
+import { Patient, PatientStatus, Box, User as UserType, Prescription, MedicationRoute, AdministrationStatus, PrescriptionStatus } from '@ncdss/shared';
 import { formatDateTime } from '../../../utils/dateUtils';
 
 // Treatment note interface
@@ -105,6 +108,14 @@ const administrationStatusConfig: Record<AdministrationStatus, { label: string; 
   [AdministrationStatus.NOT_AVAILABLE]: { label: 'Non disponible', color: 'text-gray-600', icon: HelpCircle },
 };
 
+// Prescription status labels and colors
+const prescriptionStatusConfig: Record<PrescriptionStatus, { label: string; bgColor: string; textColor: string }> = {
+  [PrescriptionStatus.ACTIVE]: { label: 'Actif', bgColor: 'bg-green-100', textColor: 'text-green-800' },
+  [PrescriptionStatus.ON_HOLD]: { label: 'En pause', bgColor: 'bg-amber-100', textColor: 'text-amber-800' },
+  [PrescriptionStatus.COMPLETED]: { label: 'Terminé', bgColor: 'bg-blue-100', textColor: 'text-blue-800' },
+  [PrescriptionStatus.CANCELLED]: { label: 'Annulé', bgColor: 'bg-red-100', textColor: 'text-red-800' },
+};
+
 export default function PatientCare() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -120,8 +131,10 @@ export default function PatientCare() {
   const [showReTriageModal, setShowReTriageModal] = useState(false);
   const [showDischargeModal, setShowDischargeModal] = useState(false);
   const [showAdministrationModal, setShowAdministrationModal] = useState(false);
+  const [showHoldModal, setShowHoldModal] = useState(false);
   const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [prescriptionActionLoading, setPrescriptionActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -133,11 +146,12 @@ export default function PatientCare() {
     try {
       setLoading(true);
       const api = await getApi();
-      const [patientRes, boxesRes, doctorsRes, prescriptionsRes] = await Promise.all([
+      const [patientRes, boxesRes, doctorsRes, activePresRes, holdPresRes] = await Promise.all([
         api.get(`/patients/${id}`),
         api.get('/config/boxes'),
         api.get('/users/by-role/DOCTOR'),
         api.get(`/prescriptions/patient/${id}?status=ACTIVE`),
+        api.get(`/prescriptions/patient/${id}?status=ON_HOLD`),
       ]);
 
       setPatient(patientRes.data);
@@ -156,7 +170,8 @@ export default function PatientCare() {
       setBoxes(boxesRes.data.filter((b: Box) => b.isActive));
       // API already filters by isActive, no need to filter again
       setDoctors(doctorsRes.data);
-      setPrescriptions(prescriptionsRes.data);
+      // Combine ACTIVE and ON_HOLD prescriptions
+      setPrescriptions([...activePresRes.data, ...holdPresRes.data]);
     } catch (error) {
       console.error('Error loading patient:', error);
     } finally {
@@ -267,6 +282,66 @@ export default function PatientCare() {
     } catch (error) {
       console.error('Error reloading prescriptions:', error);
     }
+  };
+
+  const reloadPrescriptions = async (): Promise<void> => {
+    try {
+      const api = await getApi();
+      // Get both ACTIVE and ON_HOLD prescriptions
+      const [activeRes, holdRes] = await Promise.all([
+        api.get(`/prescriptions/patient/${id}?status=ACTIVE`),
+        api.get(`/prescriptions/patient/${id}?status=ON_HOLD`),
+      ]);
+      setPrescriptions([...activeRes.data, ...holdRes.data]);
+    } catch (error) {
+      console.error('Error reloading prescriptions:', error);
+    }
+  };
+
+  const handleHoldPrescription = async (prescriptionId: string, reason: string): Promise<void> => {
+    setPrescriptionActionLoading(prescriptionId);
+    try {
+      const api = await getApi();
+      await api.post(`/prescriptions/${prescriptionId}/hold`, { reason });
+      await reloadPrescriptions();
+      setShowHoldModal(false);
+      setSelectedPrescription(null);
+    } catch (error) {
+      console.error('Error holding prescription:', error);
+    } finally {
+      setPrescriptionActionLoading(null);
+    }
+  };
+
+  const handleResumePrescription = async (prescriptionId: string): Promise<void> => {
+    setPrescriptionActionLoading(prescriptionId);
+    try {
+      const api = await getApi();
+      await api.post(`/prescriptions/${prescriptionId}/resume`);
+      await reloadPrescriptions();
+    } catch (error) {
+      console.error('Error resuming prescription:', error);
+    } finally {
+      setPrescriptionActionLoading(null);
+    }
+  };
+
+  const handleCompletePrescription = async (prescriptionId: string): Promise<void> => {
+    setPrescriptionActionLoading(prescriptionId);
+    try {
+      const api = await getApi();
+      await api.post(`/prescriptions/${prescriptionId}/complete`);
+      await reloadPrescriptions();
+    } catch (error) {
+      console.error('Error completing prescription:', error);
+    } finally {
+      setPrescriptionActionLoading(null);
+    }
+  };
+
+  const handleOpenHoldModal = (prescription: Prescription): void => {
+    setSelectedPrescription(prescription);
+    setShowHoldModal(true);
   };
 
   // Get last administration time for a prescription
@@ -590,30 +665,43 @@ export default function PatientCare() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Pill className="h-5 w-5 text-purple-500" />
-                  Prescriptions Actives
+                  Prescriptions
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {prescriptions.length === 0 ? (
                   <div className="text-center py-8 text-gray-400">
                     <Pill className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>Aucune prescription active</p>
+                    <p>Aucune prescription</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {prescriptions.map((prescription) => {
                       const lastAdminTime = getLastAdministration(prescription);
+                      const statusConfig = prescriptionStatusConfig[prescription.status as PrescriptionStatus] ||
+                        prescriptionStatusConfig[PrescriptionStatus.ACTIVE];
+                      const isLoading = prescriptionActionLoading === prescription.id;
+                      const isActive = prescription.status === PrescriptionStatus.ACTIVE;
+                      const isOnHold = prescription.status === PrescriptionStatus.ON_HOLD;
+
                       return (
                         <div
                           key={prescription.id}
-                          className="p-4 border rounded-lg bg-gray-50"
+                          className={`p-4 border rounded-lg ${
+                            isOnHold ? 'bg-amber-50 border-amber-200' : 'bg-gray-50'
+                          }`}
                         >
                           {/* Prescription header */}
                           <div className="flex justify-between items-start mb-3">
                             <div>
-                              <h4 className="font-semibold text-gray-900">
-                                {prescription.medicationName}
-                              </h4>
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-semibold text-gray-900">
+                                  {prescription.medicationName}
+                                </h4>
+                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusConfig.bgColor} ${statusConfig.textColor}`}>
+                                  {statusConfig.label}
+                                </span>
+                              </div>
                               <p className="text-sm text-gray-600">
                                 {prescription.dosage} - {routeLabels[prescription.route]}
                               </p>
@@ -622,14 +710,34 @@ export default function PatientCare() {
                                 {prescription.duration && ` (${prescription.duration})`}
                               </p>
                             </div>
-                            <Button
-                              size="sm"
-                              className="bg-purple-600 hover:bg-purple-700"
-                              onClick={() => handleOpenAdministration(prescription)}
-                            >
-                              <Pill className="h-4 w-4 mr-1" />
-                              Administrer
-                            </Button>
+                            {/* Administrer button only for ACTIVE prescriptions */}
+                            {isActive && (
+                              <Button
+                                size="sm"
+                                className="bg-purple-600 hover:bg-purple-700"
+                                onClick={() => handleOpenAdministration(prescription)}
+                              >
+                                <Pill className="h-4 w-4 mr-1" />
+                                Administrer
+                              </Button>
+                            )}
+                            {/* Resume button for ON_HOLD prescriptions */}
+                            {isOnHold && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-green-300 text-green-700 hover:bg-green-50"
+                                onClick={() => handleResumePrescription(prescription.id)}
+                                disabled={isLoading}
+                              >
+                                {isLoading ? (
+                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                ) : (
+                                  <PlayCircle className="h-4 w-4 mr-1" />
+                                )}
+                                Reprendre
+                              </Button>
+                            )}
                           </div>
 
                           {/* Instructions if any */}
@@ -652,6 +760,40 @@ export default function PatientCare() {
                             Prescrit par {prescription.prescribedByName || 'Médecin'} le{' '}
                             {formatDateTime(prescription.prescribedAt)}
                           </div>
+
+                          {/* Action buttons for ACTIVE prescriptions */}
+                          {isActive && (
+                            <div className="mt-3 pt-3 border-t flex flex-wrap gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                                onClick={() => handleOpenHoldModal(prescription)}
+                                disabled={isLoading}
+                              >
+                                {isLoading ? (
+                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                ) : (
+                                  <Pause className="h-4 w-4 mr-1" />
+                                )}
+                                Mettre en pause
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                                onClick={() => handleCompletePrescription(prescription.id)}
+                                disabled={isLoading}
+                              >
+                                {isLoading ? (
+                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                ) : (
+                                  <CheckSquare className="h-4 w-4 mr-1" />
+                                )}
+                                Marquer terminé
+                              </Button>
+                            </div>
+                          )}
 
                           {/* Administration history (last 5) */}
                           {prescription.administrations && prescription.administrations.length > 0 && (
@@ -942,6 +1084,19 @@ export default function PatientCare() {
             setSelectedPrescription(null);
           }}
           onSuccess={handleAdministrationSuccess}
+        />
+      )}
+
+      {/* Hold Prescription Modal */}
+      {showHoldModal && selectedPrescription && (
+        <HoldPrescriptionModal
+          prescription={selectedPrescription}
+          onConfirm={(reason) => handleHoldPrescription(selectedPrescription.id, reason)}
+          onCancel={() => {
+            setShowHoldModal(false);
+            setSelectedPrescription(null);
+          }}
+          loading={prescriptionActionLoading === selectedPrescription.id}
         />
       )}
     </DashboardLayout>
@@ -1235,6 +1390,82 @@ function AdministrationModal({ prescription, isOpen, onClose, onSuccess }: Admin
               </>
             ) : (
               'Confirmer'
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Hold Prescription Modal Component
+interface HoldPrescriptionModalProps {
+  prescription: Prescription;
+  onConfirm: (reason: string) => void;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
+function HoldPrescriptionModal({ prescription, onConfirm, onCancel, loading }: HoldPrescriptionModalProps) {
+  const [reason, setReason] = useState('');
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Pause className="h-5 w-5 text-amber-500" />
+            Mettre en pause la prescription
+          </h3>
+          <button onClick={onCancel} className="text-gray-400 hover:text-gray-600" disabled={loading}>
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Prescription info */}
+        <div className="p-4 bg-gray-50 border-b">
+          <h4 className="font-semibold text-gray-900">{prescription.medicationName}</h4>
+          <p className="text-sm text-gray-600">
+            {prescription.dosage} - {routeLabels[prescription.route]} - {prescription.frequency}
+          </p>
+        </div>
+
+        <div className="p-4">
+          <p className="text-sm text-gray-500 mb-4">
+            La prescription sera suspendue jusqu'à ce qu'elle soit reprise. Les administrations ne pourront plus être enregistrées tant que la prescription est en pause.
+          </p>
+          <label className="block text-sm font-medium mb-2">
+            Raison de la suspension <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Ex: Attente résultats labo, intolérance suspectée, réévaluation nécessaire..."
+            className="w-full border rounded-lg p-3 min-h-[100px] focus:outline-none focus:ring-2 focus:ring-amber-500"
+            autoFocus
+            disabled={loading}
+          />
+        </div>
+
+        <div className="flex gap-3 p-4 border-t bg-gray-50 rounded-b-lg">
+          <Button variant="outline" className="flex-1" onClick={onCancel} disabled={loading}>
+            Annuler
+          </Button>
+          <Button
+            className="flex-1 bg-amber-500 hover:bg-amber-600"
+            onClick={() => onConfirm(reason)}
+            disabled={!reason.trim() || loading}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Suspension...
+              </>
+            ) : (
+              <>
+                <Pause className="h-4 w-4 mr-2" />
+                Suspendre
+              </>
             )}
           </Button>
         </div>

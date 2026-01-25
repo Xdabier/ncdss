@@ -516,6 +516,7 @@ export default function PatientDetail() {
     diagnosisType?: string;
     severity?: string;
     notes?: string;
+    aiConfidence?: number;
   } | undefined>(undefined);
 
   const loadPatient = useCallback(async () => {
@@ -591,7 +592,8 @@ export default function PatientDetail() {
       diagnosisName: suggestion.diagnosis,
       diagnosisType: 'DIFFERENTIAL', // AI suggestions start as differential
       severity: severityMap[suggestion.urgency] || '',
-      notes: `Suggestion IA (confiance: ${suggestion.confidence}%): ${suggestion.reasoning}`,
+      notes: `Suggestion IA: ${suggestion.reasoning}`,
+      aiConfidence: suggestion.confidence, // Pass confidence to show indicator in modal
     });
     setShowDiagnosisModal(true);
   };

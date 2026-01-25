@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Stethoscope, Loader2 } from 'lucide-react';
+import { X, Stethoscope, Loader2, Sparkles, CheckCircle, FileText, HelpCircle, Info } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -18,6 +18,7 @@ interface InitialDiagnosisData {
   diagnosisType?: string;
   severity?: string;
   notes?: string;
+  aiConfidence?: number; // AI confidence percentage (0-100)
 }
 
 interface DiagnosisModalProps {
@@ -28,19 +29,37 @@ interface DiagnosisModalProps {
   initialData?: InitialDiagnosisData;
 }
 
-// Diagnosis type enum values
+// Diagnosis type enum values with descriptions
 const DIAGNOSIS_TYPES = [
-  { value: 'PRIMARY', label: 'Principal' },
-  { value: 'SECONDARY', label: 'Secondaire' },
-  { value: 'DIFFERENTIAL', label: 'Différentiel' },
+  {
+    value: 'PRIMARY',
+    label: 'Principal',
+    description: 'Diagnostic principal responsable de la consultation',
+    icon: CheckCircle,
+    color: 'text-green-600'
+  },
+  {
+    value: 'SECONDARY',
+    label: 'Secondaire',
+    description: 'Diagnostic additionnel, condition coexistante',
+    icon: FileText,
+    color: 'text-blue-600'
+  },
+  {
+    value: 'DIFFERENTIAL',
+    label: 'Différentiel',
+    description: 'Hypothèse diagnostique à confirmer ou exclure',
+    icon: HelpCircle,
+    color: 'text-amber-600'
+  },
 ] as const;
 
-// Severity enum values
+// Severity enum values with colors
 const SEVERITY_LEVELS = [
-  { value: 'MILD', label: 'Légère' },
-  { value: 'MODERATE', label: 'Modérée' },
-  { value: 'SEVERE', label: 'Sévère' },
-  { value: 'CRITICAL', label: 'Critique' },
+  { value: 'MILD', label: 'Légère', color: 'bg-green-100 text-green-800 border-green-300' },
+  { value: 'MODERATE', label: 'Modérée', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
+  { value: 'SEVERE', label: 'Sévère', color: 'bg-orange-100 text-orange-800 border-orange-300' },
+  { value: 'CRITICAL', label: 'Critique', color: 'bg-red-100 text-red-800 border-red-300' },
 ] as const;
 
 interface FormData {
@@ -188,6 +207,40 @@ export function DiagnosisModal({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          {/* AI Suggestion Indicator */}
+          {initialData?.aiConfidence !== undefined && (
+            <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="h-4 w-4 text-purple-600" />
+                <span className="text-sm font-medium text-purple-800">Suggestion IA</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 bg-purple-100 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full transition-all ${
+                      initialData.aiConfidence >= 80 ? 'bg-green-500' :
+                      initialData.aiConfidence >= 60 ? 'bg-yellow-500' :
+                      'bg-orange-500'
+                    }`}
+                    style={{ width: `${initialData.aiConfidence}%` }}
+                  />
+                </div>
+                <span className={`text-sm font-semibold ${
+                  initialData.aiConfidence >= 80 ? 'text-green-700' :
+                  initialData.aiConfidence >= 60 ? 'text-yellow-700' :
+                  'text-orange-700'
+                }`}>
+                  {initialData.aiConfidence}%
+                </span>
+              </div>
+              <p className="text-xs text-purple-600 mt-2">
+                {initialData.aiConfidence >= 80 ? 'Confiance élevée - à confirmer cliniquement' :
+                 initialData.aiConfidence >= 60 ? 'Confiance modérée - examens complémentaires recommandés' :
+                 'Confiance faible - hypothèse à explorer'}
+              </p>
+            </div>
+          )}
+
           {/* General error */}
           {errors.general && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
@@ -208,6 +261,10 @@ export function DiagnosisModal({
               }
               disabled={isSubmitting}
             />
+            <p className="text-xs text-gray-500">
+              <Info className="h-3 w-3 inline mr-1" />
+              Code de la Classification Internationale des Maladies (optionnel)
+            </p>
           </div>
 
           {/* Diagnosis Name (required) */}
@@ -239,29 +296,38 @@ export function DiagnosisModal({
             <Label htmlFor="diagnosisType">
               Type de diagnostic <span className="text-red-500">*</span>
             </Label>
-            <Select
-              value={formData.diagnosisType}
-              onValueChange={(value) => {
-                setFormData({ ...formData, diagnosisType: value });
-                if (errors.diagnosisType) {
-                  setErrors({ ...errors, diagnosisType: undefined });
-                }
-              }}
-              disabled={isSubmitting}
-            >
-              <SelectTrigger
-                className={errors.diagnosisType ? 'border-red-500' : ''}
-              >
-                <SelectValue placeholder="Sélectionner le type" />
-              </SelectTrigger>
-              <SelectContent>
-                {DIAGNOSIS_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              {DIAGNOSIS_TYPES.map((type) => {
+                const Icon = type.icon;
+                const isSelected = formData.diagnosisType === type.value;
+                return (
+                  <button
+                    key={type.value}
+                    type="button"
+                    onClick={() => {
+                      setFormData({ ...formData, diagnosisType: type.value });
+                      if (errors.diagnosisType) {
+                        setErrors({ ...errors, diagnosisType: undefined });
+                      }
+                    }}
+                    disabled={isSubmitting}
+                    className={`w-full flex items-start gap-3 p-3 rounded-lg border-2 text-left transition-all ${
+                      isSelected
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    <Icon className={`h-5 w-5 mt-0.5 ${isSelected ? type.color : 'text-gray-400'}`} />
+                    <div>
+                      <p className={`font-medium ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
+                        {type.label}
+                      </p>
+                      <p className="text-xs text-gray-500">{type.description}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
             {errors.diagnosisType && (
               <p className="text-sm text-red-500">{errors.diagnosisType}</p>
             )}
@@ -269,25 +335,37 @@ export function DiagnosisModal({
 
           {/* Severity (optional) */}
           <div className="space-y-2">
-            <Label htmlFor="severity">Sévérité</Label>
-            <Select
-              value={formData.severity}
-              onValueChange={(value) =>
-                setFormData({ ...formData, severity: value })
-              }
-              disabled={isSubmitting}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner la sévérité (optionnel)" />
-              </SelectTrigger>
-              <SelectContent>
-                {SEVERITY_LEVELS.map((severity) => (
-                  <SelectItem key={severity.value} value={severity.value}>
+            <Label htmlFor="severity">Sévérité (optionnel)</Label>
+            <div className="flex flex-wrap gap-2">
+              {SEVERITY_LEVELS.map((severity) => {
+                const isSelected = formData.severity === severity.value;
+                return (
+                  <button
+                    key={severity.value}
+                    type="button"
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        severity: isSelected ? '' : severity.value
+                      })
+                    }
+                    disabled={isSubmitting}
+                    className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                      isSelected
+                        ? severity.color + ' border-current'
+                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300'
+                    } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
                     {severity.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  </button>
+                );
+              })}
+            </div>
+            {formData.severity && (
+              <p className="text-xs text-gray-500">
+                Cliquez à nouveau pour désélectionner
+              </p>
+            )}
           </div>
 
           {/* Notes (optional) */}
