@@ -914,7 +914,7 @@ router.post('/:id/request-retriage', async (req, res) => {
 router.post('/:id/transfer-to-doctor', async (req, res) => {
   try {
     const { id } = req.params;
-    const { doctorId } = req.body;
+    const { doctorId, reason } = req.body;
 
     const db = getDb();
 
@@ -923,12 +923,14 @@ router.post('/:id/transfer-to-doctor', async (req, res) => {
       return res.status(404).json({ error: 'Patient non trouvé' });
     }
 
-    // Allow transfer for IN_TREATMENT patients or WITH_DOCTOR patients without assigned doctor
+    // Allow transfer for:
+    // - IN_TREATMENT patients (initial doctor assignment)
+    // - WITH_DOCTOR patients (re-transfer between doctors)
     const canTransfer = patient.status === PatientStatus.IN_TREATMENT ||
-      (patient.status === PatientStatus.WITH_DOCTOR && !patient.assignedDoctorId);
+      patient.status === PatientStatus.WITH_DOCTOR;
 
     if (!canTransfer) {
-      return res.status(400).json({ error: 'Patient doit être en soins infirmiers ou en attente de médecin' });
+      return res.status(400).json({ error: 'Patient doit être en soins infirmiers ou avec un médecin' });
     }
 
     // Validate doctor exists if provided
@@ -937,13 +939,26 @@ router.post('/:id/transfer-to-doctor', async (req, res) => {
       if (!doctor) {
         return res.status(400).json({ error: 'Médecin non trouvé' });
       }
+
+      // Check not transferring to same doctor
+      if (patient.assignedDoctorId === doctorId) {
+        return res.status(400).json({ error: 'Patient déjà assigné à ce médecin' });
+      }
     }
+
+    // Build transfer note
+    const now = new Date();
+    const transferNote = `[Transfert] ${now.toLocaleString('fr-FR')}: ${reason || 'Pas de raison spécifiée'}`;
+    const updatedNotes = patient.treatmentNotes
+      ? `${patient.treatmentNotes}\n\n${transferNote}`
+      : transferNote;
 
     await db.update(patients).set({
       status: PatientStatus.WITH_DOCTOR,
       assignedDoctorId: doctorId || null,
-      doctorAssignedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      doctorAssignedAt: now.toISOString(),
+      treatmentNotes: updatedNotes,
+      updatedAt: now.toISOString()
     }).where(eq(patients.id, id));
 
     const [updated] = await db.select().from(patients).where(eq(patients.id, id));

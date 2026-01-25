@@ -52,6 +52,11 @@ import {
   CheckCircle,
   XCircle,
   HelpCircle,
+  Edit3,
+  Ban,
+  UserPlus,
+  Stethoscope,
+  History,
 } from 'lucide-react';
 
 // French labels
@@ -274,6 +279,221 @@ function PrescriptionEntryModal({ patientId, onClose, onSuccess }: PrescriptionE
   );
 }
 
+// Cancel Prescription Modal
+interface CancelPrescriptionModalProps {
+  prescription: Prescription;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function CancelPrescriptionModal({ prescription, onClose, onSuccess }: CancelPrescriptionModalProps) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reason, setReason] = useState('');
+
+  const handleCancel = async () => {
+    if (!reason.trim()) {
+      setError('Veuillez indiquer la raison de l\'annulation');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const api = await getApi();
+      await api.put(`/prescriptions/${prescription.id}/cancel`, { reason });
+      onSuccess();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Erreur lors de l\'annulation');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+        <div className="flex items-center justify-between p-4 border-b">
+          <h2 className="text-lg font-semibold text-red-600">Annuler la Prescription</h2>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          <div className="p-3 bg-gray-50 rounded-lg">
+            <p className="font-medium">{prescription.medicationName}</p>
+            <p className="text-sm text-gray-600">{prescription.dosage} - {prescription.frequency}</p>
+          </div>
+
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <div>
+            <Label htmlFor="cancelReason">Raison de l'annulation *</Label>
+            <textarea
+              id="cancelReason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Ex: Allergie découverte, changement de traitement..."
+              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+              rows={3}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+              Retour
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancel}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Annulation...
+                </>
+              ) : (
+                <>
+                  <Ban className="h-4 w-4 mr-2" />
+                  Annuler la prescription
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Transfer Patient Modal
+interface TransferModalProps {
+  patient: Patient;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function TransferModal({ patient, onClose, onSuccess }: TransferModalProps) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [doctors, setDoctors] = useState<{ id: string; fullName: string }[]>([]);
+  const [selectedDoctor, setSelectedDoctor] = useState('');
+  const [reason, setReason] = useState('');
+
+  useEffect(() => {
+    const loadDoctors = async () => {
+      try {
+        const api = await getApi();
+        const response = await api.get('/users/by-role/DOCTOR');
+        setDoctors(response.data);
+      } catch (err) {
+        console.error('Error loading doctors:', err);
+      }
+    };
+    loadDoctors();
+  }, []);
+
+  const handleTransfer = async () => {
+    if (!selectedDoctor) {
+      setError('Veuillez sélectionner un médecin');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const api = await getApi();
+      await api.post(`/patients/${patient.id}/transfer-to-doctor`, {
+        doctorId: selectedDoctor,
+        reason: reason || undefined,
+      });
+      onSuccess();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Erreur lors du transfert');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+        <div className="flex items-center justify-between p-4 border-b">
+          <h2 className="text-lg font-semibold">Transférer le Patient</h2>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <div>
+            <Label>Transférer à *</Label>
+            <Select value={selectedDoctor} onValueChange={setSelectedDoctor}>
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Sélectionner un médecin" />
+              </SelectTrigger>
+              <SelectContent>
+                {doctors
+                  .filter(d => d.id !== patient.assignedDoctorId)
+                  .map((doctor) => (
+                    <SelectItem key={doctor.id} value={doctor.id}>
+                      Dr. {doctor.fullName}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="transferReason">Raison du transfert</Label>
+            <textarea
+              id="transferReason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Ex: Consultation spécialisée requise..."
+              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              rows={3}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+              Annuler
+            </Button>
+            <Button onClick={handleTransfer} disabled={loading}>
+              {loading ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Transfert...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Transférer
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PatientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -287,6 +507,9 @@ export default function PatientDetail() {
   const [showDiagnosisModal, setShowDiagnosisModal] = useState(false);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [showDischargeModal, setShowDischargeModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [prescriptionToCancel, setPrescriptionToCancel] = useState<Prescription | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [aiDiagnosisInitialData, setAiDiagnosisInitialData] = useState<{
     diagnosisCode?: string;
     diagnosisName?: string;
@@ -372,6 +595,53 @@ export default function PatientDetail() {
     });
     setShowDiagnosisModal(true);
   };
+
+  // Confirm diagnosis
+  const handleConfirmDiagnosis = async (diagnosisId: string) => {
+    setActionLoading(`confirm-${diagnosisId}`);
+    try {
+      const api = await getApi();
+      await api.post(`/diagnoses/${diagnosisId}/confirm`);
+      await loadDiagnoses();
+    } catch (err: any) {
+      console.error('Error confirming diagnosis:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Rule out diagnosis
+  const handleRuleOutDiagnosis = async (diagnosisId: string) => {
+    setActionLoading(`ruleout-${diagnosisId}`);
+    try {
+      const api = await getApi();
+      await api.put(`/diagnoses/${diagnosisId}`, { status: DiagnosisStatus.RULED_OUT });
+      await loadDiagnoses();
+    } catch (err: any) {
+      console.error('Error ruling out diagnosis:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Resolve diagnosis
+  const handleResolveDiagnosis = async (diagnosisId: string) => {
+    setActionLoading(`resolve-${diagnosisId}`);
+    try {
+      const api = await getApi();
+      await api.put(`/diagnoses/${diagnosisId}`, { status: 'RESOLVED' });
+      await loadDiagnoses();
+    } catch (err: any) {
+      console.error('Error resolving diagnosis:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Parse chronic conditions
+  const chronicConditions = patient?.chronicConditions
+    ? patient.chronicConditions.split(',').map(c => c.trim()).filter(Boolean)
+    : [];
 
   // Parse allergies
   const allergies = patient?.allergies ? patient.allergies.split(',').map(a => a.trim()).filter(Boolean) : [];
@@ -490,6 +760,50 @@ export default function PatientDetail() {
           </div>
         </div>
 
+        {/* Quick Actions Bar */}
+        <div className="flex flex-wrap items-center gap-2 mb-6 p-3 bg-gray-50 rounded-lg">
+          <Button
+            size="sm"
+            onClick={() => {
+              setAiDiagnosisInitialData(undefined);
+              setShowDiagnosisModal(true);
+            }}
+          >
+            <Stethoscope className="h-4 w-4 mr-2" />
+            Ajouter Diagnostic
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowPrescriptionModal(true)}
+          >
+            <Pill className="h-4 w-4 mr-2" />
+            Prescrire
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowTransferModal(true)}
+            disabled={patient.status === PatientStatus.DISCHARGED}
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Transférer
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowDischargeModal(true)}
+            disabled={patient.status === PatientStatus.DISCHARGED}
+            className="ml-auto"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Sortie
+            {!hasPrimaryDiagnosis && (
+              <span className="ml-2 text-xs text-amber-600">(diagnostic requis)</span>
+            )}
+          </Button>
+        </div>
+
         {/* Allergies Alert */}
         {allergies.length > 0 && (
           <Alert variant="destructive" className="mb-6">
@@ -516,7 +830,7 @@ export default function PatientDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - 2/3 width */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Chief Complaint */}
+            {/* Chief Complaint & Medical History */}
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -524,14 +838,44 @@ export default function PatientDetail() {
                   Motif de consultation
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-gray-900">
-                  {patient.chiefComplaint || 'Non renseigné'}
-                </p>
-                {patient.symptomOnset && (
-                  <p className="text-sm text-gray-500 mt-1">
-                    Début des symptômes : {patient.symptomOnset}
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="text-gray-900 font-medium">
+                    {patient.chiefComplaint || 'Non renseigné'}
                   </p>
+                  {patient.symptomOnset && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      Début des symptômes : {patient.symptomOnset}
+                    </p>
+                  )}
+                </div>
+
+                {/* Chronic Conditions */}
+                {chronicConditions.length > 0 && (
+                  <div className="pt-3 border-t">
+                    <p className="text-sm font-medium text-gray-600 mb-2">
+                      <History className="h-4 w-4 inline mr-1" />
+                      Antécédents / Maladies chroniques
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {chronicConditions.map((condition, idx) => (
+                        <Badge key={idx} variant="secondary">
+                          {condition}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Current Medications */}
+                {patient.currentMedications && (
+                  <div className="pt-3 border-t">
+                    <p className="text-sm font-medium text-gray-600 mb-2">
+                      <Pill className="h-4 w-4 inline mr-1" />
+                      Traitement en cours
+                    </p>
+                    <p className="text-sm text-gray-700">{patient.currentMedications}</p>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -723,14 +1067,20 @@ export default function PatientDetail() {
                         className={`p-3 rounded-lg border ${
                           diagnosis.diagnosisType === DiagnosisType.PRIMARY
                             ? 'border-green-200 bg-green-50'
-                            : 'border-gray-200 bg-gray-50'
+                            : diagnosis.status === DiagnosisStatus.RULED_OUT
+                              ? 'border-gray-300 bg-gray-100 opacity-75'
+                              : 'border-gray-200 bg-gray-50'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-start gap-2">
                             {getTypeIcon(diagnosis.diagnosisType)}
                             <div>
-                              <p className="font-medium text-gray-900">
+                              <p className={`font-medium ${
+                                diagnosis.status === DiagnosisStatus.RULED_OUT
+                                  ? 'text-gray-500 line-through'
+                                  : 'text-gray-900'
+                              }`}>
                                 {diagnosis.diagnosisName}
                               </p>
                               {diagnosis.diagnosisCode && (
@@ -760,11 +1110,69 @@ export default function PatientDetail() {
                               {diagnosisSeverityLabels[diagnosis.severity]}
                             </Badge>
                           )}
+                          {diagnosis.confirmedAt && (
+                            <Badge variant="success" className="text-xs">
+                              Confirmé
+                            </Badge>
+                          )}
                         </div>
                         {diagnosis.notes && (
                           <p className="text-sm text-gray-600 mt-2">
                             {diagnosis.notes}
                           </p>
+                        )}
+
+                        {/* Action buttons for active diagnoses */}
+                        {diagnosis.status === DiagnosisStatus.ACTIVE && !diagnosis.confirmedAt && (
+                          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-200">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-green-600 border-green-300 hover:bg-green-50"
+                              onClick={() => handleConfirmDiagnosis(diagnosis.id)}
+                              disabled={actionLoading === `confirm-${diagnosis.id}`}
+                            >
+                              {actionLoading === `confirm-${diagnosis.id}` ? (
+                                <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                              ) : (
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                              )}
+                              Confirmer
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 border-red-300 hover:bg-red-50"
+                              onClick={() => handleRuleOutDiagnosis(diagnosis.id)}
+                              disabled={actionLoading === `ruleout-${diagnosis.id}`}
+                            >
+                              {actionLoading === `ruleout-${diagnosis.id}` ? (
+                                <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                              ) : (
+                                <XCircle className="h-3 w-3 mr-1" />
+                              )}
+                              Exclure
+                            </Button>
+                          </div>
+                        )}
+
+                        {/* Resolve button for confirmed active diagnoses */}
+                        {diagnosis.status === DiagnosisStatus.ACTIVE && diagnosis.confirmedAt && (
+                          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-200">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleResolveDiagnosis(diagnosis.id)}
+                              disabled={actionLoading === `resolve-${diagnosis.id}`}
+                            >
+                              {actionLoading === `resolve-${diagnosis.id}` ? (
+                                <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                              ) : (
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                              )}
+                              Marquer résolu
+                            </Button>
+                          </div>
                         )}
                       </div>
                     ))}
@@ -797,13 +1205,27 @@ export default function PatientDetail() {
                     {prescriptions.map((prescription) => (
                       <div
                         key={prescription.id}
-                        className="p-3 rounded-lg border border-gray-200 bg-gray-50"
+                        className={`p-3 rounded-lg border ${
+                          prescription.status === PrescriptionStatus.CANCELLED
+                            ? 'border-red-200 bg-red-50 opacity-75'
+                            : prescription.status === PrescriptionStatus.ON_HOLD
+                              ? 'border-amber-200 bg-amber-50'
+                              : 'border-gray-200 bg-gray-50'
+                        }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-start gap-2">
-                            <Pill className="h-4 w-4 text-blue-600 mt-0.5" />
+                            <Pill className={`h-4 w-4 mt-0.5 ${
+                              prescription.status === PrescriptionStatus.CANCELLED
+                                ? 'text-red-400'
+                                : 'text-blue-600'
+                            }`} />
                             <div>
-                              <p className="font-medium text-gray-900">
+                              <p className={`font-medium ${
+                                prescription.status === PrescriptionStatus.CANCELLED
+                                  ? 'text-gray-500 line-through'
+                                  : 'text-gray-900'
+                              }`}>
                                 {prescription.medicationName}
                               </p>
                               <p className="text-sm text-gray-600">
@@ -834,9 +1256,57 @@ export default function PatientDetail() {
                             </div>
                           </div>
                         )}
+
+                        {/* Cancel button for active prescriptions */}
+                        {(prescription.status === PrescriptionStatus.ACTIVE ||
+                          prescription.status === PrescriptionStatus.ON_HOLD) && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 border-red-300 hover:bg-red-50"
+                              onClick={() => setPrescriptionToCancel(prescription)}
+                            >
+                              <Ban className="h-3 w-3 mr-1" />
+                              Annuler
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Treatment Notes Section */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Edit3 className="h-5 w-5 text-gray-500" />
+                  Notes de traitement
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {patient.treatmentNotes ? (
+                  <div className="space-y-2">
+                    {patient.treatmentNotes.split('\n\n').map((note, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-2 rounded text-sm ${
+                          note.startsWith('[Transfert]')
+                            ? 'bg-blue-50 border-l-2 border-blue-400'
+                            : 'bg-gray-50'
+                        }`}
+                      >
+                        <p className="whitespace-pre-wrap">{note}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-sm italic text-center py-4">
+                    Aucune note de traitement
+                  </p>
                 )}
               </CardContent>
             </Card>
@@ -847,6 +1317,16 @@ export default function PatientDetail() {
                 <CardTitle className="text-lg">Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
+                <Button
+                  className="w-full justify-start"
+                  variant="outline"
+                  onClick={() => setShowTransferModal(true)}
+                  disabled={patient.status === PatientStatus.DISCHARGED}
+                >
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Transférer à un autre médecin
+                </Button>
+
                 <Button
                   className="w-full justify-start"
                   variant="outline"
@@ -935,6 +1415,28 @@ export default function PatientDetail() {
           navigate('/doctor/patients');
         }}
       />
+
+      {showTransferModal && (
+        <TransferModal
+          patient={patient}
+          onClose={() => setShowTransferModal(false)}
+          onSuccess={() => {
+            setShowTransferModal(false);
+            loadPatient();
+          }}
+        />
+      )}
+
+      {prescriptionToCancel && (
+        <CancelPrescriptionModal
+          prescription={prescriptionToCancel}
+          onClose={() => setPrescriptionToCancel(null)}
+          onSuccess={() => {
+            setPrescriptionToCancel(null);
+            loadPrescriptions();
+          }}
+        />
+      )}
     </DashboardLayout>
   );
 }
