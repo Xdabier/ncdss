@@ -197,21 +197,21 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/pathologies/:id"
-          element={
-            <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
-                <PathologyForm />
-              </RoleGuard>
-            </ProtectedRoute>
-          }
-        />
-        <Route
           path="/admin/pathologies/import"
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
                 <PathologyImport />
+              </RoleGuard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/pathologies/:id"
+          element={
+            <ProtectedRoute>
+              <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
+                <PathologyForm />
               </RoleGuard>
             </ProtectedRoute>
           }
