@@ -452,7 +452,7 @@ export default function App() {
           }
         />
         <Route
-          path="/nurse/treatment/:id/care"
+          path="/nurse/treatment/:id"
           element={
             <ProtectedRoute>
               <RoleGuard

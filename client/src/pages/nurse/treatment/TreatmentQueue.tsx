@@ -119,7 +119,7 @@ export default function TreatmentQueue() {
   };
 
   const handleViewPatient = (patientId: string) => {
-    navigate(`/nurse/treatment/${patientId}/care`);
+    navigate(`/nurse/treatment/${patientId}`);
   };
 
   const columns: Column<Patient>[] = [

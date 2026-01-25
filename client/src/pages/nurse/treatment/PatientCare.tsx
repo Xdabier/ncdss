@@ -969,11 +969,25 @@ export default function PatientCare() {
                   <Button
                     variant="outline"
                     className="w-full border-orange-300 text-orange-700 hover:bg-orange-50"
-                    onClick={() => setShowReTriageModal(true)}
+                    onClick={() => navigate(`/nurse/treatment/${id}/retriage`)}
                     disabled={actionLoading}
                   >
                     <RefreshCw className="h-4 w-4 mr-2" />
                     Demander Re-Triage
+                  </Button>
+                )}
+
+                {/* Deterioration Alert button (only for IN_TREATMENT or WITH_DOCTOR) */}
+                {(patient.status === PatientStatus.IN_TREATMENT ||
+                  patient.status === PatientStatus.WITH_DOCTOR) && (
+                  <Button
+                    variant="outline"
+                    className="w-full border-red-300 text-red-700 hover:bg-red-50"
+                    onClick={() => navigate(`/nurse/treatment/${id}/alert`)}
+                    disabled={actionLoading}
+                  >
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    Alerte Détérioration
                   </Button>
                 )}
 

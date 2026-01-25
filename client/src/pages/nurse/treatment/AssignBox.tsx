@@ -212,7 +212,7 @@ export default function AssignBox() {
       });
 
       // Navigate to patient care page
-      navigate(`/nurse/treatment/${id}/care`);
+      navigate(`/nurse/treatment/${id}`);
     } catch (e: unknown) {
       const err = e as { response?: { data?: { error?: string } } };
       setError(err.response?.data?.error || 'Erreur lors de la prise en charge');
