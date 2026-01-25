@@ -33,6 +33,7 @@ import WeeklySchedule from './pages/supervisor/WeeklySchedule';
 import DepartmentStats from './pages/supervisor/DepartmentStats';
 import QueueManagement from './pages/supervisor/QueueManagement';
 import AllPatients from './pages/supervisor/AllPatients';
+import SupervisorPatientDetail from './pages/supervisor/PatientDetail';
 
 // Nurse pages
 import InscriptionHome from './pages/nurse/InscriptionHome';
@@ -304,6 +305,16 @@ export default function App() {
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
                 <AllPatients />
+              </RoleGuard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/supervisor/patients/:id"
+          element={
+            <ProtectedRoute>
+              <RoleGuard allowedRoles={[UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
+                <SupervisorPatientDetail />
               </RoleGuard>
             </ProtectedRoute>
           }
