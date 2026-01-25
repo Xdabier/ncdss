@@ -1,36 +1,111 @@
+import path from 'path';
+import fs from 'fs/promises';
 import { LLMProvider, PreDiagnosisContext, PreDiagnosisSuggestion, StreamChunk } from '../index';
 
+// Types for node-llama-cpp (dynamically imported)
+type LlamaInstance = any;
+type LlamaModelInstance = any;
+type LlamaChatSessionConstructor = any;
+
 /**
- * Ollama provider for local LLM inference
- * Runs fully offline using local Llama model
- * Supports thinking models (DeepSeek-R1, Qwen3)
+ * node-llama-cpp provider for local LLM inference
+ * Runs fully offline using embedded llama.cpp
+ * Automatically uses GPU (CUDA/Metal/Vulkan) if available
+ *
+ * Uses dynamic import() because node-llama-cpp is ESM-only
  */
-export class OllamaProvider implements LLMProvider {
-  private baseUrl: string;
-  private model: string;
+export class LlamaCppProvider implements LLMProvider {
+  private llama: LlamaInstance | null = null;
+  private model: LlamaModelInstance | null = null;
+  private LlamaChatSession: LlamaChatSessionConstructor | null = null;
+  private modelsDir: string;
+  private modelPath: string;
   private enableThinking: boolean;
+  private initialized: boolean = false;
+  private initPromise: Promise<void> | null = null;
 
   constructor() {
-    this.baseUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
-    this.model = process.env.OLLAMA_MODEL || 'qwen3:latest';
-    this.enableThinking = process.env.OLLAMA_ENABLE_THINKING !== 'false';
+    // Models directory relative to server root
+    this.modelsDir = process.env.LLAMA_MODELS_DIR || path.join(process.cwd(), 'models');
+    this.modelPath = process.env.LLAMA_MODEL_PATH || '';
+    this.enableThinking = process.env.LLAMA_ENABLE_THINKING !== 'false';
   }
 
   /**
-   * Check if Ollama service is available
+   * Initialize llama.cpp and load model (lazy, one-time)
+   */
+  private async initialize(): Promise<void> {
+    if (this.initialized) return;
+    if (this.initPromise) return this.initPromise;
+
+    this.initPromise = this._doInitialize();
+    await this.initPromise;
+  }
+
+  private async _doInitialize(): Promise<void> {
+    try {
+      // Dynamic import of ESM module (required for CommonJS compatibility)
+      const nodeLlamaCpp = await import('node-llama-cpp');
+      const { getLlama, LlamaChatSession } = nodeLlamaCpp;
+
+      // Store class reference for later use
+      this.LlamaChatSession = LlamaChatSession;
+
+      // Get llama instance (auto-detects GPU)
+      this.llama = await getLlama();
+
+      // Log GPU info
+      console.log(`[LlamaCpp] GPU: ${this.llama.gpu || 'CPU only'}`);
+      console.log(`[LlamaCpp] GPU offloading: ${this.llama.supportsGpuOffloading}`);
+
+      // Resolve model path
+      let resolvedPath = this.modelPath;
+      if (!resolvedPath) {
+        // Try to find any .gguf file in models directory
+        try {
+          const files = await fs.readdir(this.modelsDir);
+          const ggufFile = files.find((f: string) => f.endsWith('.gguf'));
+          if (ggufFile) {
+            resolvedPath = path.join(this.modelsDir, ggufFile);
+          }
+        } catch {
+          // Directory doesn't exist
+        }
+      }
+
+      if (!resolvedPath) {
+        console.warn('[LlamaCpp] No model file found. AI features disabled.');
+        console.warn(`[LlamaCpp] Place a .gguf model in: ${this.modelsDir}`);
+        return;
+      }
+
+      console.log(`[LlamaCpp] Loading model: ${resolvedPath}`);
+
+      // Load model with GPU auto-configuration
+      this.model = await this.llama.loadModel({
+        modelPath: resolvedPath,
+        gpuLayers: 'auto', // Automatically use GPU layers based on VRAM
+        onLoadProgress: (progress: number) => {
+          if (progress === 1) {
+            console.log('[LlamaCpp] Model loaded successfully');
+          }
+        }
+      });
+
+      this.initialized = true;
+    } catch (error) {
+      console.error('[LlamaCpp] Initialization failed:', error);
+      this.initialized = false;
+    }
+  }
+
+  /**
+   * Check if the LLM is available (model loaded)
    */
   async isAvailable(): Promise<boolean> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
-
-      const response = await fetch(`${this.baseUrl}/api/tags`, {
-        method: 'GET',
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-      return response.ok;
+      await this.initialize();
+      return this.model !== null;
     } catch {
       return false;
     }
@@ -38,51 +113,43 @@ export class OllamaProvider implements LLMProvider {
 
   /**
    * Generate pre-diagnosis suggestions from patient context
-   * Returns available: false if Ollama is not running
    */
   async generatePreDiagnosis(context: PreDiagnosisContext): Promise<PreDiagnosisSuggestion> {
     const now = new Date().toISOString();
 
-    // Check availability first
-    const available = await this.isAvailable();
-    if (!available) {
+    if (!await this.isAvailable()) {
       return { available: false, suggestions: [], generatedAt: now, thinkingEnabled: false };
     }
 
     try {
       const prompt = this.buildPrompt(context);
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 180000); // 180s (3 min) for thinking models
-
-      const response = await fetch(`${this.baseUrl}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: this.model,
-          prompt,
-          stream: false,
-          options: {
-            temperature: 0.3,
-            num_predict: 2000 // Increased for thinking output
-          }
-        }),
-        signal: controller.signal
+      // Create context and session for this request
+      const ctx = await this.model!.createContext({
+        contextSize: 4096
       });
 
-      clearTimeout(timeoutId);
+      const session = new this.LlamaChatSession!({
+        contextSequence: ctx.getSequence()
+      });
 
-      if (!response.ok) {
-        console.error(`Ollama error: ${response.status}`);
-        return { available: false, suggestions: [], generatedAt: now, thinkingEnabled: false };
-      }
+      let fullResponse = '';
 
-      const data = await response.json();
-      // Ollama may return thinking in a separate field (Qwen3) or in the response (DeepSeek-R1)
-      const thinkingFromApi = data.thinking || undefined;
-      return this.parseResponse(data.response, now, thinkingFromApi);
+      // Generate response with streaming to capture output
+      await session.prompt(prompt, {
+        maxTokens: 2000,
+        temperature: 0.3,
+        onTextChunk: (chunk: string) => {
+          fullResponse += chunk;
+        }
+      });
+
+      // Dispose context after use
+      await ctx.dispose();
+
+      return this.parseResponse(fullResponse, now, undefined);
     } catch (error) {
-      console.error('LLM pre-diagnosis error:', error);
+      console.error('[LlamaCpp] Pre-diagnosis error:', error);
       return { available: false, suggestions: [], generatedAt: now, thinkingEnabled: false };
     }
   }
@@ -96,104 +163,70 @@ export class OllamaProvider implements LLMProvider {
   ): Promise<void> {
     const now = new Date().toISOString();
 
-    // Check availability first
-    const available = await this.isAvailable();
-    if (!available) {
-      onChunk({ type: 'error', error: 'Service Ollama non disponible' });
+    if (!await this.isAvailable()) {
+      onChunk({ type: 'error', error: 'Service LLM non disponible' });
       return;
     }
 
     try {
       const prompt = this.buildPrompt(context);
 
-      const response = await fetch(`${this.baseUrl}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: this.model,
-          prompt,
-          stream: true,
-          options: {
-            temperature: 0.3,
-            num_predict: 2000
-          }
-        })
+      // Create context and session
+      const ctx = await this.model!.createContext({
+        contextSize: 4096
       });
 
-      if (!response.ok || !response.body) {
-        onChunk({ type: 'error', error: `Erreur Ollama: ${response.status}` });
-        return;
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
+      const session = new this.LlamaChatSession!({
+        contextSequence: ctx.getSequence()
+      });
 
       let fullResponse = '';
       let fullThinking = '';
-      let buffer = '';
+      let inThinkingBlock = false;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      // Stream response
+      await session.prompt(prompt, {
+        maxTokens: 2000,
+        temperature: 0.3,
+        onTextChunk: (chunk: string) => {
+          // Detect thinking blocks (<think>...</think>)
+          if (chunk.includes('<think>')) {
+            inThinkingBlock = true;
+          }
 
-        buffer += decoder.decode(value, { stream: true });
+          if (inThinkingBlock) {
+            fullThinking += chunk;
+            onChunk({ type: 'thinking', content: chunk });
 
-        // Process complete JSON lines
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // Keep incomplete line in buffer
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-
-          try {
-            const chunk = JSON.parse(line);
-
-            // Accumulate thinking (Qwen3 sends it separately)
-            if (chunk.thinking) {
-              fullThinking += chunk.thinking;
-              onChunk({ type: 'thinking', content: chunk.thinking });
+            if (chunk.includes('</think>')) {
+              inThinkingBlock = false;
             }
-
-            // Accumulate response
-            if (chunk.response) {
-              fullResponse += chunk.response;
-              onChunk({ type: 'response', content: chunk.response });
-            }
-
-            // Check if done
-            if (chunk.done) {
-              // Parse final result
-              const result = this.parseResponse(fullResponse, now, fullThinking || undefined);
-              onChunk({ type: 'done', result });
-              return;
-            }
-          } catch {
-            // Skip malformed JSON chunks
+          } else {
+            fullResponse += chunk;
+            onChunk({ type: 'response', content: chunk });
           }
         }
-      }
+      });
 
-      // If we exit loop without done, parse what we have
+      // Parse final result
       const result = this.parseResponse(fullResponse, now, fullThinking || undefined);
       onChunk({ type: 'done', result });
 
+      // Cleanup
+      await ctx.dispose();
     } catch (error) {
-      console.error('LLM streaming error:', error);
+      console.error('[LlamaCpp] Streaming error:', error);
       onChunk({ type: 'error', error: 'Erreur lors de la generation' });
     }
   }
 
   /**
    * Build French medical prompt from patient context
-   * Adds thinking prefix for Qwen3 models
+   * Adds /think prefix for Qwen3 thinking mode
    */
   private buildPrompt(context: PreDiagnosisContext): string {
     // Qwen3 thinking toggle - add /think or /no_think prefix
-    const isQwen3 = this.model.toLowerCase().includes('qwen3');
-    const thinkingPrefix = isQwen3
-      ? (this.enableThinking ? '/think\n' : '/no_think\n')
-      : '';
-
+    const thinkingPrefix = this.enableThinking ? '/think\n' : '/no_think\n';
     const sex = context.sex === 'MALE' ? 'Homme' : 'Femme';
 
     const vitalsText = [
@@ -255,19 +288,16 @@ Règles:
 
   /**
    * Parse LLM response and extract JSON
-   * Handles thinking model output:
-   * - Ollama API `thinking` field (Qwen3)
-   * - Inline <think>...</think> blocks (DeepSeek-R1)
+   * Handles thinking model output with <think>...</think> blocks
    */
   private parseResponse(response: string, generatedAt: string, thinkingFromApi?: string): PreDiagnosisSuggestion {
     let thinkingTrace: string | undefined = thinkingFromApi;
     let cleanResponse = response;
     let thinkingEnabled = !!thinkingFromApi;
 
-    // Also check for inline <think> blocks (DeepSeek-R1 format)
+    // Check for inline <think> blocks
     const thinkMatch = response.match(/<think>([\s\S]*?)<\/think>/);
     if (thinkMatch) {
-      // Append to existing thinking or use as primary
       thinkingTrace = thinkingTrace
         ? `${thinkingTrace}\n\n${thinkMatch[1].trim()}`
         : thinkMatch[1].trim();
@@ -276,12 +306,11 @@ Règles:
     }
 
     try {
-      // Extract JSON from cleaned response (may contain text before/after)
+      // Extract JSON from response
       const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
 
-        // Validate and normalize suggestions
         const suggestions = Array.isArray(parsed.suggestions)
           ? parsed.suggestions.map((s: Record<string, unknown>) => ({
               diagnosis: String(s.diagnosis || ''),
@@ -307,7 +336,7 @@ Règles:
         };
       }
     } catch (e) {
-      console.error('Failed to parse LLM response:', e);
+      console.error('[LlamaCpp] Failed to parse response:', e);
     }
 
     return {
@@ -328,5 +357,21 @@ Règles:
     if (normalized === 'emergent' || normalized === 'émergent') return 'emergent';
     if (normalized === 'urgent') return 'urgent';
     return 'routine';
+  }
+
+  /**
+   * Cleanup resources on shutdown
+   */
+  async dispose(): Promise<void> {
+    if (this.model) {
+      this.model = null;
+    }
+    if (this.llama) {
+      await this.llama.dispose();
+      this.llama = null;
+    }
+    this.initialized = false;
+    this.initPromise = null;
+    this.LlamaChatSession = null;
   }
 }

@@ -1,4 +1,4 @@
-import { OllamaProvider } from './providers/ollama';
+import { LlamaCppProvider } from './providers/llamacpp';
 
 /**
  * Streaming chunk for real-time UI updates
@@ -79,10 +79,27 @@ export interface PreDiagnosisSuggestion {
   thinkingEnabled: boolean;
 }
 
+// Singleton provider instance
+let providerInstance: LlamaCppProvider | null = null;
+
 /**
- * Get the LLM provider instance
- * Uses local Ollama only (fully offline)
+ * Get the LLM provider instance (singleton)
+ * Uses local node-llama-cpp (fully offline, GPU-accelerated)
  */
 export function getLLMProvider(): LLMProvider {
-  return new OllamaProvider();
+  if (!providerInstance) {
+    providerInstance = new LlamaCppProvider();
+  }
+  return providerInstance;
+}
+
+/**
+ * Dispose the LLM provider (cleanup on app shutdown)
+ * Call this when the application is closing to free resources
+ */
+export async function disposeLLMProvider(): Promise<void> {
+  if (providerInstance) {
+    await providerInstance.dispose();
+    providerInstance = null;
+  }
 }

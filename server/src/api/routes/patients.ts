@@ -992,10 +992,10 @@ router.get('/:id/ai-status', async (req, res) => {
   try {
     const llm = getLLMProvider();
     const available = await llm.isAvailable();
-    res.json({ available, provider: 'ollama-local' });
+    res.json({ available, provider: 'llamacpp-local' });
   } catch (error) {
     console.error('AI status check error:', error);
-    res.json({ available: false, provider: 'ollama-local' });
+    res.json({ available: false, provider: 'llamacpp-local' });
   }
 });
 

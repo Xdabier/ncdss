@@ -82,7 +82,7 @@ export default function Dashboard() {
     if (isDoctor) {
       return [
         { label: 'Mes Patients', path: '/doctor/patients', color: 'bg-blue-600 hover:bg-blue-700' },
-        { label: 'Patients en Attente', path: '/doctor/queue', color: 'bg-yellow-600 hover:bg-yellow-700' },
+        { label: 'Patients en Attente', path: '/doctor/patients?tab=waiting', color: 'bg-yellow-600 hover:bg-yellow-700' },
       ];
     }
     if (isAdmin || isSupervisor) {

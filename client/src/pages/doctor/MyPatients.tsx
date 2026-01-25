@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth.store';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -25,10 +25,12 @@ interface PatientListItem extends Patient {
 
 export default function MyPatients() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
   const [patients, setPatients] = useState<PatientListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<FilterTab>('mine');
+  const initialTab = searchParams.get('tab') === 'waiting' ? 'waiting' : 'mine';
+  const [activeTab, setActiveTab] = useState<FilterTab>(initialTab);
   const [search, setSearch] = useState('');
   const [takingPatient, setTakingPatient] = useState<string | null>(null);
 
@@ -72,6 +74,12 @@ export default function MyPatients() {
     const interval = setInterval(loadPatients, 30000);
     return () => clearInterval(interval);
   }, [loadPatients]);
+
+  // Update tab when URL changes
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    setActiveTab(tabParam === 'waiting' ? 'waiting' : 'mine');
+  }, [searchParams]);
 
   const handleTakePatient = async (patientId: string) => {
     if (!user?.id) return;

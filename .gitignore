@@ -57,3 +57,7 @@ client/ios/App/Pods/
 # Electron
 server/dist-electron/
 server/release/
+
+# LLM Models (large files, download separately)
+server/models/
+*.gguf
