@@ -57,6 +57,11 @@ export async function startServer(port: number): Promise<void> {
   // Public routes
   app.use('/api/auth', authRouter);
 
+  // Health check (public, must be before auth middleware)
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
   // Audit middleware - logs POST/PUT/DELETE on patients, prescriptions, diagnoses, users
   app.use('/api', authMiddleware, auditMiddleware);
 
@@ -73,11 +78,6 @@ export async function startServer(port: number): Promise<void> {
   app.use('/api/prescriptions', authMiddleware, prescriptionsRouter);
   app.use('/api/diagnoses', authMiddleware, diagnosesRouter);
   app.use('/api/audit-log', authMiddleware, auditRouter);
-
-  // Health check
-  app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
-  });
 
   server = app.listen(port, '0.0.0.0', () => {
     console.log(`✓ Server running on port ${port}`);
