@@ -246,14 +246,6 @@ router.post('/logout', async (req, res) => {
       .set({ revokedAt: new Date().toISOString() })
       .where(eq(refreshTokens.token, refreshToken));
 
-    // Log logout
-    if (tokenRecord) {
-      await logAuditEvent('LOGOUT', 'auth', {
-        ipAddress,
-        userAgent,
-      }, tokenRecord.userId);
-    }
-
     res.json({ message: 'Déconnexion réussie' });
   } catch (error) {
     console.error('Logout error:', error);

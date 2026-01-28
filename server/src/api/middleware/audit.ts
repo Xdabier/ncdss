@@ -8,28 +8,44 @@ interface AuditableRequest extends Request {
   user?: { userId: string; role: string };
 }
 
-// All resources to audit for write operations (POST, PUT, DELETE)
-const WRITE_AUDITABLE_RESOURCES = [
+// Resources that can generate audit-worthy actions
+const AUDITABLE_RESOURCES = [
   'patients',
   'prescriptions',
   'diagnoses',
   'users',
-  'config',
   'schedule',
-  'pathologies',
   'interventions',
   'box-assignments',
-  'sync',
 ];
 
-// Resources to audit for read operations (GET) - sensitive data
-const READ_AUDITABLE_RESOURCES = [
-  'patients',
-  'prescriptions',
-  'diagnoses',
+// High-priority actions that should always be logged
+// Security-critical: authentication, user management
+// Clinical-critical: key patient milestones, medication, diagnoses
+const HIGH_PRIORITY_ACTIONS = [
+  // Patient lifecycle
+  'CREATE',           // Patient registration
+  'DELETE',           // Patient deletion (rare but critical)
+  'DISCHARGE',        // Patient discharge
+  'TRIAGE_COMPLETE_TRIAGE', // Triage decision finalized
+  'TRIAGE_RETRIAGE',  // Clinical deterioration
+  'SET_ESI',          // Severity level set
+  // Prescriptions
+  'PRESCRIPTION_ADMINISTER', // Medication given
+  'PRESCRIPTION_CANCEL',     // Prescription cancelled
+  // Diagnoses
+  'DIAGNOSIS_CONFIRM',       // Diagnosis confirmed
+  // User management (always log for security)
+  'RESET_PASSWORD',
 ];
 
-// Actions that should be excluded from audit (to avoid noise)
+// Actions that are always logged regardless of resource (security)
+const SECURITY_ACTIONS = [
+  'LOGIN_SUCCESS',
+  'LOGIN_FAILED',
+];
+
+// Paths to completely exclude from audit
 const EXCLUDED_PATHS = [
   '/api/health',
   '/api/audit-log',
@@ -38,7 +54,14 @@ const EXCLUDED_PATHS = [
 
 /**
  * Audit middleware for healthcare compliance.
- * Logs all write operations and sensitive data access.
+ * Logs only high-priority actions to avoid database bloat.
+ *
+ * Logged actions:
+ * - Security: login attempts, user management
+ * - Clinical: patient registration, discharge, triage completion, ESI
+ * - Medication: prescription administration and cancellation
+ * - Diagnoses: confirmation
+ * - Administrative: schedule, interventions, box-assignments changes
  */
 export async function auditMiddleware(
   req: AuditableRequest,
@@ -55,17 +78,9 @@ export async function auditMiddleware(
   const pathParts = req.path.split('/').filter(Boolean);
   const resource = pathParts[0] || 'unknown';
 
-  // Determine if this action should be audited
+  // Only audit write operations on auditable resources
   const isWriteOperation = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method);
-  const isReadOperation = req.method === 'GET';
-
-  const shouldAuditWrite = isWriteOperation && WRITE_AUDITABLE_RESOURCES.includes(resource);
-  const shouldAuditRead = isReadOperation && READ_AUDITABLE_RESOURCES.includes(resource);
-
-  // Only audit specific resource access for GET (not list operations)
-  const isSpecificResourceAccess = pathParts.length > 1 && pathParts[1] !== 'export';
-
-  if (!shouldAuditWrite && !(shouldAuditRead && isSpecificResourceAccess)) {
+  if (!isWriteOperation || !AUDITABLE_RESOURCES.includes(resource)) {
     return next();
   }
 
@@ -73,20 +88,99 @@ export async function auditMiddleware(
   const originalJson = res.json.bind(res);
 
   res.json = function (data: any) {
-    // Log after response (both success and some failures for security)
-    const shouldLog = res.statusCode >= 200 && res.statusCode < 300;
-    const isSecurityRelevant = res.statusCode === 401 || res.statusCode === 403;
+    // Only log successful operations (security failures are handled separately)
+    const isSuccess = res.statusCode >= 200 && res.statusCode < 300;
 
-    if (shouldLog || isSecurityRelevant) {
-      logAuditEntry(req, resource, pathParts, data, res.statusCode).catch((err) => {
-        console.error('Audit log error:', err);
-      });
+    if (isSuccess) {
+      // Determine the action before deciding whether to log
+      const action = determineAction(req.method, pathParts, resource);
+
+      // Only log high-priority actions
+      if (shouldLogAction(action, resource)) {
+        logAuditEntry(req, resource, pathParts, data, res.statusCode, action).catch((err) => {
+          console.error('Audit log error:', err);
+        });
+      }
     }
 
     return originalJson(data);
   };
 
   next();
+}
+
+/**
+ * Determine the action type from request method and path
+ */
+function determineAction(method: string, pathParts: string[], resource: string): string {
+  if (method === 'POST') {
+    const subAction = pathParts[pathParts.length - 1];
+    if (['start-triage', 'complete-triage', 'analyze', 'retriage'].includes(subAction)) {
+      return `TRIAGE_${subAction.replace('-', '_').toUpperCase()}`;
+    } else if (['administer', 'cancel', 'hold'].includes(subAction)) {
+      return `PRESCRIPTION_${subAction.toUpperCase()}`;
+    } else if (['confirm', 'resolve'].includes(subAction)) {
+      return `DIAGNOSIS_${subAction.toUpperCase()}`;
+    } else if (subAction === 'discharge') {
+      return 'DISCHARGE';
+    } else if (subAction === 'assign-box') {
+      return 'ASSIGN_BOX';
+    } else if (subAction === 'reset-password') {
+      return 'RESET_PASSWORD';
+    } else if (subAction === 'import') {
+      return 'IMPORT';
+    }
+    return 'CREATE';
+  } else if (method === 'PUT') {
+    const subAction = pathParts[pathParts.length - 1];
+    if (subAction === 'vitals') {
+      return 'UPDATE_VITALS';
+    } else if (subAction === 'treatment') {
+      return 'UPDATE_TREATMENT';
+    } else if (subAction === 'esi') {
+      return 'SET_ESI';
+    } else if (['abcde', 'airway', 'breathing', 'circulation', 'disability', 'exposure'].includes(subAction)) {
+      return `ASSESS_${subAction.toUpperCase()}`;
+    }
+    return 'UPDATE';
+  } else if (method === 'DELETE') {
+    return 'DELETE';
+  }
+  return method;
+}
+
+/**
+ * Check if an action should be logged based on priority
+ */
+function shouldLogAction(action: string, resource: string): boolean {
+  // Always log high-priority actions
+  if (HIGH_PRIORITY_ACTIONS.includes(action)) {
+    return true;
+  }
+
+  // Always log security actions
+  if (SECURITY_ACTIONS.includes(action)) {
+    return true;
+  }
+
+  // Always log user management (CREATE, UPDATE, DELETE on users)
+  if (resource === 'users' && ['CREATE', 'UPDATE', 'DELETE'].includes(action)) {
+    return true;
+  }
+
+  // Always log prescription and diagnosis creation
+  if ((resource === 'prescriptions' || resource === 'diagnoses') && action === 'CREATE') {
+    return true;
+  }
+
+  // Always log administrative resource changes (schedule, interventions, box-assignments)
+  if (['schedule', 'interventions', 'box-assignments'].includes(resource)) {
+    if (['CREATE', 'UPDATE', 'DELETE', 'IMPORT'].includes(action)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -139,7 +233,8 @@ async function logAuditEntry(
   resource: string,
   pathParts: string[],
   responseData: any,
-  statusCode: number
+  statusCode: number,
+  action: string
 ): Promise<void> {
   try {
     const db = getDb();
@@ -159,65 +254,15 @@ async function logAuditEntry(
     // Determine resource ID
     const resourceId = pathParts[1] || responseData?.id || null;
 
-    // Determine action type with more detail
-    let action = req.method;
-    if (req.method === 'GET') {
-      action = 'VIEW';
-    } else if (req.method === 'POST') {
-      // Check for special sub-actions
-      const subAction = pathParts[pathParts.length - 1];
-      if (['start-triage', 'complete-triage', 'analyze', 'retriage'].includes(subAction)) {
-        action = `TRIAGE_${subAction.replace('-', '_').toUpperCase()}`;
-      } else if (['administer', 'cancel', 'hold'].includes(subAction)) {
-        action = `PRESCRIPTION_${subAction.toUpperCase()}`;
-      } else if (['confirm', 'resolve'].includes(subAction)) {
-        action = `DIAGNOSIS_${subAction.toUpperCase()}`;
-      } else if (subAction === 'discharge') {
-        action = 'DISCHARGE';
-      } else if (subAction === 'assign-box') {
-        action = 'ASSIGN_BOX';
-      } else if (subAction === 'reset-password') {
-        action = 'RESET_PASSWORD';
-      } else if (subAction === 'import') {
-        action = 'IMPORT';
-      } else {
-        action = 'CREATE';
-      }
-    } else if (req.method === 'PUT') {
-      const subAction = pathParts[pathParts.length - 1];
-      if (subAction === 'vitals') {
-        action = 'UPDATE_VITALS';
-      } else if (subAction === 'treatment') {
-        action = 'UPDATE_TREATMENT';
-      } else if (subAction === 'esi') {
-        action = 'SET_ESI';
-      } else if (['abcde', 'airway', 'breathing', 'circulation', 'disability', 'exposure'].includes(subAction)) {
-        action = `ASSESS_${subAction.toUpperCase()}`;
-      } else {
-        action = 'UPDATE';
-      }
-    } else if (req.method === 'DELETE') {
-      action = 'DELETE';
-    }
-
-    // Build details object
+    // Build details object (minimal for reduced storage)
     const details: Record<string, any> = {
-      path: req.path,
-      method: req.method,
-      statusCode,
       username,
       ipAddress: req.ip || req.socket?.remoteAddress || 'unknown',
-      userAgent: req.get('User-Agent') || 'unknown',
     };
 
-    // Only include body for write operations (not GET)
-    if (req.method !== 'GET' && req.body) {
+    // Only include body for critical actions (not IMPORT - too large)
+    if (req.body && ['CREATE', 'DELETE', 'RESET_PASSWORD'].includes(action)) {
       details.body = sanitizeBody(req.body);
-    }
-
-    // Include query params if present
-    if (Object.keys(req.query).length > 0) {
-      details.query = req.query;
     }
 
     await db.insert(auditLog).values({
