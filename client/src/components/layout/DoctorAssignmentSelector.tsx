@@ -41,9 +41,34 @@ const boxTypeOrder: BoxType[] = [
   BoxType.SAUV,
 ];
 
-export function DoctorAssignmentSelector() {
+interface DoctorAssignmentSelectorProps {
+  /** Controlled open state - when provided, component is controlled externally */
+  open?: boolean;
+  /** Callback when open state changes - used with controlled mode */
+  onOpenChange?: (open: boolean) => void;
+  /** Callback when assignment is successfully changed */
+  onAssignmentChange?: () => void;
+  /** Hide the trigger button (use when only the dialog is needed) */
+  hideTrigger?: boolean;
+}
+
+export function DoctorAssignmentSelector({
+  open: controlledOpen,
+  onOpenChange,
+  onAssignmentChange,
+  hideTrigger = false,
+}: DoctorAssignmentSelectorProps = {}) {
   const { doctorBoxAssignment, setDoctorBoxAssignment } = useAuthStore();
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+
+  // Support both controlled and uncontrolled modes
+  const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setIsOpen = (value: boolean) => {
+    if (onOpenChange) {
+      onOpenChange(value);
+    }
+    setInternalOpen(value);
+  };
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null);
   const [selectedPreset, setSelectedPreset] = useState<AssignmentPreset>(AssignmentPreset.JOUR_12H);
@@ -174,6 +199,7 @@ export function DoctorAssignmentSelector() {
       setShowTakeoverConfirm(false);
       setPendingAssignment(null);
       setIsOpen(false);
+      onAssignmentChange?.();
     } catch (err: any) {
       if (err.response?.status === 409 && err.response?.data?.conflicts) {
         // Conflict detected - show takeover confirmation
@@ -271,17 +297,19 @@ export function DoctorAssignmentSelector() {
 
   return (
     <>
-      <button
-        onClick={handleOpen}
-        className={cn(
-          'flex items-center space-x-2 px-3 py-1.5 rounded-lg transition-colors',
-          'hover:opacity-80 cursor-pointer',
-          currentColor
-        )}
-      >
-        <Stethoscope className="h-4 w-4" />
-        <span className="text-sm font-medium">{currentLabel}</span>
-      </button>
+      {!hideTrigger && (
+        <button
+          onClick={handleOpen}
+          className={cn(
+            'flex items-center space-x-2 px-3 py-1.5 rounded-lg transition-colors',
+            'hover:opacity-80 cursor-pointer',
+            currentColor
+          )}
+        >
+          <Stethoscope className="h-4 w-4" />
+          <span className="text-sm font-medium">{currentLabel}</span>
+        </button>
+      )}
 
       <Dialog open={isOpen && !showTakeoverConfirm} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">

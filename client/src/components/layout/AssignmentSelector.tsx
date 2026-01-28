@@ -22,12 +22,37 @@ const selectableAssignments = [
   NurseAssignment.TREATMENT,
 ];
 
-export function AssignmentSelector() {
+interface AssignmentSelectorProps {
+  /** Controlled open state - when provided, component is controlled externally */
+  open?: boolean;
+  /** Callback when open state changes - used with controlled mode */
+  onOpenChange?: (open: boolean) => void;
+  /** Callback when assignment is successfully changed */
+  onAssignmentChange?: () => void;
+  /** Hide the trigger button (use when only the dialog is needed) */
+  hideTrigger?: boolean;
+}
+
+export function AssignmentSelector({
+  open: controlledOpen,
+  onOpenChange,
+  onAssignmentChange,
+  hideTrigger = false,
+}: AssignmentSelectorProps = {}) {
   const { todayAssignment, setTodayAssignment } = useAuthStore();
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<NurseAssignment | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Support both controlled and uncontrolled modes
+  const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setIsOpen = (value: boolean) => {
+    if (onOpenChange) {
+      onOpenChange(value);
+    }
+    setInternalOpen(value);
+  };
 
   const handleOpen = () => {
     setSelectedAssignment(todayAssignment);
@@ -52,6 +77,7 @@ export function AssignmentSelector() {
 
       await setTodayAssignment(selectedAssignment);
       setIsOpen(false);
+      onAssignmentChange?.();
     } catch (err: any) {
       const message = err.response?.data?.error || 'Erreur lors du changement';
       setError(message);
@@ -66,17 +92,19 @@ export function AssignmentSelector() {
 
   return (
     <>
-      <button
-        onClick={handleOpen}
-        className={cn(
-          'flex items-center space-x-2 px-3 py-1.5 rounded-lg transition-colors',
-          'hover:opacity-80 cursor-pointer',
-          currentColor
-        )}
-      >
-        <UserCog className="h-4 w-4 text-gray-600" />
-        <span className="text-sm font-medium text-gray-700">{currentLabel}</span>
-      </button>
+      {!hideTrigger && (
+        <button
+          onClick={handleOpen}
+          className={cn(
+            'flex items-center space-x-2 px-3 py-1.5 rounded-lg transition-colors',
+            'hover:opacity-80 cursor-pointer',
+            currentColor
+          )}
+        >
+          <UserCog className="h-4 w-4 text-gray-600" />
+          <span className="text-sm font-medium text-gray-700">{currentLabel}</span>
+        </button>
+      )}
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-md">

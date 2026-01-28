@@ -5,7 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { useAuthStore } from '../stores/auth.store';
 import { UserRole, NurseAssignment } from '@ncdss/shared';
 import { getApi } from '../services/api';
-import { Users, Activity, Clock, UserCheck, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Users, Activity, Clock, UserCheck, AlertTriangle, ArrowRight, UserCog, Stethoscope, CheckCircle, Info } from 'lucide-react';
+import { AssignmentSelector } from '../components/layout/AssignmentSelector';
+import { DoctorAssignmentSelector } from '../components/layout/DoctorAssignmentSelector';
+import { Button } from '../components/ui/button';
 
 interface DashboardStats {
   today: {
@@ -28,10 +31,15 @@ interface DashboardStats {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, todayAssignment } = useAuthStore();
+  const { user, todayAssignment, doctorBoxAssignment } = useAuthStore();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Assignment dialog states
+  const [nurseDialogOpen, setNurseDialogOpen] = useState(false);
+  const [doctorDialogOpen, setDoctorDialogOpen] = useState(false);
+  const [showAssignmentSuccess, setShowAssignmentSuccess] = useState(false);
 
   useEffect(() => {
     loadStats();
@@ -58,6 +66,17 @@ export default function Dashboard() {
   const isSupervisor = user?.role === UserRole.NURSE_SUPERVISOR;
   const isNurse = user?.role === UserRole.NURSE;
   const isDoctor = user?.role === UserRole.DOCTOR;
+
+  // Check if nurse/doctor is unassigned
+  const isNurseUnassigned = isNurse && (!todayAssignment || todayAssignment === NurseAssignment.OFF);
+  const isDoctorUnassigned = isDoctor && !doctorBoxAssignment;
+
+  // Handler when assignment is successfully made
+  const handleAssignmentSuccess = () => {
+    setShowAssignmentSuccess(true);
+    // Auto-hide after 10 seconds
+    setTimeout(() => setShowAssignmentSuccess(false), 10000);
+  };
 
   // Quick action buttons based on role
   const getQuickActions = () => {
@@ -135,6 +154,117 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Assignment Success Banner */}
+        {showAssignmentSuccess && (
+          <div className="bg-green-100 border-l-4 border-green-500 p-4 mb-6 rounded-r">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <CheckCircle className="h-6 w-6 text-green-600 mr-3" />
+                <div>
+                  <p className="text-green-700 font-semibold">Assignation enregistrée</p>
+                  <p className="text-green-600 text-sm">
+                    Vous pouvez modifier votre assignation à tout moment via le bouton dans l'en-tête.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAssignmentSuccess(false)}
+                className="text-green-600 hover:text-green-800 ml-4"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Nurse Unassigned Banner */}
+        {isNurseUnassigned && !showAssignmentSuccess && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0 p-2 bg-amber-100 rounded-lg mr-4">
+                  <UserCog className="h-6 w-6 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-amber-800">
+                    Aucune assignation active
+                  </h3>
+                  <p className="text-amber-700 mt-1">
+                    Vous n'êtes pas encore assigné(e) à un poste pour aujourd'hui.
+                    Sélectionnez votre poste pour accéder aux fonctionnalités correspondantes.
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() => setNurseDialogOpen(true)}
+                className="bg-amber-600 hover:bg-amber-700 text-white flex-shrink-0"
+              >
+                <UserCog className="h-4 w-4 mr-2" />
+                Choisir mon poste
+              </Button>
+            </div>
+            <div className="mt-4 pt-4 border-t border-amber-200">
+              <p className="text-sm text-amber-600 flex items-center">
+                <Info className="h-4 w-4 mr-2" />
+                Les postes disponibles : Inscription, Triage ou Soins
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Doctor Unassigned Banner */}
+        {isDoctorUnassigned && !showAssignmentSuccess && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0 p-2 bg-blue-100 rounded-lg mr-4">
+                  <Stethoscope className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-blue-800">
+                    Aucun box assigné
+                  </h3>
+                  <p className="text-blue-700 mt-1">
+                    Vous n'êtes pas encore assigné(e) à un box de soins.
+                    Sélectionnez un box pour commencer à recevoir des patients.
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() => setDoctorDialogOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
+              >
+                <Stethoscope className="h-4 w-4 mr-2" />
+                Choisir mon box
+              </Button>
+            </div>
+            <div className="mt-4 pt-4 border-t border-blue-200">
+              <p className="text-sm text-blue-600 flex items-center">
+                <Info className="h-4 w-4 mr-2" />
+                Boxes disponibles : Médical, Chirurgical, Trauma ou SAUV
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Hidden assignment selectors (dialog only, triggered by banners) */}
+        {isNurse && (
+          <AssignmentSelector
+            open={nurseDialogOpen}
+            onOpenChange={setNurseDialogOpen}
+            onAssignmentChange={handleAssignmentSuccess}
+            hideTrigger
+          />
+        )}
+        {isDoctor && (
+          <DoctorAssignmentSelector
+            open={doctorDialogOpen}
+            onOpenChange={setDoctorDialogOpen}
+            onAssignmentChange={handleAssignmentSuccess}
+            hideTrigger
+          />
         )}
 
         {/* Error message */}
