@@ -5,6 +5,7 @@ import { Button } from '../ui/button';
 import { useSyncStore } from '../../stores/sync.store';
 import { useAuthStore } from '../../stores/auth.store';
 import { AssignmentSelector } from './AssignmentSelector';
+import { DoctorAssignmentSelector } from './DoctorAssignmentSelector';
 import { cn } from '../../lib/utils';
 
 interface Props {
@@ -46,6 +47,9 @@ export function Header({ onMenuClick }: Props) {
         <div className="flex items-center space-x-3">
           {/* Assignment selector for nurses */}
           {user?.role === UserRole.NURSE && <AssignmentSelector />}
+
+          {/* Box assignment selector for doctors */}
+          {user?.role === UserRole.DOCTOR && <DoctorAssignmentSelector />}
 
           {/* Sync status */}
           <div className="hidden sm:flex items-center space-x-2 px-3 py-1.5 bg-gray-50 rounded-lg">

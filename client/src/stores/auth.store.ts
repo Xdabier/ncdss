@@ -2,11 +2,22 @@ import { create } from 'zustand';
 import { User, NurseAssignment } from '@ncdss/shared';
 import { Preferences } from '@capacitor/preferences';
 
+export interface DoctorBoxAssignment {
+  id: string;
+  boxId: string;
+  boxName: string;
+  boxType: string;
+  startDateTime: string;
+  endDateTime: string;
+  presetType: string | null;
+}
+
 interface AuthState {
   user: User | null;
   accessToken: string | null;
   refreshToken: string | null;
   todayAssignment: NurseAssignment | null;
+  doctorBoxAssignment: DoctorBoxAssignment | null;
   isAuthenticated: boolean;
 
   setAuth: (
@@ -21,6 +32,7 @@ interface AuthState {
   getAccessToken: () => Promise<string | null>;
   getRefreshToken: () => Promise<string | null>;
   setTodayAssignment: (assignment: NurseAssignment) => Promise<void>;
+  setDoctorBoxAssignment: (assignment: DoctorBoxAssignment | null) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -28,6 +40,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   accessToken: null,
   refreshToken: null,
   todayAssignment: null,
+  doctorBoxAssignment: null,
   isAuthenticated: false,
 
   setAuth: async (user, accessToken, refreshToken, assignment) => {
@@ -57,12 +70,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await Preferences.remove({ key: 'ncdss_refresh_token' });
     await Preferences.remove({ key: 'ncdss_user' });
     await Preferences.remove({ key: 'ncdss_assignment' });
+    await Preferences.remove({ key: 'ncdss_doctor_assignment' });
 
     set({
       user: null,
       accessToken: null,
       refreshToken: null,
       todayAssignment: null,
+      doctorBoxAssignment: null,
       isAuthenticated: false,
     });
   },
@@ -72,13 +87,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { value: refreshToken } = await Preferences.get({ key: 'ncdss_refresh_token' });
     const { value: userStr } = await Preferences.get({ key: 'ncdss_user' });
     const { value: assignment } = await Preferences.get({ key: 'ncdss_assignment' });
+    const { value: doctorAssignmentStr } = await Preferences.get({ key: 'ncdss_doctor_assignment' });
 
     if (accessToken && refreshToken && userStr) {
+      let doctorBoxAssignment: DoctorBoxAssignment | null = null;
+      if (doctorAssignmentStr) {
+        try {
+          doctorBoxAssignment = JSON.parse(doctorAssignmentStr);
+        } catch {
+          doctorBoxAssignment = null;
+        }
+      }
+
       set({
         accessToken,
         refreshToken,
         user: JSON.parse(userStr),
         todayAssignment: (assignment as NurseAssignment) || null,
+        doctorBoxAssignment,
         isAuthenticated: true,
       });
     }
@@ -105,5 +131,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setTodayAssignment: async (assignment) => {
     await Preferences.set({ key: 'ncdss_assignment', value: assignment });
     set({ todayAssignment: assignment });
+  },
+
+  setDoctorBoxAssignment: async (assignment) => {
+    if (assignment) {
+      await Preferences.set({
+        key: 'ncdss_doctor_assignment',
+        value: JSON.stringify(assignment),
+      });
+    } else {
+      await Preferences.remove({ key: 'ncdss_doctor_assignment' });
+    }
+    set({ doctorBoxAssignment: assignment });
   },
 }));
