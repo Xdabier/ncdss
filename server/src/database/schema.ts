@@ -86,9 +86,13 @@ export const boxAssignments = sqliteTable('box_assignments', {
   doctorId: text('doctor_id')
     .notNull()
     .references(() => users.id),
-  shift: text('shift').notNull(), // MORNING, AFTERNOON, NIGHT
-  effectiveDate: text('effective_date').notNull(),
+  startDateTime: text('start_date_time').notNull(), // ISO datetime: 2024-01-28T08:00:00
+  endDateTime: text('end_date_time').notNull(),     // ISO datetime: 2024-01-29T08:00:00
+  presetType: text('preset_type'),                  // GARDE_24H, JOUR_12H, NUIT_12H, CUSTOM
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
 });
 
 // ============================================================================
