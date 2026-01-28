@@ -100,6 +100,80 @@ router.post('/:weekStart', async (req, res) => {
   }
 });
 
+// PUT /my-assignment - Nurse self-assignment change
+router.put('/my-assignment', async (req, res) => {
+  try {
+    const { role, userId } = (req as any).user;
+
+    // Only nurses can change their own assignment
+    if (role !== 'NURSE') {
+      return res.status(403).json({
+        error: 'Seuls les infirmiers peuvent changer leur assignation',
+      });
+    }
+
+    const { newAssignment } = req.body;
+    const validAssignments = ['INSCRIPTION', 'TRIAGE', 'TREATMENT'];
+
+    if (!newAssignment || !validAssignments.includes(newAssignment)) {
+      return res.status(400).json({
+        error: 'Assignation invalide. Choisissez parmi: INSCRIPTION, TRIAGE, TREATMENT',
+      });
+    }
+
+    const db = getDb();
+    const today = new Date();
+    // Convert JS day (0=Sun) to NCDSS day (0=Mon)
+    const dayOfWeek = (today.getDay() + 6) % 7;
+    // Calculate week start (Monday)
+    const weekStartDate = new Date(today);
+    weekStartDate.setDate(today.getDate() - dayOfWeek);
+    const weekStart = weekStartDate.toISOString().split('T')[0];
+
+    // Get current assignment
+    const existing = await db
+      .select()
+      .from(weeklySchedule)
+      .where(
+        and(
+          eq(weeklySchedule.nurseId, userId),
+          eq(weeklySchedule.weekStart, weekStart),
+          eq(weeklySchedule.dayOfWeek, dayOfWeek)
+        )
+      );
+
+    const previousAssignment = existing[0]?.assignedRole || 'OFF';
+
+    if (existing.length > 0) {
+      // Update existing
+      await db
+        .update(weeklySchedule)
+        .set({ assignedRole: newAssignment })
+        .where(eq(weeklySchedule.id, existing[0].id));
+    } else {
+      // Insert new (self-assigned)
+      await db.insert(weeklySchedule).values({
+        id: randomUUID(),
+        nurseId: userId,
+        weekStart,
+        dayOfWeek,
+        assignedRole: newAssignment,
+        createdBy: userId,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    res.json({
+      message: 'Assignation mise à jour',
+      assignment: newAssignment,
+      previousAssignment,
+    });
+  } catch (error) {
+    console.error('Self-assignment error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 // Validate schedule (at least 1 per role per day)
 router.post('/:weekStart/validate', async (req, res) => {
   try {

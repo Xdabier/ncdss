@@ -20,6 +20,7 @@ interface AuthState {
   loadAuth: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
   getRefreshToken: () => Promise<string | null>;
+  setTodayAssignment: (assignment: NurseAssignment) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -99,5 +100,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
     const { value } = await Preferences.get({ key: 'ncdss_refresh_token' });
     return value;
+  },
+
+  setTodayAssignment: async (assignment) => {
+    await Preferences.set({ key: 'ncdss_assignment', value: assignment });
+    set({ todayAssignment: assignment });
   },
 }));

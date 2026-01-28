@@ -1,8 +1,10 @@
 import React from 'react';
 import { Menu, RefreshCw, Bell } from 'lucide-react';
+import { UserRole } from '@ncdss/shared';
 import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
 import { useSyncStore } from '../../stores/sync.store';
+import { useAuthStore } from '../../stores/auth.store';
+import { AssignmentSelector } from './AssignmentSelector';
 import { cn } from '../../lib/utils';
 
 interface Props {
@@ -11,6 +13,7 @@ interface Props {
 
 export function Header({ onMenuClick }: Props) {
   const { isSyncing, lastSyncAt } = useSyncStore();
+  const { user } = useAuthStore();
 
   const formatLastSync = (date: Date | null) => {
     if (!date) return 'Jamais synchronisé';
@@ -41,6 +44,9 @@ export function Header({ onMenuClick }: Props) {
 
         {/* Right side - Actions */}
         <div className="flex items-center space-x-3">
+          {/* Assignment selector for nurses */}
+          {user?.role === UserRole.NURSE && <AssignmentSelector />}
+
           {/* Sync status */}
           <div className="hidden sm:flex items-center space-x-2 px-3 py-1.5 bg-gray-50 rounded-lg">
             <RefreshCw
