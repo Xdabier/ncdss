@@ -15,3 +15,6 @@ export * from './types/abcde';
 
 // Prescription & Diagnosis types
 export * from './types/prescription';
+
+// Notification types
+export * from './types/notification';

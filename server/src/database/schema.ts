@@ -383,3 +383,27 @@ export const aiPrediagnosis = sqliteTable('ai_prediagnosis', {
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
 });
+
+// ============================================================================
+// NOTIFICATIONS
+// ============================================================================
+
+export const notifications = sqliteTable('notifications', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  type: text('type').notNull(), // PATIENT_ASSIGNED, CRITICAL_PATIENT, SHIFT_ENDING, TRIAGE_COMPLETE, BOX_ASSIGNMENT_CHANGE, RETRIAGE_REQUESTED, PATIENT_DETERIORATION, ORPHANED_PATIENTS
+  title: text('title').notNull(),
+  message: text('message').notNull(),
+  priority: text('priority').notNull(), // LOW, MEDIUM, HIGH, CRITICAL
+  relatedPatientId: text('related_patient_id').references(() => patients.id),
+  relatedBoxId: text('related_box_id').references(() => boxes.id),
+  isRead: integer('is_read', { mode: 'boolean' }).notNull().default(false),
+  readAt: text('read_at'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+  expiresAt: text('expires_at'),
+  metadata: text('metadata'), // JSON for extra data
+});

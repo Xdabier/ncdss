@@ -19,20 +19,30 @@ export async function initDatabase() {
 
   db = drizzle(sqlite, { schema });
 
-  // Run migrations
+  // Run migrations only if needed
   try {
     const migrationsFolder = path.join(__dirname, 'migrations');
-    console.log('Running migrations from:', migrationsFolder);
 
-    // Temporarily disable FKs for migration safety
-    sqlite.pragma('foreign_keys = OFF');
+    // Check if tables already exist (db:push was used)
+    const tablesExist = sqlite
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+      .get();
 
-    migrate(db, { migrationsFolder });
+    if (tablesExist) {
+      console.log('✓ Database tables already exist (using db:push schema)');
+    } else {
+      console.log('Running migrations from:', migrationsFolder);
 
-    // Re-enable FKs
-    sqlite.pragma('foreign_keys = ON');
+      // Temporarily disable FKs for migration safety
+      sqlite.pragma('foreign_keys = OFF');
 
-    console.log('✓ Migrations applied');
+      migrate(db, { migrationsFolder });
+
+      // Re-enable FKs
+      sqlite.pragma('foreign_keys = ON');
+
+      console.log('✓ Migrations applied');
+    }
   } catch (error) {
     console.error('Migration failed:', error);
     // Re-enable FKs even on error

@@ -1,33 +1,12 @@
 {
-  "version": "5",
+  "version": "7",
   "dialect": "sqlite",
   "entries": [
     {
       "idx": 0,
-      "version": "5",
-      "when": 1768930652795,
-      "tag": "0000_bitter_christian_walker",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "5",
-      "when": 1769212770495,
-      "tag": "0001_narrow_gravity",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "5",
-      "when": 1769257103633,
-      "tag": "0002_groovy_inhumans",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "5",
-      "when": 1769318306833,
-      "tag": "0003_black_selene",
+      "version": "6",
+      "when": 1769676642040,
+      "tag": "0000_lively_joshua_kane",
       "breakpoints": true
     }
   ]

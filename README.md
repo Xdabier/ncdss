@@ -191,6 +191,43 @@ client/src/
 
 ⚠️ **Note**: Le JWT secret par défaut doit être changé en production!
 
+## 🔧 Dépannage
+
+### Erreur NODE_MODULE_VERSION (better-sqlite3)
+
+Si vous rencontrez cette erreur lors de l'exécution des commandes de base de données:
+
+```
+Error: The module '...\better_sqlite3.node' was compiled against a different Node.js version
+using NODE_MODULE_VERSION X. This version of Node.js requires NODE_MODULE_VERSION Y.
+```
+
+**Cause:** Le module natif `better-sqlite3` a été compilé pour une version différente de Node.js.
+
+**Solution:** Reconstruire le module natif depuis la racine du projet:
+
+```bash
+# Depuis la racine du projet
+npm rebuild better-sqlite3
+
+# Puis réessayez votre commande
+cd server && npm run db:push
+```
+
+Cela arrive souvent quand:
+- Node.js a été mis à jour vers une nouvelle version majeure
+- Les dépendances ont été installées avec une version différente de Node.js
+- Vous changez de version Node.js (ex: via nvm)
+
+### Erreur de connexion client-serveur
+
+Si le client ne peut pas se connecter au serveur:
+
+1. Vérifiez que le serveur est démarré et affiche une adresse IP
+2. Assurez-vous que le client et le serveur sont sur le même réseau
+3. Vérifiez que le pare-feu autorise le port 3000
+4. Essayez avec `http://` devant l'adresse IP dans le client
+
 ## 🗄️ Base de données
 
 ### Tables principales

@@ -1,4 +1,4 @@
-import type { Config } from 'drizzle-kit';
+import { defineConfig } from 'drizzle-kit';
 import path from 'path';
 import os from 'os';
 
@@ -10,11 +10,11 @@ const dbPath = path.join(
   'ncdss-server.db'
 );
 
-export default {
+export default defineConfig({
   schema: './src/database/schema.ts',
   out: './src/database/migrations',
-  driver: 'better-sqlite',
+  dialect: 'sqlite',
   dbCredentials: {
     url: dbPath,
   },
-} satisfies Config;
+});

@@ -16,7 +16,12 @@
     "build:client": "npm run build --workspace=client",
     "build": "npm run build --workspace=shared && npm run build:server && npm run build:client",
     "lint": "eslint \"{client,server,shared}/**/*.{ts,tsx}\"",
-    "format": "prettier --write \"{client,server,shared}/**/*.{ts,tsx,css,md,json}\""
+    "format": "prettier --write \"{client,server,shared}/**/*.{ts,tsx,css,md,json}\"",
+    "rebuild:electron": "npm run rebuild:electron --workspace=server",
+    "rebuild:node": "npm rebuild better-sqlite3",
+    "db:push": "npm run db:push --workspace=server",
+    "db:generate": "npm run db:generate --workspace=server",
+    "db:studio": "npm run db:studio --workspace=server"
   },
   "keywords": [
     "nursing",
