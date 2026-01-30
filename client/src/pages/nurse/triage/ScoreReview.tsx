@@ -256,7 +256,7 @@ export default function ScoreReview() {
           <Button variant="outline" onClick={() => navigate(-1)}>
             Retour
           </Button>
-          <Button onClick={() => navigate(`/nurse/triage/${id}/esi`)} className="min-w-[150px]">
+          <Button onClick={() => navigate(`/nurse/triage/${id}/complete`)} className="min-w-[150px]">
             Continuer
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>

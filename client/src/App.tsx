@@ -45,9 +45,7 @@ import TriageWorkflow from './pages/nurse/triage/TriageWorkflow';
 import SuggestionsReview from './pages/nurse/triage/SuggestionsReview';
 // VitalsEntry removed - vitals are now collected in ABCDE forms
 import ScoreReview from './pages/nurse/triage/ScoreReview';
-import ESISelection from './pages/nurse/triage/ESISelection';
-import Orientation from './pages/nurse/triage/Orientation';
-import PatientSummary from './pages/nurse/triage/PatientSummary';
+import TriageComplete from './pages/nurse/triage/TriageComplete';
 import TreatmentQueue from './pages/nurse/treatment/TreatmentQueue';
 import PatientCare from './pages/nurse/treatment/PatientCare';
 import VitalsUpdate from './pages/nurse/treatment/VitalsUpdate';
@@ -415,40 +413,29 @@ export default function App() {
           }
         />
         <Route
-          path="/nurse/triage/:id/esi"
+          path="/nurse/triage/:id/complete"
           element={
             <ProtectedRoute>
               <RoleGuard
                 allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
               >
-                <ESISelection />
+                <TriageComplete />
               </RoleGuard>
             </ProtectedRoute>
           }
+        />
+        {/* Legacy routes - redirect to consolidated complete page */}
+        <Route
+          path="/nurse/triage/:id/esi"
+          element={<Navigate to="../complete" replace />}
         />
         <Route
           path="/nurse/triage/:id/orientation"
-          element={
-            <ProtectedRoute>
-              <RoleGuard
-                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
-              >
-                <Orientation />
-              </RoleGuard>
-            </ProtectedRoute>
-          }
+          element={<Navigate to="../complete" replace />}
         />
         <Route
           path="/nurse/triage/:id/summary"
-          element={
-            <ProtectedRoute>
-              <RoleGuard
-                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
-              >
-                <PatientSummary />
-              </RoleGuard>
-            </ProtectedRoute>
-          }
+          element={<Navigate to="../complete" replace />}
         />
 
         {/* Nurse - Treatment routes */}
