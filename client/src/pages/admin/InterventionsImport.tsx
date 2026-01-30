@@ -24,6 +24,7 @@ import {
 } from '../../components/ui/select';
 import { Label } from '../../components/ui/label';
 import { getApi } from '../../services/api';
+import { API_ROUTES } from '@ncdss/shared';
 import * as XLSX from 'xlsx';
 
 interface ParsedRow {
@@ -367,7 +368,7 @@ export default function InterventionsImport() {
 
       if (importMode === 'replace') {
         // The API /import endpoint replaces all data
-        const response = await api.post('/interventions/import', { interventions });
+        const response = await api.post(API_ROUTES.interventions.import, { interventions });
         setImportResult({ imported: response.data.imported, errors: 0 });
       } else {
         // Add mode: create each intervention individually
@@ -376,7 +377,7 @@ export default function InterventionsImport() {
 
         for (const intervention of interventions) {
           try {
-            await api.post('/interventions', intervention);
+            await api.post(API_ROUTES.interventions.create, intervention);
             imported++;
           } catch {
             errors++;

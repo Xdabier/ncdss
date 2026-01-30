@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { useAuthStore } from '../stores/auth.store';
-import { UserRole, NurseAssignment } from '@ncdss/shared';
+import { UserRole, NurseAssignment, API_ROUTES } from '@ncdss/shared';
 import { getApi } from '../services/api';
 import { Users, Activity, Clock, UserCheck, AlertTriangle, ArrowRight, UserCog, Stethoscope, CheckCircle, Info } from 'lucide-react';
 import { AssignmentSelector } from '../components/layout/AssignmentSelector';
@@ -51,7 +51,7 @@ export default function Dashboard() {
   const loadStats = async () => {
     try {
       const api = await getApi();
-      const response = await api.get('/stats/dashboard');
+      const response = await api.get(API_ROUTES.stats.dashboard);
       setStats(response.data);
       setError(null);
     } catch (err) {

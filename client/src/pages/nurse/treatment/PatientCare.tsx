@@ -39,7 +39,7 @@ import {
   SelectValue,
 } from '../../../components/ui/select';
 import { getApi } from '../../../services/api';
-import { Patient, PatientStatus, Box, User as UserType, Prescription, MedicationRoute, AdministrationStatus, PrescriptionStatus } from '@ncdss/shared';
+import { Patient, PatientStatus, Box, User as UserType, Prescription, MedicationRoute, AdministrationStatus, PrescriptionStatus, API_ROUTES } from '@ncdss/shared';
 import { formatDateTime } from '../../../utils/dateUtils';
 
 // Treatment note interface
@@ -159,11 +159,11 @@ export default function PatientCare() {
       setLoading(true);
       const api = await getApi();
       const [patientRes, boxesRes, doctorsRes, activePresRes, holdPresRes] = await Promise.all([
-        api.get(`/patients/${id}`),
-        api.get('/config/boxes'),
-        api.get('/users/by-role/DOCTOR'),
-        api.get(`/prescriptions/patient/${id}?status=ACTIVE`),
-        api.get(`/prescriptions/patient/${id}?status=ON_HOLD`),
+        api.get(API_ROUTES.patients.byId(id!)),
+        api.get(API_ROUTES.config.boxes),
+        api.get(API_ROUTES.users.byRole('DOCTOR')),
+        api.get(API_ROUTES.prescriptions.byPatient(id!), { params: { status: 'ACTIVE' } }),
+        api.get(API_ROUTES.prescriptions.byPatient(id!), { params: { status: 'ON_HOLD' } }),
       ]);
 
       setPatient(patientRes.data);
@@ -197,7 +197,7 @@ export default function PatientCare() {
     try {
       setAddingNote(true);
       const api = await getApi();
-      const response = await api.post(`/patients/${id}/notes`, {
+      const response = await api.post(API_ROUTES.patients.notes(id!), {
         note: newNote.trim(),
         noteType,
       });
@@ -221,7 +221,7 @@ export default function PatientCare() {
     try {
       setActionLoading(true);
       const api = await getApi();
-      await api.post(`/patients/${id}/request-retriage`, { reason: reason.trim() });
+      await api.post(API_ROUTES.patients.requestRetriage(id!), { reason: reason.trim() });
       setShowReTriageModal(false);
       navigate('/nurse/treatment');
     } catch (error) {
@@ -237,7 +237,7 @@ export default function PatientCare() {
     try {
       setActionLoading(true);
       const api = await getApi();
-      await api.post(`/patients/${id}/discharge`, {
+      await api.post(API_ROUTES.patients.discharge(id!), {
         dischargeType,
         dischargeNotes: dischargeNotes.trim() || null,
       });
@@ -256,7 +256,7 @@ export default function PatientCare() {
     try {
       setActionLoading(true);
       const api = await getApi();
-      const response = await api.post(`/patients/${id}/start-treatment`, { boxId: boxId || null });
+      const response = await api.post(API_ROUTES.patients.startTreatment(id!), { boxId: boxId || null });
 
       const assignedDoctorName = response.data.assignedDoctorName;
       if (assignedDoctorName) {
@@ -280,7 +280,7 @@ export default function PatientCare() {
     // Reload prescriptions after administration
     try {
       const api = await getApi();
-      const prescriptionsRes = await api.get(`/prescriptions/patient/${id}?status=ACTIVE`);
+      const prescriptionsRes = await api.get(API_ROUTES.prescriptions.byPatient(id!), { params: { status: 'ACTIVE' } });
       setPrescriptions(prescriptionsRes.data);
     } catch (error) {
       console.error('Error reloading prescriptions:', error);
@@ -292,8 +292,8 @@ export default function PatientCare() {
       const api = await getApi();
       // Get both ACTIVE and ON_HOLD prescriptions
       const [activeRes, holdRes] = await Promise.all([
-        api.get(`/prescriptions/patient/${id}?status=ACTIVE`),
-        api.get(`/prescriptions/patient/${id}?status=ON_HOLD`),
+        api.get(API_ROUTES.prescriptions.byPatient(id!), { params: { status: 'ACTIVE' } }),
+        api.get(API_ROUTES.prescriptions.byPatient(id!), { params: { status: 'ON_HOLD' } }),
       ]);
       setPrescriptions([...activeRes.data, ...holdRes.data]);
     } catch (error) {
@@ -305,7 +305,7 @@ export default function PatientCare() {
     setPrescriptionActionLoading(prescriptionId);
     try {
       const api = await getApi();
-      await api.post(`/prescriptions/${prescriptionId}/hold`, { reason });
+      await api.post(API_ROUTES.prescriptions.hold(prescriptionId), { reason });
       await reloadPrescriptions();
       setShowHoldModal(false);
       setSelectedPrescription(null);
@@ -320,7 +320,7 @@ export default function PatientCare() {
     setPrescriptionActionLoading(prescriptionId);
     try {
       const api = await getApi();
-      await api.post(`/prescriptions/${prescriptionId}/resume`);
+      await api.post(API_ROUTES.prescriptions.resume(prescriptionId));
       await reloadPrescriptions();
     } catch (error) {
       console.error('Error resuming prescription:', error);
@@ -333,7 +333,7 @@ export default function PatientCare() {
     setPrescriptionActionLoading(prescriptionId);
     try {
       const api = await getApi();
-      await api.post(`/prescriptions/${prescriptionId}/complete`);
+      await api.post(API_ROUTES.prescriptions.complete(prescriptionId));
       await reloadPrescriptions();
     } catch (error) {
       console.error('Error completing prescription:', error);
@@ -1258,7 +1258,7 @@ function AdministrationModal({ prescription, isOpen, onClose, onSuccess }: Admin
 
     try {
       const api = await getApi();
-      await api.post(`/prescriptions/${prescription.id}/administer`, {
+      await api.post(API_ROUTES.prescriptions.administer(prescription.id), {
         status,
         notes: notes.trim() || null,
       });

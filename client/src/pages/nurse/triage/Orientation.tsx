@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { getApi } from '../../../services/api';
-import { Patient, Sex, Orientation as OrientationType, OrientationSource } from '@ncdss/shared';
+import { Patient, Sex, Orientation as OrientationType, OrientationSource, API_ROUTES } from '@ncdss/shared';
 
 interface OrientationOption {
   value: OrientationType;
@@ -104,11 +104,11 @@ export default function Orientation() {
         const api = await getApi();
 
         // Load patient
-        const patientResponse = await api.get(`/patients/${id}`);
+        const patientResponse = await api.get(API_ROUTES.patients.byId(id));
         setPatient(patientResponse.data);
 
         // Load orientation suggestion
-        const suggestionResponse = await api.get(`/patients/${id}/suggest-orientation`);
+        const suggestionResponse = await api.get(API_ROUTES.patients.suggestOrientation(id));
         setSuggestion(suggestionResponse.data);
 
         // Pre-select suggested orientation

@@ -1,5 +1,5 @@
 import { getApi } from './api';
-import { SyncRequest, SyncResponse, SyncChange } from '@ncdss/shared';
+import { SyncRequest, SyncResponse, SyncChange, API_ROUTES } from '@ncdss/shared';
 import { Preferences } from '@capacitor/preferences';
 
 const LAST_SYNC_KEY = 'ncdss_last_sync';
@@ -36,7 +36,7 @@ export async function performSync(localChanges: SyncChange[]): Promise<SyncRespo
     changes: localChanges,
   };
 
-  const response = await api.post('/sync', request);
+  const response = await api.post(API_ROUTES.sync.sync, request);
   const data = response.data as SyncResponse;
 
   // Update last sync time

@@ -13,7 +13,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { getApi } from '../../services/api';
-import { ERConfiguration } from '@ncdss/shared';
+import { ERConfiguration, API_ROUTES } from '@ncdss/shared';
 
 export default function ERConfigurationPage() {
   const [config, setConfig] = useState<ERConfiguration | null>(null);
@@ -29,7 +29,7 @@ export default function ERConfigurationPage() {
   const loadConfig = async () => {
     try {
       const api = await getApi();
-      const response = await api.get('/config/er');
+      const response = await api.get(API_ROUTES.config.er);
       setConfig(response.data);
     } catch (e) {
       setError('Erreur de chargement de la configuration');
@@ -47,7 +47,7 @@ export default function ERConfigurationPage() {
 
     try {
       const api = await getApi();
-      await api.put('/config/er', config);
+      await api.put(API_ROUTES.config.er, config);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (e) {

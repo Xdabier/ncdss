@@ -18,3 +18,6 @@ export * from './types/prescription';
 
 // Notification types
 export * from './types/notification';
+
+// API route definitions
+export * from './types/api-routes';

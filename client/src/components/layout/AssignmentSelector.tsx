@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserCog } from 'lucide-react';
-import { NurseAssignment } from '@ncdss/shared';
+import { NurseAssignment, API_ROUTES } from '@ncdss/shared';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import {
@@ -71,7 +71,7 @@ export function AssignmentSelector({
 
     try {
       const api = await getApi();
-      await api.put('/schedule/my-assignment', {
+      await api.put(API_ROUTES.schedule.myAssignment, {
         newAssignment: selectedAssignment,
       });
 

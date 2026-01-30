@@ -7,7 +7,7 @@ import { Badge } from '../../components/ui/badge';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { ABCDEReviewComponent } from '../../components/doctor/ABCDEReview';
 import { getApi } from '../../services/api';
-import { Patient, Sex } from '@ncdss/shared';
+import { Patient, Sex, API_ROUTES } from '@ncdss/shared';
 import {
   ArrowLeft,
   RefreshCw,
@@ -39,7 +39,7 @@ export default function ABCDEReview() {
 
     try {
       const api = await getApi();
-      const response = await api.get(`/patients/${id}`);
+      const response = await api.get(API_ROUTES.patients.byId(id));
       setPatient(response.data);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Erreur lors du chargement du patient');

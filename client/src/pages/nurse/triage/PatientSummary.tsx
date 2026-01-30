@@ -17,7 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { getApi } from '../../../services/api';
-import { Patient, Sex, Orientation as OrientationType, OrientationSource } from '@ncdss/shared';
+import { Patient, Sex, Orientation as OrientationType, OrientationSource, API_ROUTES } from '@ncdss/shared';
 import { getScoreColor, getScoreLabel } from '../../../utils/scoreUtils';
 
 interface LocationState {
@@ -71,7 +71,7 @@ export default function PatientSummary() {
         setLoading(true);
         setError(null);
         const api = await getApi();
-        const response = await api.get(`/patients/${id}`);
+        const response = await api.get(API_ROUTES.patients.byId(id));
         setPatient(response.data);
       } catch (e: any) {
         setError(e.response?.data?.error || 'Erreur de chargement du patient');
@@ -105,7 +105,7 @@ export default function PatientSummary() {
       setError(null);
       const api = await getApi();
 
-      await api.post(`/patients/${id}/complete-triage`, {
+      await api.post(API_ROUTES.patients.completeTriage(id), {
         esiLevel: finalESILevel,
         suggestedOrientation,
         orientationSource,

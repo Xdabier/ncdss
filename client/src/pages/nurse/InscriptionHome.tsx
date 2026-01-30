@@ -8,7 +8,7 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Card, CardContent } from '../../components/ui/card';
 import { getApi } from '../../services/api';
-import { Patient, PatientStatus } from '@ncdss/shared';
+import { Patient, PatientStatus, API_ROUTES } from '@ncdss/shared';
 import { formatDateTime } from '../../utils/dateUtils';
 
 const statusLabels: Record<string, string> = {
@@ -42,11 +42,10 @@ export default function InscriptionHome() {
   const loadPatients = async () => {
     try {
       const api = await getApi();
-      const params = new URLSearchParams();
-      params.append('today', 'true');
-      if (search) params.append('search', search);
-      
-      const response = await api.get(`/patients?${params.toString()}`);
+      const params: Record<string, string> = { today: 'true' };
+      if (search) params.search = search;
+
+      const response = await api.get(API_ROUTES.patients.list, { params });
       setPatients(response.data);
     } catch (error) {
       console.error('Error loading patients:', error);

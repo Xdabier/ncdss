@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { AIPreDiagnosisPanel } from '../../../components/shared/AIPreDiagnosisPanel';
 import { getApi } from '../../../services/api';
-import { Patient } from '@ncdss/shared';
+import { Patient, API_ROUTES } from '@ncdss/shared';
 import type { AnalysisResult, PathologyMatch } from '@ncdss/shared';
 
 const orientationColors: Record<string, string> = {
@@ -64,7 +64,7 @@ export default function SuggestionsReview() {
     try {
       setLoading(true);
       const api = await getApi();
-      const patientResponse = await api.get(`/patients/${id}`);
+      const patientResponse = await api.get(API_ROUTES.patients.byId(id!));
       setPatient(patientResponse.data);
       await runAnalysis();
     } catch (e) {
@@ -79,7 +79,7 @@ export default function SuggestionsReview() {
       setAnalyzing(true);
       setError(null);
       const api = await getApi();
-      const analysisResponse = await api.post(`/patients/${id}/analyze-findings`, {
+      const analysisResponse = await api.post(API_ROUTES.patients.analyzeFindings(id!), {
         forceReanalyze
       });
       setAnalysis(analysisResponse.data);

@@ -45,6 +45,7 @@ import {
   X,
 } from 'lucide-react';
 import { getApi } from '../../services/api';
+import { API_ROUTES } from '@ncdss/shared';
 
 interface AuditEntry {
   id: string;
@@ -156,7 +157,7 @@ export default function AuditLog() {
   const fetchUsers = useCallback(async () => {
     try {
       const api = await getApi();
-      const response = await api.get('/audit-log/users');
+      const response = await api.get(API_ROUTES.auditLog.users);
       setUsers(response.data);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -178,7 +179,7 @@ export default function AuditLog() {
       if (action && action !== '__all__') params.action = action;
       if (resource && resource !== '__all__') params.resource = resource;
 
-      const response = await api.get('/audit-log', { params });
+      const response = await api.get(API_ROUTES.auditLog.list, { params });
       setEntries(response.data.entries);
       setPagination(response.data.pagination);
     } catch (error) {
@@ -205,7 +206,7 @@ export default function AuditLog() {
       if (action && action !== '__all__') params.action = action;
       if (resource && resource !== '__all__') params.resource = resource;
 
-      const response = await api.get('/audit-log/export', {
+      const response = await api.get(API_ROUTES.auditLog.export, {
         params,
         responseType: 'blob',
       });

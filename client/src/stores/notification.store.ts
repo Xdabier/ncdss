@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { getApi } from '../services/api';
-import { Notification } from '@ncdss/shared';
+import { Notification, API_ROUTES } from '@ncdss/shared';
 
 interface NotificationStore {
   notifications: Notification[];
@@ -30,7 +30,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     try {
       const api = await getApi();
       set({ isLoading: true });
-      const response = await api.get('/notifications?limit=20');
+      const response = await api.get(API_ROUTES.notifications.list, { params: { limit: 20 } });
       set({ notifications: response.data, lastFetched: new Date() });
     } catch {
       // Silently fail - polling will retry
@@ -42,7 +42,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   fetchUnreadCount: async () => {
     try {
       const api = await getApi();
-      const response = await api.get('/notifications/unread-count');
+      const response = await api.get(API_ROUTES.notifications.unreadCount);
       set({ unreadCount: response.data.count });
     } catch {
       // Silently fail - polling will retry
@@ -52,7 +52,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   markAsRead: async (id: string) => {
     try {
       const api = await getApi();
-      await api.put(`/notifications/${id}/read`);
+      await api.put(API_ROUTES.notifications.markRead(id));
       set((state) => ({
         notifications: state.notifications.map((n) =>
           n.id === id ? { ...n, isRead: true, readAt: new Date().toISOString() } : n
@@ -69,7 +69,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   markAllAsRead: async () => {
     try {
       const api = await getApi();
-      await api.put('/notifications/read-all');
+      await api.put(API_ROUTES.notifications.markAllRead);
       set((state) => ({
         notifications: state.notifications.map((n) => ({
           ...n,
@@ -87,7 +87,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   deleteNotification: async (id: string) => {
     try {
       const api = await getApi();
-      await api.delete(`/notifications/${id}`);
+      await api.delete(API_ROUTES.notifications.remove(id));
       set((state) => {
         const removed = state.notifications.find((n) => n.id === id);
         return {

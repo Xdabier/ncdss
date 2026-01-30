@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { API_ROUTES } from '@ncdss/shared';
 import { getServerUrl } from './config';
 import { useAuthStore } from '../stores/auth.store';
 
@@ -48,8 +49,8 @@ export async function getApi(): Promise<AxiosInstance> {
       if (error.response?.status === 401 && !originalRequest._retry) {
         // Skip refresh for login and refresh endpoints
         if (
-          originalRequest.url?.includes('/auth/login') ||
-          originalRequest.url?.includes('/auth/refresh')
+          originalRequest.url?.includes(API_ROUTES.auth.login) ||
+          originalRequest.url?.includes(API_ROUTES.auth.refresh)
         ) {
           return Promise.reject(error);
         }
@@ -76,7 +77,7 @@ export async function getApi(): Promise<AxiosInstance> {
 
           // Call refresh endpoint
           if (!apiInstance) throw new Error('API instance not initialized');
-          const response = await apiInstance.post('/auth/refresh', { refreshToken });
+          const response = await apiInstance.post(API_ROUTES.auth.refresh, { refreshToken });
           const { accessToken, user, todayAssignment } = response.data;
 
           // Update tokens in store

@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from '../ui/alert';
 import { getApi } from '../../services/api';
 import { getServerUrl } from '../../services/config';
 import { useAuthStore } from '../../stores/auth.store';
+import { API_ROUTES } from '@ncdss/shared';
 import {
   Bot,
   Sparkles,
@@ -280,7 +281,7 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
     try {
       setLoadingSaved(true);
       const api = await getApi();
-      const response = await api.get(`/patients/${patientId}/ai-prediagnosis`);
+      const response = await api.get(API_ROUTES.patients.aiPrediagnosis(patientId));
       setSavedPreDiagnosis(response.data);
 
       // If we have a completed result, set it
@@ -304,7 +305,7 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
     try {
       setCheckingStatus(true);
       const api = await getApi();
-      const response = await api.get(`/patients/${patientId}/ai-status`);
+      const response = await api.get(API_ROUTES.patients.aiStatus(patientId));
       setAiAvailable(response.data.available);
     } catch (err) {
       console.error('Failed to check AI status:', err);
@@ -340,7 +341,7 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
     const pollForResult = async () => {
       try {
         const api = await getApi();
-        const response = await api.get(`/patients/${patientId}/ai-prediagnosis`);
+        const response = await api.get(API_ROUTES.patients.aiPrediagnosis(patientId));
         setSavedPreDiagnosis(response.data);
 
         if (response.data.status !== 'generating') {
@@ -396,7 +397,7 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
       const token = await useAuthStore.getState().getAccessToken();
 
       // Use EventSource for SSE streaming
-      const url = `http://${serverUrl}/api/patients/${patientId}/ai-prediagnosis-stream`;
+      const url = `http://${serverUrl}/api${API_ROUTES.patients.aiPrediagnosisStream(patientId)}`;
 
       // EventSource doesn't support headers, so we use fetch with streaming
       const response = await fetch(url, {

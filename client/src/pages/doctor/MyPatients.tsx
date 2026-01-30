@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { getApi } from '../../services/api';
-import { Patient, PatientStatus, Sex, NotificationType } from '@ncdss/shared';
+import { Patient, PatientStatus, Sex, NotificationType, API_ROUTES } from '@ncdss/shared';
 import {
   Users,
   Clock,
@@ -75,13 +75,11 @@ export default function MyPatients() {
     else setRefreshing(true);
     try {
       const api = await getApi();
-      const params = new URLSearchParams();
-      params.append('status', PatientStatus.IN_TREATMENT);
-      params.append('status', PatientStatus.WITH_DOCTOR);
-      params.append('today', 'true');
-      params.append('limit', '100');
-
-      const response = await api.get(`/patients?${params.toString()}`);
+      const response = await api.get(API_ROUTES.patients.list, { params: {
+        status: [PatientStatus.IN_TREATMENT, PatientStatus.WITH_DOCTOR],
+        today: 'true',
+        limit: '100',
+      } });
       const newPatients: PatientListItem[] = response.data;
 
       // Detect newly assigned patients (assigned in last 5 minutes)
@@ -156,7 +154,7 @@ export default function MyPatients() {
     setTakingPatient(patientId);
     try {
       const api = await getApi();
-      await api.post(`/patients/${patientId}/transfer-to-doctor`, {
+      await api.post(API_ROUTES.patients.transferToDoctor(patientId), {
         doctorId: user.id
       });
       await loadPatients(false);

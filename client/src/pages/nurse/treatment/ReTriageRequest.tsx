@@ -30,7 +30,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { getApi } from '../../../services/api';
-import { Patient } from '@ncdss/shared';
+import { Patient, API_ROUTES } from '@ncdss/shared';
 
 // Urgency options
 const urgencyOptions = [
@@ -71,7 +71,7 @@ export default function ReTriageRequest() {
     try {
       setLoading(true);
       const api = await getApi();
-      const response = await api.get(`/patients/${id}`);
+      const response = await api.get(API_ROUTES.patients.byId(id!));
       setPatient(response.data);
     } catch (err) {
       console.error('Error loading patient:', err);
@@ -88,7 +88,7 @@ export default function ReTriageRequest() {
       setSubmitting(true);
       setError(null);
       const api = await getApi();
-      await api.post(`/patients/${id}/request-retriage`, {
+      await api.post(API_ROUTES.patients.requestRetriage(id!), {
         reason: reason.trim(),
         urgency,
       });

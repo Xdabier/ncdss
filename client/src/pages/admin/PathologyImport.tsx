@@ -23,6 +23,7 @@ import {
 } from '../../components/ui/select';
 import { Label } from '../../components/ui/label';
 import { getApi } from '../../services/api';
+import { API_ROUTES } from '@ncdss/shared';
 import * as XLSX from 'xlsx';
 
 interface ParsedRow {
@@ -253,7 +254,7 @@ export default function PathologyImport() {
       // For "add" mode, we would need to create individually, but for simplicity
       // we'll use the import endpoint which replaces everything
       if (importMode === 'replace') {
-        const response = await api.post('/pathologies/import', { pathologies });
+        const response = await api.post(API_ROUTES.pathologies.import, { pathologies });
         setImportResult({ imported: response.data.imported, errors: 0 });
       } else {
         // Add mode: create each pathology individually
@@ -262,7 +263,7 @@ export default function PathologyImport() {
 
         for (const p of pathologies) {
           try {
-            await api.post('/pathologies', p);
+            await api.post(API_ROUTES.pathologies.create, p);
             imported++;
           } catch {
             errors++;

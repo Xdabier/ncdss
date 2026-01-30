@@ -32,7 +32,7 @@ import {
   X,
 } from 'lucide-react';
 import { getApi } from '../../services/api';
-import { PatientStatus, Orientation, Sex } from '@ncdss/shared';
+import { PatientStatus, Orientation, Sex, API_ROUTES } from '@ncdss/shared';
 
 interface PatientSummary {
   id: string;
@@ -147,18 +147,17 @@ export default function AllPatients() {
     setLoading(true);
     try {
       const api = await getApi();
-      const params = new URLSearchParams();
+      const params: Record<string, string> = { limit: '200' };
 
-      if (search) params.append('search', search);
+      if (search) params.search = search;
       if (statusFilter && statusFilter !== 'all') {
-        params.append('status', statusFilter);
+        params.status = statusFilter;
       }
       if (dateFilter) {
-        params.append('today', 'true');
+        params.today = 'true';
       }
-      params.append('limit', '200');
 
-      const response = await api.get(`/patients?${params.toString()}`);
+      const response = await api.get(API_ROUTES.patients.list, { params });
 
       // Apply client-side filters for ESI and Orientation
       let filtered = response.data;

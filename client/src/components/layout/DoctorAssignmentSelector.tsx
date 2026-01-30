@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Stethoscope, Clock, X, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
-import { BoxType, AssignmentPreset, Box, ASSIGNMENT_PRESETS } from '@ncdss/shared';
+import { BoxType, AssignmentPreset, Box, ASSIGNMENT_PRESETS, API_ROUTES } from '@ncdss/shared';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -94,7 +94,7 @@ export function DoctorAssignmentSelector({
     const fetchBoxes = async () => {
       try {
         const api = await getApi();
-        const response = await api.get('/config/boxes');
+        const response = await api.get(API_ROUTES.config.boxes);
         // Filter out TRIAGE boxes - doctors are assigned to treatment boxes
         const treatmentBoxes = response.data.filter(
           (box: Box) => box.boxType !== BoxType.TRIAGE && box.isActive
@@ -112,7 +112,7 @@ export function DoctorAssignmentSelector({
     const fetchCurrentAssignment = async () => {
       try {
         const api = await getApi();
-        const response = await api.get('/box-assignments/my-assignment');
+        const response = await api.get(API_ROUTES.boxAssignments.myAssignment);
         if (response.data) {
           await setDoctorBoxAssignment(response.data);
         }
@@ -188,7 +188,7 @@ export function DoctorAssignmentSelector({
       const api = await getApi();
       const endDateTime = calculateEndDateTime();
 
-      const response = await api.put('/box-assignments/my-assignment', {
+      const response = await api.put(API_ROUTES.boxAssignments.myAssignment, {
         boxId: selectedBoxId,
         presetType: selectedPreset,
         endDateTime,
@@ -236,7 +236,7 @@ export function DoctorAssignmentSelector({
 
     try {
       const api = await getApi();
-      await api.delete('/box-assignments/my-assignment');
+      await api.delete(API_ROUTES.boxAssignments.myAssignment);
       await setDoctorBoxAssignment(null);
       setIsOpen(false);
     } catch (err: any) {

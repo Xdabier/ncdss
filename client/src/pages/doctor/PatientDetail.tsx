@@ -33,6 +33,7 @@ import {
   PrescriptionStatus,
   MedicationRoute,
   CreatePrescriptionRequest,
+  API_ROUTES,
 } from '@ncdss/shared';
 import {
   ArrowLeft,
@@ -155,7 +156,7 @@ function PrescriptionEntryModal({ patientId, onClose, onSuccess }: PrescriptionE
 
     try {
       const api = await getApi();
-      await api.post('/prescriptions', form);
+      await api.post(API_ROUTES.prescriptions.create, form);
       onSuccess();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Erreur lors de la création de la prescription');
@@ -302,7 +303,7 @@ function CancelPrescriptionModal({ prescription, onClose, onSuccess }: CancelPre
 
     try {
       const api = await getApi();
-      await api.put(`/prescriptions/${prescription.id}/cancel`, { reason });
+      await api.put(API_ROUTES.prescriptions.cancel(prescription.id), { reason });
       onSuccess();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Erreur lors de l\'annulation');
@@ -391,7 +392,7 @@ function TransferModal({ patient, onClose, onSuccess }: TransferModalProps) {
     const loadDoctors = async () => {
       try {
         const api = await getApi();
-        const response = await api.get('/users/by-role/DOCTOR');
+        const response = await api.get(API_ROUTES.users.byRole('DOCTOR'));
         setDoctors(response.data);
       } catch (err) {
         console.error('Error loading doctors:', err);
@@ -411,7 +412,7 @@ function TransferModal({ patient, onClose, onSuccess }: TransferModalProps) {
 
     try {
       const api = await getApi();
-      await api.post(`/patients/${patient.id}/transfer-to-doctor`, {
+      await api.post(API_ROUTES.patients.transferToDoctor(patient.id), {
         doctorId: selectedDoctor,
         reason: reason || undefined,
       });
@@ -524,7 +525,7 @@ export default function PatientDetail() {
 
     try {
       const api = await getApi();
-      const response = await api.get(`/patients/${id}`);
+      const response = await api.get(API_ROUTES.patients.byId(id));
       setPatient(response.data);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Erreur lors du chargement du patient');
@@ -536,7 +537,7 @@ export default function PatientDetail() {
 
     try {
       const api = await getApi();
-      const response = await api.get(`/diagnoses/patient/${id}`);
+      const response = await api.get(API_ROUTES.diagnoses.byPatient(id));
       setDiagnoses(response.data);
     } catch (err: any) {
       console.error('Error loading diagnoses:', err);
@@ -548,7 +549,7 @@ export default function PatientDetail() {
 
     try {
       const api = await getApi();
-      const response = await api.get(`/prescriptions/patient/${id}`);
+      const response = await api.get(API_ROUTES.prescriptions.byPatient(id));
       setPrescriptions(response.data);
     } catch (err: any) {
       console.error('Error loading prescriptions:', err);
@@ -603,7 +604,7 @@ export default function PatientDetail() {
     setActionLoading(`confirm-${diagnosisId}`);
     try {
       const api = await getApi();
-      await api.post(`/diagnoses/${diagnosisId}/confirm`);
+      await api.post(API_ROUTES.diagnoses.confirm(diagnosisId));
       await loadDiagnoses();
     } catch (err: any) {
       console.error('Error confirming diagnosis:', err);
@@ -617,7 +618,7 @@ export default function PatientDetail() {
     setActionLoading(`ruleout-${diagnosisId}`);
     try {
       const api = await getApi();
-      await api.put(`/diagnoses/${diagnosisId}`, { status: DiagnosisStatus.RULED_OUT });
+      await api.put(API_ROUTES.diagnoses.update(diagnosisId), { status: DiagnosisStatus.RULED_OUT });
       await loadDiagnoses();
     } catch (err: any) {
       console.error('Error ruling out diagnosis:', err);
@@ -631,7 +632,7 @@ export default function PatientDetail() {
     setActionLoading(`resolve-${diagnosisId}`);
     try {
       const api = await getApi();
-      await api.put(`/diagnoses/${diagnosisId}`, { status: 'RESOLVED' });
+      await api.put(API_ROUTES.diagnoses.update(diagnosisId), { status: 'RESOLVED' });
       await loadDiagnoses();
     } catch (err: any) {
       console.error('Error resolving diagnosis:', err);

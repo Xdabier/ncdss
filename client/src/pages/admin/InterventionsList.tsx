@@ -20,6 +20,7 @@ import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { getApi } from '../../services/api';
+import { API_ROUTES } from '@ncdss/shared';
 import { InterventionModal, Intervention } from '../../components/admin/InterventionModal';
 
 const orientationLabels: Record<string, string> = {
@@ -97,7 +98,7 @@ export default function InterventionsList() {
       if (search) params.append('search', search);
       if (categoryFilter && categoryFilter !== 'all') params.append('category', categoryFilter);
 
-      const response = await api.get(`/interventions?${params.toString()}`);
+      const response = await api.get(API_ROUTES.interventions.list, { params: Object.fromEntries(params) });
       setInterventions(response.data);
     } catch (error) {
       console.error('Error loading interventions:', error);
@@ -167,7 +168,7 @@ export default function InterventionsList() {
     setIsDeleting(true);
     try {
       const api = await getApi();
-      await api.delete(`/interventions/${interventionToDelete.id}`);
+      await api.delete(API_ROUTES.interventions.remove(interventionToDelete.id));
       loadInterventions();
       handleCloseDelete();
     } catch (error) {

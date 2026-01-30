@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '../../components/ui/select';
 import { getApi } from '../../services/api';
-import { User, UserRole } from '@ncdss/shared';
+import { User, UserRole, API_ROUTES } from '@ncdss/shared';
 
 const roleLabels: Record<UserRole, string> = {
   [UserRole.NURSE]: 'Infirmier(ère)',
@@ -56,7 +56,7 @@ export default function UserManagement() {
       if (roleFilter && roleFilter !== 'all') params.append('role', roleFilter);
       if (statusFilter && statusFilter !== 'all') params.append('isActive', statusFilter);
 
-      const response = await api.get(`/users?${params.toString()}`);
+      const response = await api.get(API_ROUTES.users.list, { params: Object.fromEntries(params) });
       setUsers(response.data);
     } catch (error) {
       console.error('Error loading users:', error);
@@ -68,7 +68,7 @@ export default function UserManagement() {
   const handleToggleStatus = async (user: User) => {
     try {
       const api = await getApi();
-      await api.put(`/users/${user.id}`, {
+      await api.put(API_ROUTES.users.update(user.id), {
         isActive: !user.isActive,
       });
       loadUsers();

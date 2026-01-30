@@ -26,7 +26,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { getApi } from '../../services/api';
-import { Patient, PatientStatus, Sex, Orientation } from '@ncdss/shared';
+import { Patient, PatientStatus, Sex, Orientation, API_ROUTES } from '@ncdss/shared';
 
 const statusLabels: Record<string, string> = {
   REGISTERED: 'Inscrit',
@@ -89,7 +89,7 @@ export default function SupervisorPatientDetail() {
       if (!id) return;
       try {
         const api = await getApi();
-        const response = await api.get(`/patients/${id}`);
+        const response = await api.get(API_ROUTES.patients.byId(id));
         setPatient(response.data);
       } catch (error) {
         console.error('Error loading patient:', error);

@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { getApi } from '../../services/api';
+import { API_ROUTES } from '@ncdss/shared';
 
 export interface Intervention {
   id: number;
@@ -157,9 +158,9 @@ export function InterventionModal({
       };
 
       if (isEditMode && intervention) {
-        await api.put(`/interventions/${intervention.id}`, payload);
+        await api.put(API_ROUTES.interventions.update(intervention.id), payload);
       } else {
-        await api.post('/interventions', payload);
+        await api.post(API_ROUTES.interventions.create, payload);
       }
 
       onSave();

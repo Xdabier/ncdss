@@ -19,7 +19,7 @@ import { Card, CardContent } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { getApi } from '../../services/api';
 import { useAuthStore } from '../../stores/auth.store';
-import { UserRole } from '@ncdss/shared';
+import { UserRole, API_ROUTES } from '@ncdss/shared';
 
 // Types for tracking board data
 interface TrackingPatient {
@@ -106,8 +106,8 @@ export default function TrackingBoard() {
       setError(null);
       const api = await getApi();
       const [boardRes, statsRes] = await Promise.all([
-        api.get('/tracking/board'),
-        api.get('/tracking/stats'),
+        api.get(API_ROUTES.tracking.board),
+        api.get(API_ROUTES.tracking.stats),
       ]);
       setPatients(boardRes.data);
       setStats(statsRes.data);

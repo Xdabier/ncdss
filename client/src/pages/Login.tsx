@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import { getServerUrl, setServerUrl } from '../services/config';
 import { getApi, setAuthToken, clearApi } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
+import { API_ROUTES } from '@ncdss/shared';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -62,7 +63,7 @@ export default function Login() {
 
     try {
       const api = await getApi();
-      const response = await api.post('/auth/login', { username, password });
+      const response = await api.post(API_ROUTES.auth.login, { username, password });
 
       const { accessToken, refreshToken, user, todayAssignment } = response.data;
       setAuthToken(accessToken);

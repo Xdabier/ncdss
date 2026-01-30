@@ -21,7 +21,7 @@ import {
 } from '../../components/ui/select';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { getApi } from '../../services/api';
-import { UserRole } from '@ncdss/shared';
+import { UserRole, API_ROUTES } from '@ncdss/shared';
 
 const roleOptions = [
   { value: UserRole.NURSE, label: 'Infirmier(ère)' },
@@ -69,7 +69,7 @@ export default function UserForm() {
   const loadUser = async () => {
     try {
       const api = await getApi();
-      const response = await api.get(`/users/${id}`);
+      const response = await api.get(API_ROUTES.users.byId(id!));
       const user = response.data;
       setFormData({
         username: user.username,
@@ -121,12 +121,12 @@ export default function UserForm() {
       const api = await getApi();
 
       if (isEditing) {
-        await api.put(`/users/${id}`, {
+        await api.put(API_ROUTES.users.update(id!), {
           fullName: formData.fullName,
           role: formData.role,
         });
       } else {
-        await api.post('/users', formData);
+        await api.post(API_ROUTES.users.create, formData);
       }
 
       navigate(-1);

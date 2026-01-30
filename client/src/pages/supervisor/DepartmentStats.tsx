@@ -45,6 +45,7 @@ import {
   Cell,
 } from 'recharts';
 import { getApi } from '../../services/api';
+import { API_ROUTES } from '@ncdss/shared';
 
 interface DashboardStats {
   today: {
@@ -107,13 +108,11 @@ export default function DepartmentStats() {
     setLoading(true);
     try {
       const api = await getApi();
-      const params = new URLSearchParams();
-      params.append('startDate', startDate);
-      params.append('endDate', endDate);
+      const params: Record<string, string> = { startDate, endDate };
       if (shift !== 'all') {
-        params.append('shift', shift);
+        params.shift = shift;
       }
-      const response = await api.get(`/stats/dashboard?${params.toString()}`);
+      const response = await api.get(API_ROUTES.stats.dashboard, { params });
       setStats(response.data);
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -130,10 +129,7 @@ export default function DepartmentStats() {
     setExporting(true);
     try {
       const api = await getApi();
-      const params = new URLSearchParams();
-      params.append('startDate', startDate);
-      params.append('endDate', endDate);
-      const response = await api.get(`/stats/export?${params.toString()}`);
+      const response = await api.get(API_ROUTES.stats.export, { params: { startDate, endDate } });
 
       // Convert to CSV
       const data = response.data;

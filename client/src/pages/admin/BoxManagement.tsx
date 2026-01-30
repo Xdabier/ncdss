@@ -3,7 +3,7 @@ import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { DataTable, Column } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/badge';
 import { getApi } from '../../services/api';
-import { Box, BoxType } from '@ncdss/shared';
+import { Box, BoxType, API_ROUTES } from '@ncdss/shared';
 import { cn } from '../../lib/utils';
 
 const boxTypeLabels: Record<string, string> = {
@@ -34,7 +34,7 @@ export default function BoxManagement() {
   const loadBoxes = async (): Promise<void> => {
     try {
       const api = await getApi();
-      const response = await api.get('/config/boxes');
+      const response = await api.get(API_ROUTES.config.boxes);
       setBoxes(response.data);
     } catch (error) {
       console.error('Error loading boxes:', error);

@@ -18,6 +18,7 @@ import {
   DiagnosisType,
   DiagnosisStatus,
   PrescriptionStatus,
+  API_ROUTES,
 } from '@ncdss/shared';
 import {
   X,
@@ -122,7 +123,7 @@ export function DoctorDischargeModal({
 
     try {
       const api = await getApi();
-      await api.post(`/patients/${patient.id}/discharge`, {
+      await api.post(API_ROUTES.patients.discharge(patient.id), {
         dischargeType,
         dischargeNotes: dischargeNotes.trim() || null,
       });

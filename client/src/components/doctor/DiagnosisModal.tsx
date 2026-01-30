@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { getApi } from '../../services/api';
+import { API_ROUTES } from '@ncdss/shared';
 
 interface InitialDiagnosisData {
   diagnosisCode?: string;
@@ -131,7 +132,7 @@ export function DiagnosisModal({
 
     try {
       const api = await getApi();
-      await api.post('/diagnoses', {
+      await api.post(API_ROUTES.diagnoses.create, {
         patientId,
         diagnosisCode: formData.diagnosisCode.trim() || null,
         diagnosisName: formData.diagnosisName.trim(),

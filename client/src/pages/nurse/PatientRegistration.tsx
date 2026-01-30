@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '../../components/ui/select';
 import { getApi } from '../../services/api';
-import { Sex } from '@ncdss/shared';
+import { Sex, API_ROUTES } from '@ncdss/shared';
 import { cn } from '../../lib/utils';
 
 interface FormData {
@@ -93,7 +93,7 @@ export default function PatientRegistration() {
     
     try {
       const api = await getApi();
-      await api.post('/patients', {
+      await api.post(API_ROUTES.patients.create, {
         ...formData,
         age: parseInt(formData.age),
         chronicConditions: formData.chronicConditions,

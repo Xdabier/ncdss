@@ -14,6 +14,7 @@ import { Label } from '../../components/ui/label';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { AlertCircle, Key, X, CheckCircle2 } from 'lucide-react';
 import { getApi } from '../../services/api';
+import { API_ROUTES } from '@ncdss/shared';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -34,7 +35,7 @@ export default function ResetPassword() {
   const loadUser = async () => {
     try {
       const api = await getApi();
-      const response = await api.get(`/users/${id}`);
+      const response = await api.get(API_ROUTES.users.byId(id!));
       setUser(response.data);
     } catch (e) {
       setError("Erreur de chargement de l'utilisateur");
@@ -65,7 +66,7 @@ export default function ResetPassword() {
 
     try {
       const api = await getApi();
-      await api.post(`/users/${id}/reset-password`, { password });
+      await api.post(API_ROUTES.users.resetPassword(id!), { password });
       setSuccess(true);
       setTimeout(() => {
         navigate('/admin/users');

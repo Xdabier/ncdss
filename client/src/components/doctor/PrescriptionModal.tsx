@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { getApi } from '../../services/api';
-import { MedicationRoute } from '@ncdss/shared';
+import { MedicationRoute, API_ROUTES } from '@ncdss/shared';
 
 interface PrescriptionModalProps {
   isOpen: boolean;
@@ -103,7 +103,7 @@ export function PrescriptionModal({
 
     try {
       const api = await getApi();
-      await api.post('/prescriptions', {
+      await api.post(API_ROUTES.prescriptions.create, {
         patientId,
         medicationName: formData.medicationName.trim(),
         dosage: formData.dosage.trim(),

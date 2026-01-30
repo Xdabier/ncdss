@@ -8,7 +8,7 @@ import { Badge } from '../../../components/ui/badge';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Input } from '../../../components/ui/input';
 import { getApi } from '../../../services/api';
-import { Patient, PatientStatus, User as UserType } from '@ncdss/shared';
+import { Patient, PatientStatus, User as UserType, API_ROUTES } from '@ncdss/shared';
 import { formatDateTime } from '../../../utils/dateUtils';
 
 // ESI color mapping
@@ -60,7 +60,7 @@ export default function TreatmentQueue() {
   const loadDoctors = async () => {
     try {
       const api = await getApi();
-      const res = await api.get('/users/by-role/DOCTOR');
+      const res = await api.get(API_ROUTES.users.byRole('DOCTOR'));
       setDoctors(res.data);
     } catch (error) {
       console.error('Error loading doctors:', error);
@@ -74,7 +74,7 @@ export default function TreatmentQueue() {
       // Always load all relevant statuses for accurate stats
       const statusParams = [PatientStatus.TRIAGED, PatientStatus.IN_TREATMENT, PatientStatus.WITH_DOCTOR];
 
-      const response = await api.get('/patients', {
+      const response = await api.get(API_ROUTES.patients.list, {
         params: { status: statusParams },
       });
 

@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { getApi } from '../../../services/api';
-import { Patient, Sex } from '@ncdss/shared';
+import { Patient, Sex, API_ROUTES } from '@ncdss/shared';
 
 interface VitalsFormData {
   temperature: string;
@@ -57,7 +57,7 @@ export default function VitalsEntry() {
         setLoading(true);
         setError(null);
         const api = await getApi();
-        const response = await api.get(`/patients/${id}`);
+        const response = await api.get(API_ROUTES.patients.byId(id));
         const patientData: Patient = response.data;
         setPatient(patientData);
 
@@ -119,7 +119,7 @@ export default function VitalsEntry() {
       if (formData.painLevel) vitalsData.painLevel = parseInt(formData.painLevel);
       if (formData.glucoseLevel) vitalsData.glucoseLevel = parseFloat(formData.glucoseLevel);
 
-      await api.put(`/patients/${id}/vitals`, vitalsData);
+      await api.put(API_ROUTES.patients.vitals(id), vitalsData);
 
       // Navigate to ABCDE assessment
       navigate(`/nurse/triage/${id}/abcde`);

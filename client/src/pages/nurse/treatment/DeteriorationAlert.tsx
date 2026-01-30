@@ -26,7 +26,7 @@ import {
   Bell,
 } from 'lucide-react';
 import { getApi } from '../../../services/api';
-import { Patient } from '@ncdss/shared';
+import { Patient, API_ROUTES } from '@ncdss/shared';
 
 // ESI color mapping
 const esiColors: Record<number, string> = {
@@ -146,7 +146,7 @@ export default function DeteriorationAlert() {
     try {
       setLoading(true);
       const api = await getApi();
-      const response = await api.get(`/patients/${id}`);
+      const response = await api.get(API_ROUTES.patients.byId(id!));
       setPatient(response.data);
     } catch (err) {
       console.error('Error loading patient:', err);
@@ -186,11 +186,11 @@ export default function DeteriorationAlert() {
       };
 
       // Add note to patient record
-      await api.post(`/patients/${id}/notes`, alertData);
+      await api.post(API_ROUTES.patients.notes(id!), alertData);
 
       // If re-triage was requested, do that too
       if (selectedEscalation === 'request_retriage') {
-        await api.post(`/patients/${id}/request-retriage`, {
+        await api.post(API_ROUTES.patients.requestRetriage(id!), {
           reason: `Alerte détérioration: ${notes}`,
           urgency: 'very_urgent',
         });

@@ -20,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { getApi } from '../../../services/api';
-import { Patient, Sex, Orientation as OrientationType, OrientationSource } from '@ncdss/shared';
+import { Patient, Sex, Orientation as OrientationType, OrientationSource, API_ROUTES } from '@ncdss/shared';
 import { suggestESI, getScoreColor, getScoreLabel } from '../../../utils/scoreUtils';
 
 // --- ESI Levels ---
@@ -341,8 +341,8 @@ export default function TriageComplete() {
       const api = await getApi();
 
       const [patientRes, suggestionRes] = await Promise.all([
-        api.get(`/patients/${id}`),
-        api.get(`/patients/${id}/suggest-orientation`),
+        api.get(API_ROUTES.patients.byId(id)),
+        api.get(API_ROUTES.patients.suggestOrientation(id)),
       ]);
 
       const patientData: Patient = patientRes.data;
@@ -388,12 +388,12 @@ export default function TriageComplete() {
       const api = await getApi();
 
       // Save ESI level first
-      await api.put(`/patients/${id}/esi`, {
+      await api.put(API_ROUTES.patients.esi(id), {
         esiLevel: selectedESI,
       });
 
       // Complete triage
-      await api.post(`/patients/${id}/complete-triage`, {
+      await api.post(API_ROUTES.patients.completeTriage(id), {
         esiLevel: selectedESI,
         suggestedOrientation: suggestion?.suggestion,
         orientationSource: suggestion?.source,

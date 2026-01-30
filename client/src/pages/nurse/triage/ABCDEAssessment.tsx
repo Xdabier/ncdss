@@ -12,7 +12,7 @@ import { CirculationForm } from '../../../components/abcde/CirculationForm';
 import { DisabilityForm } from '../../../components/abcde/DisabilityForm';
 import { ExposureForm } from '../../../components/abcde/ExposureForm';
 import { getApi } from '../../../services/api';
-import { Patient } from '@ncdss/shared';
+import { Patient, API_ROUTES } from '@ncdss/shared';
 import { cn } from '../../../lib/utils';
 
 const categories = ['A', 'B', 'C', 'D', 'E'] as const;
@@ -59,7 +59,7 @@ export default function ABCDEAssessment() {
   const loadPatient = async () => {
     try {
       const api = await getApi();
-      const response = await api.get(`/patients/${id}`);
+      const response = await api.get(API_ROUTES.patients.byId(id!));
       const p = response.data;
       setPatient(p);
       
@@ -100,7 +100,7 @@ export default function ABCDEAssessment() {
       const api = await getApi();
       const data = abcdeData[currentCategory];
       
-      await api.put(`/patients/${id}/abcde/${currentCategory}`, data);
+      await api.put(API_ROUTES.patients.abcde(id, currentCategory), data);
       
       setCompleted(prev => ({ ...prev, [currentCategory]: true }));
       

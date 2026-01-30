@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { getApi } from '../../../services/api';
-import { Patient, Box, BoxType, Sex, PatientStatus } from '@ncdss/shared';
+import { Patient, Box, BoxType, Sex, PatientStatus, API_ROUTES } from '@ncdss/shared';
 
 // Box occupancy info
 interface BoxOccupancy {
@@ -80,10 +80,10 @@ export default function AssignBox() {
         const api = await getApi();
 
         const [patientRes, boxesRes, occupancyRes] = await Promise.all([
-          api.get(`/patients/${id}`),
-          api.get('/config/boxes'),
+          api.get(API_ROUTES.patients.byId(id)),
+          api.get(API_ROUTES.config.boxes),
           // Get patients currently in treatment or with doctor (have a box assigned)
-          api.get('/patients', {
+          api.get(API_ROUTES.patients.list, {
             params: {
               status: [PatientStatus.IN_TREATMENT, PatientStatus.WITH_DOCTOR],
             },
@@ -97,7 +97,7 @@ export default function AssignBox() {
         const boxesWithDoctors: BoxWithDoctor[] = await Promise.all(
           activeBoxes.map(async (box: Box) => {
             try {
-              const doctorRes = await api.get(`/box-assignments/current-doctor/${box.id}`);
+              const doctorRes = await api.get(API_ROUTES.boxAssignments.currentDoctor(box.id));
               return {
                 ...box,
                 currentDoctor: doctorRes.data
@@ -236,7 +236,7 @@ export default function AssignBox() {
       setError(null);
       const api = await getApi();
 
-      const response = await api.post(`/patients/${id}/start-treatment`, {
+      const response = await api.post(API_ROUTES.patients.startTreatment(id), {
         boxId: boxId || null,
       });
 

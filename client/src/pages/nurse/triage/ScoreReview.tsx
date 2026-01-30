@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { getApi } from '../../../services/api';
-import { Patient, Sex } from '@ncdss/shared';
+import { Patient, Sex, API_ROUTES } from '@ncdss/shared';
 import { getScoreColor, getScoreLabel } from '../../../utils/scoreUtils';
 
 export default function ScoreReview() {
@@ -27,7 +27,7 @@ export default function ScoreReview() {
         setLoading(true);
         setError(null);
         const api = await getApi();
-        const response = await api.get(`/patients/${id}`);
+        const response = await api.get(API_ROUTES.patients.byId(id));
         setPatient(response.data);
       } catch (e: any) {
         setError(e.response?.data?.error || 'Erreur de chargement du patient');

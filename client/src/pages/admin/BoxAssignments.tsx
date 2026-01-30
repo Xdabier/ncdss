@@ -16,7 +16,7 @@ import {
 } from '../../components/ui/select';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { getApi } from '../../services/api';
-import { Box, User, AssignmentPreset, ASSIGNMENT_PRESETS } from '@ncdss/shared';
+import { Box, User, AssignmentPreset, ASSIGNMENT_PRESETS, API_ROUTES } from '@ncdss/shared';
 import { cn } from '../../lib/utils';
 
 interface BoxAssignmentWithDetails {
@@ -89,17 +89,17 @@ export default function BoxAssignments() {
       setLoading(true);
       const api = await getApi();
 
-      let assignmentsUrl = '/box-assignments';
+      const assignmentsParams: Record<string, string> = {};
       if (filterMode === 'current') {
-        assignmentsUrl += '?current=true';
+        assignmentsParams.current = 'true';
       } else if (filterMode === 'date' && filterDate) {
-        assignmentsUrl += `?date=${filterDate}`;
+        assignmentsParams.date = filterDate;
       }
 
       const [assignmentsRes, boxesRes, doctorsRes] = await Promise.all([
-        api.get(assignmentsUrl),
-        api.get('/config/boxes'),
-        api.get('/users/by-role/DOCTOR')
+        api.get(API_ROUTES.boxAssignments.list, { params: assignmentsParams }),
+        api.get(API_ROUTES.config.boxes),
+        api.get(API_ROUTES.users.byRole('DOCTOR'))
       ]);
 
       setAssignments(assignmentsRes.data);
@@ -126,7 +126,7 @@ export default function BoxAssignments() {
       const endDateTime = `${endDate}T${endTime}:00`;
 
       const api = await getApi();
-      await api.post('/box-assignments', {
+      await api.post(API_ROUTES.boxAssignments.create, {
         boxId: selectedBox,
         doctorId: selectedDoctor,
         startDateTime,
@@ -149,7 +149,7 @@ export default function BoxAssignments() {
 
     try {
       const api = await getApi();
-      await api.delete(`/box-assignments/${deleteAssignment.id}`);
+      await api.delete(API_ROUTES.boxAssignments.remove(deleteAssignment.id));
       setDeleteAssignment(null);
       loadData();
     } catch (e) {

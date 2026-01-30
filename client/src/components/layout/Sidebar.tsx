@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth.store';
 import { useNotificationStore } from '../../stores/notification.store';
-import { UserRole, NurseAssignment } from '@ncdss/shared';
+import { UserRole, NurseAssignment, API_ROUTES } from '@ncdss/shared';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { cn } from '../../lib/utils';
@@ -292,7 +292,7 @@ export function Sidebar({ onClose }: Props) {
 
       // Call logout endpoint to revoke refresh token
       if (refreshToken) {
-        await api.post('/auth/logout', { refreshToken });
+        await api.post(API_ROUTES.auth.logout, { refreshToken });
       }
     } catch (error) {
       console.error('Logout error:', error);

@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { getApi } from '../../../services/api';
-import { Patient, Sex } from '@ncdss/shared';
+import { Patient, Sex, API_ROUTES } from '@ncdss/shared';
 import { suggestESI } from '../../../utils/scoreUtils';
 
 interface ESILevel {
@@ -81,7 +81,7 @@ export default function ESISelection() {
         setLoading(true);
         setError(null);
         const api = await getApi();
-        const response = await api.get(`/patients/${id}`);
+        const response = await api.get(API_ROUTES.patients.byId(id));
         const patientData: Patient = response.data;
         setPatient(patientData);
 
@@ -116,7 +116,7 @@ export default function ESISelection() {
     try {
       // Save ESI level to database before navigating
       const api = await getApi();
-      await api.put(`/patients/${id}/esi`, {
+      await api.put(API_ROUTES.patients.esi(id), {
         esiLevel: selectedESI,
       });
 

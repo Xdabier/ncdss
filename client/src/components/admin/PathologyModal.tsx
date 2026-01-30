@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { getApi } from '../../services/api';
+import { API_ROUTES } from '@ncdss/shared';
 
 export interface Pathology {
   id: number;
@@ -125,9 +126,9 @@ export function PathologyModal({
       };
 
       if (isEditMode && pathology) {
-        await api.put(`/pathologies/${pathology.id}`, payload);
+        await api.put(API_ROUTES.pathologies.update(pathology.id), payload);
       } else {
-        await api.post('/pathologies', payload);
+        await api.post(API_ROUTES.pathologies.create, payload);
       }
 
       onSave();

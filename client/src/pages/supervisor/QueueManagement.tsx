@@ -24,7 +24,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { getApi } from '../../services/api';
-import { PatientStatus } from '@ncdss/shared';
+import { PatientStatus, API_ROUTES } from '@ncdss/shared';
 
 interface QueuePatient {
   id: string;
@@ -180,7 +180,7 @@ export default function QueueManagement() {
   const loadQueues = async () => {
     try {
       const api = await getApi();
-      const response = await api.get('/stats/queues');
+      const response = await api.get(API_ROUTES.stats.queues);
       setData(response.data);
     } catch (error) {
       console.error('Error loading queues:', error);

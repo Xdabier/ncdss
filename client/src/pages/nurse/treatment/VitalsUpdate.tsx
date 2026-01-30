@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { getApi } from '../../../services/api';
-import { Patient, Sex } from '@ncdss/shared';
+import { Patient, Sex, API_ROUTES } from '@ncdss/shared';
 
 interface PreviousScores {
   newsScore: number | null;
@@ -83,7 +83,7 @@ export default function VitalsUpdate() {
         setLoading(true);
         setError(null);
         const api = await getApi();
-        const response = await api.get(`/patients/${id}`);
+        const response = await api.get(API_ROUTES.patients.byId(id));
         const patientData: Patient = response.data;
         setPatient(patientData);
 
@@ -225,7 +225,7 @@ export default function VitalsUpdate() {
       if (formData.glucoseLevel) vitalsData.glucoseLevel = parseFloat(formData.glucoseLevel);
 
       // PUT to update vitals (recalculates scores on server)
-      const response = await api.put(`/patients/${id}/vitals`, vitalsData);
+      const response = await api.put(API_ROUTES.patients.vitals(id!), vitalsData);
 
       // Update patient with response data
       const updatedPatient = response.data as Patient;

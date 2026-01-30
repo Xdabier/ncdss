@@ -26,7 +26,7 @@ import { CirculationForm } from '../../../components/abcde/CirculationForm';
 import { DisabilityForm } from '../../../components/abcde/DisabilityForm';
 import { ExposureForm } from '../../../components/abcde/ExposureForm';
 import { getApi } from '../../../services/api';
-import { Patient } from '@ncdss/shared';
+import { Patient, API_ROUTES } from '@ncdss/shared';
 import { cn } from '../../../lib/utils';
 
 // ---------------------------------------------------------------------------
@@ -179,7 +179,7 @@ export default function TriageWorkflow() {
     if (!id) return;
     try {
       const api = await getApi();
-      const response = await api.get(`/patients/${id}`);
+      const response = await api.get(API_ROUTES.patients.byId(id));
       const p: Patient = response.data;
       setPatient(p);
 
@@ -283,7 +283,7 @@ export default function TriageWorkflow() {
           if (vitalsData.gcsVerbal != null) vitals.gcsVerbal = vitalsData.gcsVerbal;
           if (vitalsData.gcsMotor != null) vitals.gcsMotor = vitalsData.gcsMotor;
 
-          const response = await api.put(`/patients/${id}/vitals`, vitals);
+          const response = await api.put(API_ROUTES.patients.vitals(id), vitals);
           setPatient(response.data);
         } else {
           const categoryMap: Record<string, string> = {
@@ -294,7 +294,7 @@ export default function TriageWorkflow() {
             exposure: 'E',
           };
           const cat = categoryMap[tabId];
-          const response = await api.put(`/patients/${id}/abcde/${cat}`, abcdeData[cat]);
+          const response = await api.put(API_ROUTES.patients.abcde(id, cat), abcdeData[cat]);
           setPatient(response.data);
         }
 

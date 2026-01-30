@@ -15,6 +15,7 @@ import {
 } from '../../components/ui/select';
 import { getApi } from '../../services/api';
 import { PathologyModal, Pathology } from '../../components/admin/PathologyModal';
+import { API_ROUTES } from '@ncdss/shared';
 
 const orientationLabels: Record<string, string> = {
   SAUV: 'SAUV',
@@ -66,7 +67,7 @@ export default function PathologyList() {
       if (categoryFilter && categoryFilter !== 'all') params.append('category', categoryFilter);
       if (orientationFilter && orientationFilter !== 'all') params.append('orientation', orientationFilter);
 
-      const response = await api.get(`/pathologies?${params.toString()}`);
+      const response = await api.get(API_ROUTES.pathologies.list, { params: Object.fromEntries(params) });
       setPathologies(response.data);
     } catch (error) {
       console.error('Error loading pathologies:', error);
@@ -79,8 +80,8 @@ export default function PathologyList() {
     try {
       const api = await getApi();
       const [categoriesRes, orientationsRes] = await Promise.all([
-        api.get('/pathologies/categories'),
-        api.get('/pathologies/orientations'),
+        api.get(API_ROUTES.pathologies.categories),
+        api.get(API_ROUTES.pathologies.orientations),
       ]);
       setCategories(categoriesRes.data.filter(Boolean));
       setOrientations(orientationsRes.data.filter(Boolean));
@@ -158,7 +159,7 @@ export default function PathologyList() {
     setIsDeleting(true);
     try {
       const api = await getApi();
-      await api.delete(`/pathologies/${pathologyToDelete.id}`);
+      await api.delete(API_ROUTES.pathologies.remove(pathologyToDelete.id));
       loadPathologies();
       loadFilterOptions();
       handleCloseDelete();

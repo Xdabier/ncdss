@@ -7,7 +7,7 @@ import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Card, CardContent } from '../../../components/ui/card';
 import { getApi } from '../../../services/api';
-import { Patient, PatientStatus } from '@ncdss/shared';
+import { Patient, PatientStatus, API_ROUTES } from '@ncdss/shared';
 import { formatDateTime } from '../../../utils/dateUtils';
 
 export default function TriageQueue() {
@@ -27,7 +27,7 @@ export default function TriageQueue() {
     try {
       const api = await getApi();
       // Fetch both waiting patients and those currently being triaged
-      const response = await api.get('/patients', {
+      const response = await api.get(API_ROUTES.patients.list, {
         params: { status: [PatientStatus.REGISTERED, PatientStatus.IN_TRIAGE] }
       });
       setPatients(response.data);
@@ -41,7 +41,7 @@ export default function TriageQueue() {
   const handleStartTriage = async (patientId: string) => {
     try {
       const api = await getApi();
-      await api.post(`/patients/${patientId}/start-triage`);
+      await api.post(API_ROUTES.patients.startTriage(patientId));
 
       // Redirect to ABCDE assessment
       navigate(`/nurse/triage/${patientId}/abcde`);

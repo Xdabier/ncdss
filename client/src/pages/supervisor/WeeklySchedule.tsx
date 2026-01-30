@@ -13,7 +13,7 @@ import {
 } from '../../components/ui/select';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { getApi } from '../../services/api';
-import { NurseAssignment } from '@ncdss/shared';
+import { NurseAssignment, API_ROUTES } from '@ncdss/shared';
 import { getWeekStart, addWeeks, formatWeekRange, getDayName } from '../../utils/dateUtils';
 
 interface NurseSchedule {
@@ -53,7 +53,7 @@ export default function WeeklySchedulePage() {
     setLoading(true);
     try {
       const api = await getApi();
-      const response = await api.get(`/schedule/${weekStart}`);
+      const response = await api.get(API_ROUTES.schedule.byWeek(weekStart));
       setSchedules(response.data);
     } catch (e) {
       setError('Erreur de chargement');
@@ -84,7 +84,7 @@ export default function WeeklySchedulePage() {
   const handleValidate = async () => {
     try {
       const api = await getApi();
-      const response = await api.post(`/schedule/${weekStart}/validate`, { schedules });
+      const response = await api.post(API_ROUTES.schedule.validate(weekStart), { schedules });
 
       if (response.data.valid) {
         setValidationErrors([]);
@@ -102,7 +102,7 @@ export default function WeeklySchedulePage() {
     setSaving(true);
     try {
       const api = await getApi();
-      await api.post(`/schedule/${weekStart}`, { schedules });
+      await api.post(API_ROUTES.schedule.save(weekStart), { schedules });
       setError(null);
       setShowValidation(false);
     } catch (e) {
