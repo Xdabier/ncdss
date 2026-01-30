@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Search, RefreshCw, Users, Activity, HeartPulse } from 'lucide-react';
+import { AlertTriangle, Search, RefreshCw, Users, Activity, HeartPulse, Stethoscope } from 'lucide-react';
 import { DashboardLayout } from '../../../components/layout/DashboardLayout';
 import { DataTable, Column } from '../../../components/ui/DataTable';
 import { Button } from '../../../components/ui/button';
@@ -8,7 +8,7 @@ import { Badge } from '../../../components/ui/badge';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Input } from '../../../components/ui/input';
 import { getApi } from '../../../services/api';
-import { Patient, PatientStatus } from '@ncdss/shared';
+import { Patient, PatientStatus, User as UserType } from '@ncdss/shared';
 import { formatDateTime } from '../../../utils/dateUtils';
 
 // ESI color mapping
@@ -39,6 +39,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 export default function TreatmentQueue() {
   const navigate = useNavigate();
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [doctors, setDoctors] = useState<UserType[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'waiting' | 'inTreatment' | 'all'>('waiting');
@@ -46,6 +47,7 @@ export default function TreatmentQueue() {
 
   useEffect(() => {
     loadPatients();
+    loadDoctors();
 
     // Auto-refresh every 15 seconds
     const interval = setInterval(() => {
@@ -54,6 +56,16 @@ export default function TreatmentQueue() {
 
     return () => clearInterval(interval);
   }, []);
+
+  const loadDoctors = async () => {
+    try {
+      const api = await getApi();
+      const res = await api.get('/users/by-role/DOCTOR');
+      setDoctors(res.data);
+    } catch (error) {
+      console.error('Error loading doctors:', error);
+    }
+  };
 
   const loadPatients = async () => {
     try {
@@ -126,7 +138,7 @@ export default function TreatmentQueue() {
     {
       key: 'esiLevel',
       header: 'ESI',
-      width: '8%',
+      width: '6%',
       render: (p) => (
         <span
           className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${esiColors[p.esiLevel ?? 5]}`}
@@ -138,7 +150,7 @@ export default function TreatmentQueue() {
     {
       key: 'fullName',
       header: 'Patient',
-      width: '22%',
+      width: '18%',
       render: (p) => (
         <div>
           <div className="font-medium">{p.fullName}</div>
@@ -151,7 +163,7 @@ export default function TreatmentQueue() {
     {
       key: 'chiefComplaint',
       header: 'Motif',
-      width: '20%',
+      width: '16%',
       render: (p) => (
         <div className="truncate max-w-[200px]" title={p.chiefComplaint || ''}>
           {p.chiefComplaint || <span className="text-gray-400">—</span>}
@@ -161,7 +173,7 @@ export default function TreatmentQueue() {
     {
       key: 'finalOrientation',
       header: 'Orientation',
-      width: '12%',
+      width: '10%',
       render: (p) =>
         p.finalOrientation ? (
           <Badge variant="outline">{orientationLabels[p.finalOrientation] || p.finalOrientation}</Badge>
@@ -172,7 +184,7 @@ export default function TreatmentQueue() {
     {
       key: 'newsScore',
       header: 'NEWS',
-      width: '8%',
+      width: '6%',
       render: (p) => {
         const score = p.newsScore ?? null;
         if (score === null) return <span className="text-gray-400">—</span>;
@@ -185,9 +197,28 @@ export default function TreatmentQueue() {
       },
     },
     {
+      key: 'assignedDoctorId',
+      header: 'Médecin',
+      width: '14%',
+      render: (p) => {
+        if (!p.assignedDoctorId) {
+          return <span className="text-gray-400 text-sm">Non assigné</span>;
+        }
+        const doctor = doctors.find((d) => d.id === p.assignedDoctorId);
+        return (
+          <div className="flex items-center gap-1">
+            <Stethoscope className="h-3 w-3 flex-shrink-0 text-green-500" />
+            <span className="text-green-700 text-sm font-medium truncate">
+              {doctor ? `Dr. ${doctor.fullName}` : 'Assigné'}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
       key: 'status',
       header: 'Statut',
-      width: '12%',
+      width: '10%',
       render: (p) => {
         const config = statusConfig[p.status] || { label: p.status, color: 'bg-gray-100 text-gray-800' };
         return <span className={`px-2 py-1 rounded text-xs font-medium ${config.color}`}>{config.label}</span>;
@@ -196,7 +227,7 @@ export default function TreatmentQueue() {
     {
       key: 'actions',
       header: '',
-      width: '18%',
+      width: '16%',
       render: (p) => (
         <div className="flex gap-2 justify-end">
           {p.status === PatientStatus.TRIAGED ? (

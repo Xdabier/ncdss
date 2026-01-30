@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, BedDouble, AlertTriangle, Check, Play, Users, Filter } from 'lucide-react';
+import { ArrowLeft, BedDouble, AlertTriangle, Check, Play, Users, Filter, Stethoscope } from 'lucide-react';
 import { DashboardLayout } from '../../../components/layout/DashboardLayout';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -13,6 +13,11 @@ import { Patient, Box, BoxType, Sex, PatientStatus } from '@ncdss/shared';
 interface BoxOccupancy {
   patientCount: number;
   patientNames: string[];
+}
+
+// Box with current doctor assignment info
+interface BoxWithDoctor extends Box {
+  currentDoctor: { doctorId: string; doctorName: string } | null;
 }
 
 // ESI color mapping
@@ -56,7 +61,7 @@ export default function AssignBox() {
   const navigate = useNavigate();
 
   const [patient, setPatient] = useState<Patient | null>(null);
-  const [boxes, setBoxes] = useState<Box[]>([]);
+  const [boxes, setBoxes] = useState<BoxWithDoctor[]>([]);
   const [boxOccupancy, setBoxOccupancy] = useState<Map<string, BoxOccupancy>>(new Map());
   const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null);
   const [showAllBoxes, setShowAllBoxes] = useState(false);
@@ -87,7 +92,24 @@ export default function AssignBox() {
 
         setPatient(patientRes.data);
         const activeBoxes = boxesRes.data.filter((b: Box) => b.isActive);
-        setBoxes(activeBoxes);
+
+        // Fetch current doctor for each box
+        const boxesWithDoctors: BoxWithDoctor[] = await Promise.all(
+          activeBoxes.map(async (box: Box) => {
+            try {
+              const doctorRes = await api.get(`/box-assignments/current-doctor/${box.id}`);
+              return {
+                ...box,
+                currentDoctor: doctorRes.data
+                  ? { doctorId: doctorRes.data.doctorId, doctorName: doctorRes.data.doctorName }
+                  : null,
+              };
+            } catch {
+              return { ...box, currentDoctor: null };
+            }
+          })
+        );
+        setBoxes(boxesWithDoctors);
 
         // Calculate occupancy per box
         const occupancyMap = new Map<string, BoxOccupancy>();
@@ -121,7 +143,7 @@ export default function AssignBox() {
   }, [id]);
 
   // Filter boxes based on patient's orientation
-  const getRecommendedBoxes = (): Box[] => {
+  const getRecommendedBoxes = (): BoxWithDoctor[] => {
     if (!patient?.finalOrientation) return [];
 
     const allowedTypes = orientationToBoxTypes[patient.finalOrientation] || [];
@@ -129,7 +151,7 @@ export default function AssignBox() {
   };
 
   // Get other available boxes
-  const getOtherBoxes = (): Box[] => {
+  const getOtherBoxes = (): BoxWithDoctor[] => {
     if (!patient?.finalOrientation) return boxes;
 
     const allowedTypes = orientationToBoxTypes[patient.finalOrientation] || [];
@@ -151,7 +173,7 @@ export default function AssignBox() {
   };
 
   // Render a single box card
-  const renderBoxCard = (box: Box, isRecommended: boolean): React.ReactElement => {
+  const renderBoxCard = (box: BoxWithDoctor, isRecommended: boolean): React.ReactElement => {
     const availability = getAvailabilityStatus(box.id);
     const occupancy = boxOccupancy.get(box.id);
     const isSelected = selectedBoxId === box.id;
@@ -183,6 +205,13 @@ export default function AssignBox() {
             {availability.label}
           </span>
         </div>
+        {/* Current doctor */}
+        <div className="flex items-center gap-1 mt-2">
+          <Stethoscope className="h-3 w-3 flex-shrink-0 text-gray-400" />
+          <span className={`text-xs ${box.currentDoctor ? 'text-green-600 font-medium' : 'text-gray-400'}`}>
+            {box.currentDoctor ? `Dr. ${box.currentDoctor.doctorName}` : 'Aucun médecin'}
+          </span>
+        </div>
         {/* Show patient names if occupied */}
         {occupancy && occupancy.patientCount > 0 && (
           <div className="mt-2 pt-2 border-t border-gray-100">
@@ -207,12 +236,28 @@ export default function AssignBox() {
       setError(null);
       const api = await getApi();
 
-      await api.post(`/patients/${id}/start-treatment`, {
+      const response = await api.post(`/patients/${id}/start-treatment`, {
         boxId: boxId || null,
       });
 
-      // Navigate to patient care page
-      navigate(`/nurse/treatment/${id}`);
+      const selectedBox = boxId ? boxes.find((b) => b.id === boxId) : null;
+      const assignedDoctorName = response.data.assignedDoctorName;
+
+      let successMessage: string;
+      if (assignedDoctorName) {
+        successMessage = selectedBox
+          ? `Patient assigné à ${selectedBox.name} — Dr. ${assignedDoctorName} auto-assigné`
+          : `Patient pris en charge — Dr. ${assignedDoctorName} auto-assigné`;
+      } else {
+        successMessage = selectedBox
+          ? `Patient assigné à ${selectedBox.name} — Aucun médecin assigné à ce box`
+          : 'Patient pris en charge sans box';
+      }
+
+      // Navigate to patient care page with success feedback
+      navigate(`/nurse/treatment/${id}`, {
+        state: { successMessage },
+      });
     } catch (e: unknown) {
       const err = e as { response?: { data?: { error?: string } } };
       setError(err.response?.data?.error || 'Erreur lors de la prise en charge');

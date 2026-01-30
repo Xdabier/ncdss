@@ -82,7 +82,7 @@ export default function Dashboard() {
   const getQuickActions = () => {
     if (isNurse && todayAssignment === NurseAssignment.INSCRIPTION) {
       return [
-        { label: 'Nouveau Patient', path: '/nurse/inscription/new', color: 'bg-green-600 hover:bg-green-700' },
+        { label: 'Nouveau Patient', path: '/nurse/inscription/register', color: 'bg-green-600 hover:bg-green-700' },
         { label: 'Mes Inscriptions', path: '/nurse/inscription', color: 'bg-blue-600 hover:bg-blue-700' },
       ];
     }

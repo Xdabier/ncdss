@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -119,6 +119,10 @@ const prescriptionStatusConfig: Record<PrescriptionStatus, { label: string; bgCo
 export default function PatientCare() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [successMessage, setSuccessMessage] = useState<string | null>(
+    (location.state as { successMessage?: string } | null)?.successMessage || null
+  );
   const [patient, setPatient] = useState<Patient | null>(null);
   const [notes, setNotes] = useState<TreatmentNote[]>([]);
   const [boxes, setBoxes] = useState<Box[]>([]);
@@ -141,6 +145,14 @@ export default function PatientCare() {
       loadData();
     }
   }, [id]);
+
+  // Auto-dismiss success message after 6 seconds
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => setSuccessMessage(null), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
   const loadData = async (): Promise<void> => {
     try {
@@ -203,21 +215,6 @@ export default function PatientCare() {
     navigate(`/nurse/treatment/${id}/vitals`);
   };
 
-  const handleTransferToDoctor = async (doctorId: string): Promise<void> => {
-    if (!id || !doctorId) return;
-
-    try {
-      setActionLoading(true);
-      const api = await getApi();
-      await api.post(`/patients/${id}/transfer-to-doctor`, { doctorId });
-      await loadData();
-    } catch (error) {
-      console.error('Error transferring to doctor:', error);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   const handleRequestReTriage = async (reason: string): Promise<void> => {
     if (!id || !reason.trim()) return;
 
@@ -259,7 +256,13 @@ export default function PatientCare() {
     try {
       setActionLoading(true);
       const api = await getApi();
-      await api.post(`/patients/${id}/start-treatment`, { boxId: boxId || null });
+      const response = await api.post(`/patients/${id}/start-treatment`, { boxId: boxId || null });
+
+      const assignedDoctorName = response.data.assignedDoctorName;
+      if (assignedDoctorName) {
+        setSuccessMessage(`Dr. ${assignedDoctorName} auto-assigné au patient`);
+      }
+
       await loadData();
     } catch (error) {
       console.error('Error starting treatment:', error);
@@ -399,6 +402,26 @@ export default function PatientCare() {
           </Button>
           <h1 className="text-2xl font-bold">Prise en Charge Patient</h1>
         </div>
+
+        {/* Success message from box assignment */}
+        {successMessage && (
+          <Card className="mb-4 border-green-300 bg-green-50">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <p className="font-medium text-green-800">{successMessage}</p>
+                </div>
+                <button
+                  onClick={() => setSuccessMessage(null)}
+                  className="text-green-600 hover:text-green-800"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Re-triage alert */}
         {patient.retriageRequested && (
@@ -928,33 +951,8 @@ export default function PatientCare() {
                   </div>
                 )}
 
-                {/* Transfer to Doctor */}
-                {patient.status === PatientStatus.IN_TREATMENT && (
-                  <div>
-                    <label className="text-sm text-gray-500 block mb-2">
-                      <Stethoscope className="h-4 w-4 inline mr-1" />
-                      Transférer au médecin:
-                    </label>
-                    <Select
-                      onValueChange={handleTransferToDoctor}
-                      disabled={actionLoading}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sélectionner un médecin..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {doctors.map((doc) => (
-                          <SelectItem key={doc.id} value={doc.id}>
-                            {doc.fullName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {/* Current doctor display */}
-                {patient.status === PatientStatus.WITH_DOCTOR && patient.assignedDoctorId && (
+                {/* Current doctor display (auto-assigned via box) */}
+                {patient.assignedDoctorId && (
                   <div className="p-3 bg-blue-50 rounded-lg">
                     <p className="text-sm text-blue-800">
                       <Stethoscope className="h-4 w-4 inline mr-1" />
