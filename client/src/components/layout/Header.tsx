@@ -1,11 +1,13 @@
-import React from 'react';
-import { Menu, RefreshCw, Bell } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { Menu, RefreshCw } from 'lucide-react';
 import { UserRole } from '@ncdss/shared';
 import { Button } from '../ui/button';
 import { useSyncStore } from '../../stores/sync.store';
 import { useAuthStore } from '../../stores/auth.store';
+import { useNotificationStore } from '../../stores/notification.store';
 import { AssignmentSelector } from './AssignmentSelector';
 import { DoctorAssignmentSelector } from './DoctorAssignmentSelector';
+import { NotificationBell } from '../notifications/NotificationBell';
 import { cn } from '../../lib/utils';
 
 interface Props {
@@ -15,6 +17,12 @@ interface Props {
 export function Header({ onMenuClick }: Props) {
   const { isSyncing, lastSyncAt } = useSyncStore();
   const { user } = useAuthStore();
+  const { startPolling, stopPolling } = useNotificationStore();
+
+  useEffect(() => {
+    startPolling();
+    return () => stopPolling();
+  }, [startPolling, stopPolling]);
 
   const formatLastSync = (date: Date | null) => {
     if (!date) return 'Jamais synchronisé';
@@ -62,10 +70,7 @@ export function Header({ onMenuClick }: Props) {
           </div>
 
           {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
-          </Button>
+          <NotificationBell />
         </div>
       </div>
     </header>
