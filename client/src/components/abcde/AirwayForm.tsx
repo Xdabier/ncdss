@@ -15,7 +15,7 @@ interface AirwayData {
 interface Props {
   data: Partial<AirwayData>;
   onChange: (data: Partial<AirwayData>) => void;
-  onSave: () => void;
+  onSave?: () => void;
   loading?: boolean;
 }
 
@@ -154,9 +154,11 @@ export function AirwayForm({ data, onChange, onSave, loading }: Props) {
         />
       </div>
 
-      <Button onClick={onSave} disabled={loading} className="w-full" size="lg">
-        {loading ? 'Enregistrement...' : 'Valider et Continuer (B)'}
-      </Button>
+      {onSave && (
+        <Button onClick={onSave} disabled={loading} className="w-full" size="lg">
+          {loading ? 'Enregistrement...' : 'Valider et Continuer (B)'}
+        </Button>
+      )}
     </div>
   );
 }

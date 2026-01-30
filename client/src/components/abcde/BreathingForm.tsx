@@ -23,7 +23,7 @@ interface BreathingData {
 interface Props {
   data: Partial<BreathingData>;
   onChange: (data: Partial<BreathingData>) => void;
-  onSave: () => void;
+  onSave?: () => void;
   loading?: boolean;
 }
 
@@ -220,9 +220,11 @@ export function BreathingForm({ data, onChange, onSave, loading }: Props) {
         />
       </div>
 
-      <Button onClick={onSave} disabled={loading} className="w-full" size="lg">
-        {loading ? 'Enregistrement...' : 'Valider et Continuer (C)'}
-      </Button>
+      {onSave && (
+        <Button onClick={onSave} disabled={loading} className="w-full" size="lg">
+          {loading ? 'Enregistrement...' : 'Valider et Continuer (C)'}
+        </Button>
+      )}
     </div>
   );
 }

@@ -41,6 +41,7 @@ import PatientRegistration from './pages/nurse/PatientRegistration';
 import PatientEdit from './pages/nurse/PatientEdit';
 import TriageQueue from './pages/nurse/triage/TriageQueue';
 import ABCDEAssessment from './pages/nurse/triage/ABCDEAssessment';
+import TriageWorkflow from './pages/nurse/triage/TriageWorkflow';
 import SuggestionsReview from './pages/nurse/triage/SuggestionsReview';
 // VitalsEntry removed - vitals are now collected in ABCDE forms
 import ScoreReview from './pages/nurse/triage/ScoreReview';
@@ -379,7 +380,7 @@ export default function App() {
               <RoleGuard
                 allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
               >
-                <ABCDEAssessment />
+                <TriageWorkflow />
               </RoleGuard>
             </ProtectedRoute>
           }

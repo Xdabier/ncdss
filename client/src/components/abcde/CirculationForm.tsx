@@ -25,7 +25,7 @@ interface CirculationData {
 interface Props {
   data: Partial<CirculationData>;
   onChange: (data: Partial<CirculationData>) => void;
-  onSave: () => void;
+  onSave?: () => void;
   loading?: boolean;
 }
 
@@ -254,9 +254,11 @@ export function CirculationForm({ data, onChange, onSave, loading }: Props) {
         />
       </div>
 
-      <Button onClick={onSave} disabled={loading} className="w-full" size="lg">
-        {loading ? 'Enregistrement...' : 'Valider et Continuer (D)'}
-      </Button>
+      {onSave && (
+        <Button onClick={onSave} disabled={loading} className="w-full" size="lg">
+          {loading ? 'Enregistrement...' : 'Valider et Continuer (D)'}
+        </Button>
+      )}
     </div>
   );
 }

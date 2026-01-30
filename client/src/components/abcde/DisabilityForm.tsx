@@ -26,7 +26,7 @@ interface DisabilityData {
 interface Props {
   data: Partial<DisabilityData>;
   onChange: (data: Partial<DisabilityData>) => void;
-  onSave: () => void;
+  onSave?: () => void;
   loading?: boolean;
 }
 
@@ -289,9 +289,11 @@ export function DisabilityForm({ data, onChange, onSave, loading }: Props) {
         />
       </div>
 
-      <Button onClick={onSave} disabled={loading} className="w-full" size="lg">
-        {loading ? 'Enregistrement...' : 'Valider et Continuer (E)'}
-      </Button>
+      {onSave && (
+        <Button onClick={onSave} disabled={loading} className="w-full" size="lg">
+          {loading ? 'Enregistrement...' : 'Valider et Continuer (E)'}
+        </Button>
+      )}
     </div>
   );
 }

@@ -19,7 +19,7 @@ interface ExposureData {
 interface Props {
   data: Partial<ExposureData>;
   onChange: (data: Partial<ExposureData>) => void;
-  onSave: () => void;
+  onSave?: () => void;
   loading?: boolean;
 }
 
@@ -225,9 +225,11 @@ export function ExposureForm({ data, onChange, onSave, loading }: Props) {
         />
       </div>
 
-      <Button onClick={onSave} disabled={loading} className="w-full" size="lg">
-        {loading ? 'Enregistrement...' : 'Terminer Evaluation ABCDE'}
-      </Button>
+      {onSave && (
+        <Button onClick={onSave} disabled={loading} className="w-full" size="lg">
+          {loading ? 'Enregistrement...' : 'Terminer Evaluation ABCDE'}
+        </Button>
+      )}
     </div>
   );
 }
