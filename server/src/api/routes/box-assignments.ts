@@ -1,8 +1,39 @@
 import { Router } from 'express';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, lte, gt } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
 import { boxAssignments, boxes, users } from '../../database/schema';
+
+// Helper function to get the doctor currently assigned to a box
+export async function getCurrentDoctorForBox(boxId: string): Promise<{ doctorId: string; doctorName: string } | null> {
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  const result = await db
+    .select({
+      doctorId: boxAssignments.doctorId,
+      doctorName: users.fullName,
+    })
+    .from(boxAssignments)
+    .innerJoin(users, eq(boxAssignments.doctorId, users.id))
+    .where(
+      and(
+        eq(boxAssignments.boxId, boxId),
+        eq(boxAssignments.isActive, true),
+        lte(boxAssignments.startDateTime, now),
+        gt(boxAssignments.endDateTime, now)
+      )
+    );
+
+  if (result.length > 0) {
+    return {
+      doctorId: result[0].doctorId,
+      doctorName: result[0].doctorName,
+    };
+  }
+
+  return null;
+}
 
 const router = Router();
 

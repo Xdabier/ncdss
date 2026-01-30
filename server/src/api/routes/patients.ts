@@ -15,6 +15,7 @@ import {
 import { matchFindingsToPathologies } from '../../services/pathologyMatcher';
 import { getLLMProvider, PreDiagnosisContext } from '../../services/llm';
 import * as aiPreDiagnosisService from '../../services/ai-prediagnosis-service';
+import { getCurrentDoctorForBox } from './box-assignments';
 
 const router = Router();
 
@@ -773,7 +774,7 @@ router.put('/:id/status', async (req, res) => {
 // TREATMENT WORKFLOW
 // ============================================================================
 
-// Start treatment - assign patient to box
+// Start treatment - assign patient to box (auto-assigns doctor if one is currently assigned to the box)
 router.post('/:id/start-treatment', async (req, res) => {
   try {
     const { userId } = (req as any).user;
@@ -792,23 +793,43 @@ router.post('/:id/start-treatment', async (req, res) => {
     }
 
     // Validate box exists and is active
+    let boxName: string | null = null;
     if (boxId) {
       const [box] = await db.select().from(boxes).where(eq(boxes.id, boxId));
       if (!box || !box.isActive) {
         return res.status(400).json({ error: 'Box invalide ou inactif' });
       }
+      boxName = box.name;
     }
 
+    // Auto-assign doctor: Look up the doctor currently assigned to this box
+    let currentDoctor: { doctorId: string; doctorName: string } | null = null;
+    if (boxId) {
+      currentDoctor = await getCurrentDoctorForBox(boxId);
+    }
+
+    const now = new Date().toISOString();
+
+    // Update patient with box and auto-assigned doctor
     await db.update(patients).set({
-      status: PatientStatus.IN_TREATMENT,
+      status: currentDoctor ? PatientStatus.WITH_DOCTOR : PatientStatus.IN_TREATMENT,
       assignedBoxId: boxId || null,
-      treatmentStartedAt: new Date().toISOString(),
+      assignedDoctorId: currentDoctor?.doctorId || null,
+      doctorAssignedAt: currentDoctor ? now : null,
+      treatmentStartedAt: now,
       treatmentNurseId: userId,
-      updatedAt: new Date().toISOString()
+      updatedAt: now
     }).where(eq(patients.id, id));
 
     const [updated] = await db.select().from(patients).where(eq(patients.id, id));
-    res.json(updated);
+
+    // Return complete info including auto-assigned doctor name
+    res.json({
+      ...updated,
+      assignedBoxName: boxName,
+      assignedDoctorName: currentDoctor?.doctorName || null,
+      autoAssigned: !!currentDoctor
+    });
   } catch (error) {
     console.error('Start treatment error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
