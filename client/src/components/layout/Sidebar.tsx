@@ -26,6 +26,7 @@ import {
   Edit,
   AlertTriangle,
   CalendarClock,
+  Monitor,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth.store';
 import { UserRole, NurseAssignment } from '@ncdss/shared';
@@ -169,6 +170,20 @@ const navItems: NavItem[] = [
     label: 'Mes Patients',
     icon: Stethoscope,
     roles: [UserRole.DOCTOR, UserRole.SUPER_ADMIN],
+  },
+
+  // Tracking board
+  {
+    path: '/tracking-board',
+    label: 'Tableau de Suivi',
+    icon: Monitor,
+    roles: [
+      UserRole.NURSE,
+      UserRole.NURSE_SUPERVISOR,
+      UserRole.DOCTOR,
+      UserRole.ADMIN,
+      UserRole.SUPER_ADMIN,
+    ],
   },
 
   // Shared/Lookup section

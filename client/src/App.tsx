@@ -68,6 +68,7 @@ import PatientSearch from './pages/shared/PatientSearch';
 import PatientTimeline from './pages/shared/PatientTimeline';
 import PathologyLookup from './pages/shared/PathologyLookup';
 import InterventionsLookup from './pages/shared/InterventionsLookup';
+import TrackingBoard from './pages/shared/TrackingBoard';
 
 export default function App() {
   const { loadAuth } = useAuthStore();
@@ -591,6 +592,16 @@ export default function App() {
               <RoleGuard allowedRoles={[UserRole.DOCTOR, UserRole.SUPER_ADMIN]}>
                 <ECGReview />
               </RoleGuard>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Tracking board (all authenticated users) */}
+        <Route
+          path="/tracking-board"
+          element={
+            <ProtectedRoute>
+              <TrackingBoard />
             </ProtectedRoute>
           }
         />
