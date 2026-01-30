@@ -23,16 +23,16 @@ const orientationLabels: Record<string, string> = {
   SAUV: 'SAUV',
   TRAUMA: 'Traumatologie',
   SURGICAL: 'Chirurgical',
-  MEDICAL: 'Medical',
-  PEDIATRIC: 'Pediatrie',
+  MEDICAL: 'Médical',
+  PEDIATRIC: 'Pédiatrie',
 };
 
 const orientationDescriptions: Record<string, string> = {
   SAUV: 'Salle d\'Accueil des Urgences Vitales',
   TRAUMA: 'Box traumatologie',
   SURGICAL: 'Box chirurgical',
-  MEDICAL: 'Box medical',
-  PEDIATRIC: 'Box pediatrique',
+  MEDICAL: 'Box médical',
+  PEDIATRIC: 'Box pédiatrique',
 };
 
 // Maximum items to show by default

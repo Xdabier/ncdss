@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bell, CheckCheck, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Notification } from '@ncdss/shared';
+import { Notification, UserRole } from '@ncdss/shared';
 import { Button } from '../ui/button';
 import { useNotificationStore } from '../../stores/notification.store';
+import { useAuthStore } from '../../stores/auth.store';
 import { NotificationItem } from './NotificationItem';
 import { cn } from '../../lib/utils';
 
@@ -11,6 +12,7 @@ export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { user } = useAuthStore();
 
   const {
     notifications,
@@ -48,7 +50,15 @@ export function NotificationBell() {
   const handleNavigate = (notification: Notification) => {
     setIsOpen(false);
     if (notification.relatedPatientId) {
-      navigate(`/patients/${notification.relatedPatientId}`);
+      // Navigate based on user role
+      const role = user?.role;
+      if (role === UserRole.DOCTOR || role === UserRole.SUPER_ADMIN) {
+        navigate(`/doctor/patients/${notification.relatedPatientId}`);
+      } else if (role === UserRole.NURSE || role === UserRole.NURSE_SUPERVISOR) {
+        navigate(`/nurse/treatment/${notification.relatedPatientId}`);
+      } else {
+        navigate(`/patients/${notification.relatedPatientId}/timeline`);
+      }
     }
   };
 

@@ -76,6 +76,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   TRIAGED: { label: 'En attente', color: 'bg-yellow-100 text-yellow-800' },
   IN_TREATMENT: { label: 'En soins', color: 'bg-purple-100 text-purple-800' },
   WITH_DOCTOR: { label: 'Avec médecin', color: 'bg-blue-100 text-blue-800' },
+  DISCHARGED: { label: 'Sorti', color: 'bg-green-100 text-green-800' },
 };
 
 // Orientation labels
@@ -98,8 +99,11 @@ export default function TrackingBoard() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
 
+  const [error, setError] = useState<string | null>(null);
+
   const loadData = useCallback(async () => {
     try {
+      setError(null);
       const api = await getApi();
       const [boardRes, statsRes] = await Promise.all([
         api.get('/tracking/board'),
@@ -109,8 +113,9 @@ export default function TrackingBoard() {
       setStats(statsRes.data);
       setLastRefresh(new Date());
       setSecondsSinceRefresh(0);
-    } catch (error) {
-      console.error('Error loading tracking data:', error);
+    } catch (err) {
+      console.error('Error loading tracking data:', err);
+      setError('Erreur de chargement du tableau de suivi');
     } finally {
       setLoading(false);
     }
@@ -477,6 +482,14 @@ export default function TrackingBoard() {
             />
           </div>
         </div>
+
+        {/* Error Banner */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-700">
+            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+            {error}
+          </div>
+        )}
 
         {/* Patient Table */}
         <div className="bg-white rounded-lg shadow">

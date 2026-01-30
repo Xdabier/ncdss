@@ -85,7 +85,7 @@ export default function AssignBox() {
           // Get patients currently in treatment or with doctor (have a box assigned)
           api.get('/patients', {
             params: {
-              status: [PatientStatus.IN_TREATMENT, PatientStatus.WITH_DOCTOR].join(','),
+              status: [PatientStatus.IN_TREATMENT, PatientStatus.WITH_DOCTOR],
             },
           }),
         ]);

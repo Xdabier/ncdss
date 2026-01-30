@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { eq, and, desc, sql, isNotNull, lte } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { getDb } from '../../database';
 import { notifications } from '../../database/schema';
 import { AuthRequest } from '../middleware/auth';
@@ -88,6 +88,35 @@ router.get('/unread-count', async (req, res) => {
 });
 
 // ============================================================================
+// PUT /notifications/read-all
+// Mark all of the user's notifications as read
+// NOTE: Must be registered BEFORE /:id routes to avoid being caught by :id param
+// ============================================================================
+
+router.put('/read-all', async (req, res) => {
+  try {
+    const { userId } = (req as AuthRequest).user!;
+    const db = getDb();
+    const now = new Date().toISOString();
+
+    await db
+      .update(notifications)
+      .set({ isRead: true, readAt: now })
+      .where(
+        and(
+          eq(notifications.userId, userId),
+          eq(notifications.isRead, false)
+        )
+      );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Mark all read error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// ============================================================================
 // PUT /notifications/:id/read
 // Mark a single notification as read
 // ============================================================================
@@ -110,11 +139,14 @@ router.put('/:id/read', async (req, res) => {
       );
 
     if (!notification) {
-      return res.status(404).json({ error: 'Notification non trouv\u00e9e' });
+      return res.status(404).json({ error: 'Notification non trouvée' });
     }
 
     if (notification.isRead) {
-      return res.json(notification);
+      return res.json({
+        ...notification,
+        metadata: notification.metadata ? JSON.parse(notification.metadata) : null,
+      });
     }
 
     const now = new Date().toISOString();
@@ -137,29 +169,28 @@ router.put('/:id/read', async (req, res) => {
 });
 
 // ============================================================================
-// PUT /notifications/read-all
-// Mark all of the user's notifications as read
+// DELETE /notifications/clear-read
+// Delete all read notifications for the current user
+// NOTE: Must be registered BEFORE /:id route to avoid being caught by :id param
 // ============================================================================
 
-router.put('/read-all', async (req, res) => {
+router.delete('/clear-read', async (req, res) => {
   try {
     const { userId } = (req as AuthRequest).user!;
     const db = getDb();
-    const now = new Date().toISOString();
 
     await db
-      .update(notifications)
-      .set({ isRead: true, readAt: now })
+      .delete(notifications)
       .where(
         and(
           eq(notifications.userId, userId),
-          eq(notifications.isRead, false)
+          eq(notifications.isRead, true)
         )
       );
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Mark all read error:', error);
+    console.error('Clear read notifications error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -187,7 +218,7 @@ router.delete('/:id', async (req, res) => {
       );
 
     if (!notification) {
-      return res.status(404).json({ error: 'Notification non trouv\u00e9e' });
+      return res.status(404).json({ error: 'Notification non trouvée' });
     }
 
     await db.delete(notifications).where(eq(notifications.id, id));
@@ -195,32 +226,6 @@ router.delete('/:id', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Delete notification error:', error);
-    res.status(500).json({ error: 'Erreur serveur' });
-  }
-});
-
-// ============================================================================
-// DELETE /notifications/clear-read
-// Delete all read notifications for the current user
-// ============================================================================
-
-router.delete('/clear-read', async (req, res) => {
-  try {
-    const { userId } = (req as AuthRequest).user!;
-    const db = getDb();
-
-    await db
-      .delete(notifications)
-      .where(
-        and(
-          eq(notifications.userId, userId),
-          eq(notifications.isRead, true)
-        )
-      );
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Clear read notifications error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -235,7 +240,7 @@ router.post('/cleanup', async (req, res) => {
     const { role } = (req as AuthRequest).user!;
 
     if (role !== 'SUPER_ADMIN' && role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Acc\u00e8s non autoris\u00e9' });
+      return res.status(403).json({ error: 'Accès non autorisé' });
     }
 
     const deleted = await cleanupExpiredNotifications();

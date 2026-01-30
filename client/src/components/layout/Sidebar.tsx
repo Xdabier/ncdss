@@ -29,6 +29,7 @@ import {
   Monitor,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth.store';
+import { useNotificationStore } from '../../stores/notification.store';
 import { UserRole, NurseAssignment } from '@ncdss/shared';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -263,6 +264,7 @@ export function Sidebar({ onClose }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, todayAssignment, clearAuth, getRefreshToken } = useAuthStore();
+  const { clearNotifications } = useNotificationStore();
 
   if (!user) return null;
 
@@ -295,7 +297,8 @@ export function Sidebar({ onClose }: Props) {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      // Always clear auth and navigate to login
+      // Always clear auth, stop notifications, and navigate to login
+      clearNotifications();
       await clearAuth();
       navigate('/login', { replace: true });
     }

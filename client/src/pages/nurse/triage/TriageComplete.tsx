@@ -38,7 +38,7 @@ interface ESILevel {
 const ESI_LEVELS: ESILevel[] = [
   {
     level: 1,
-    label: 'Reanimation immediate',
+    label: 'Réanimation immédiate',
     shortLabel: '1',
     bgColor: 'bg-red-100',
     borderColor: 'border-red-500',
@@ -107,8 +107,8 @@ const ORIENTATION_OPTIONS: OrientationOption[] = [
   },
   {
     value: OrientationType.MEDICAL,
-    label: 'Medical',
-    description: 'Box medical',
+    label: 'Médical',
+    description: 'Box médical',
     color: 'text-blue-900',
     bgColor: 'bg-blue-100',
     borderColor: 'border-blue-500',
@@ -134,7 +134,7 @@ const ORIENTATION_OPTIONS: OrientationOption[] = [
   },
   {
     value: OrientationType.PEDIATRIC,
-    label: 'Pediatrie',
+    label: 'Pédiatrie',
     description: 'Box pediatrique',
     color: 'text-green-900',
     bgColor: 'bg-green-100',
@@ -186,13 +186,13 @@ function getABCDEStatus(patient: Patient): ABCDEStatus[] {
     const hasFindings = airway.findings && airway.findings.length > 0;
     const isPatent = airway.patent !== false;
     statuses.push({
-      label: 'A - Voies aeriennes',
+      label: 'A - Voies aériennes',
       icon: <Wind className="h-4 w-4" />,
       status: !isPatent ? 'critical' : hasFindings ? 'warning' : 'normal',
       findings: airway.findings || [],
     });
   } else {
-    statuses.push({ label: 'A - Voies aeriennes', icon: <Wind className="h-4 w-4" />, status: 'empty', findings: [] });
+    statuses.push({ label: 'A - Voies aériennes', icon: <Wind className="h-4 w-4" />, status: 'empty', findings: [] });
   }
 
   // Breathing

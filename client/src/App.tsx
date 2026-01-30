@@ -40,7 +40,6 @@ import InscriptionHome from './pages/nurse/InscriptionHome';
 import PatientRegistration from './pages/nurse/PatientRegistration';
 import PatientEdit from './pages/nurse/PatientEdit';
 import TriageQueue from './pages/nurse/triage/TriageQueue';
-import ABCDEAssessment from './pages/nurse/triage/ABCDEAssessment';
 import TriageWorkflow from './pages/nurse/triage/TriageWorkflow';
 import SuggestionsReview from './pages/nurse/triage/SuggestionsReview';
 // VitalsEntry removed - vitals are now collected in ABCDE forms

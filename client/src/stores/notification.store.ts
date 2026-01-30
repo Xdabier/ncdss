@@ -15,6 +15,7 @@ interface NotificationStore {
   deleteNotification: (id: string) => Promise<void>;
   startPolling: () => void;
   stopPolling: () => void;
+  clearNotifications: () => void;
 }
 
 let pollingInterval: ReturnType<typeof setInterval> | null = null;
@@ -118,5 +119,13 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       clearInterval(pollingInterval);
       pollingInterval = null;
     }
+  },
+
+  clearNotifications: () => {
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      pollingInterval = null;
+    }
+    set({ notifications: [], unreadCount: 0, isLoading: false, lastFetched: null });
   },
 }));
