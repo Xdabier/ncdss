@@ -34,6 +34,7 @@ export const API_ROUTES = {
     remove: (id: number | string) => `/box-assignments/${id}`,
     myAssignment: '/box-assignments/my-assignment',
     currentDoctor: (boxId: number | string) => `/box-assignments/current-doctor/${boxId}`,
+    endingSoon: '/box-assignments/ending-soon',
   },
 
   patients: {
@@ -47,24 +48,22 @@ export const API_ROUTES = {
     esi: (id: number | string) => `/patients/${id}/esi`,
     completeTriage: (id: number | string) => `/patients/${id}/complete-triage`,
     analyzeFindings: (id: number | string) => `/patients/${id}/analyze-findings`,
+    analysis: (id: number | string) => `/patients/${id}/analysis`,
     suggestOrientation: (id: number | string) => `/patients/${id}/suggest-orientation`,
-    assignBox: (id: number | string) => `/patients/${id}/assign-box`,
     startTreatment: (id: number | string) => `/patients/${id}/start-treatment`,
-    treatment: (id: number | string) => `/patients/${id}/treatment`,
+    updateStatus: (id: number | string) => `/patients/${id}/status`,
     discharge: (id: number | string) => `/patients/${id}/discharge`,
     requestRetriage: (id: number | string) => `/patients/${id}/request-retriage`,
     notes: (id: number | string) => `/patients/${id}/notes`,
     transferToDoctor: (id: number | string) => `/patients/${id}/transfer-to-doctor`,
     aiPrediagnosis: (id: number | string) => `/patients/${id}/ai-prediagnosis`,
     aiStatus: (id: number | string) => `/patients/${id}/ai-status`,
-    aiPrediagnosisStream: (id: number | string) => `/patients/${id}/ai-prediagnosis/stream`,
+    aiPrediagnosisStream: (id: number | string) => `/patients/${id}/ai-prediagnosis-stream`,
   },
 
   prescriptions: {
-    list: '/prescriptions',
     create: '/prescriptions',
     byId: (id: number | string) => `/prescriptions/${id}`,
-    update: (id: number | string) => `/prescriptions/${id}`,
     byPatient: (patientId: number | string) => `/prescriptions/patient/${patientId}`,
     administer: (id: number | string) => `/prescriptions/${id}/administer`,
     cancel: (id: number | string) => `/prescriptions/${id}/cancel`,
@@ -74,18 +73,18 @@ export const API_ROUTES = {
   },
 
   diagnoses: {
-    list: '/diagnoses',
     create: '/diagnoses',
     byId: (id: number | string) => `/diagnoses/${id}`,
     update: (id: number | string) => `/diagnoses/${id}`,
     byPatient: (patientId: number | string) => `/diagnoses/patient/${patientId}`,
     confirm: (id: number | string) => `/diagnoses/${id}/confirm`,
-    resolve: (id: number | string) => `/diagnoses/${id}/resolve`,
+    ruleOut: (id: number | string) => `/diagnoses/${id}/rule-out`,
   },
 
   pathologies: {
     list: '/pathologies',
     create: '/pathologies',
+    search: '/pathologies/search',
     categories: '/pathologies/categories',
     orientations: '/pathologies/orientations',
     import: '/pathologies/import',
@@ -100,7 +99,6 @@ export const API_ROUTES = {
     categories: '/interventions/categories',
     import: '/interventions/import',
     byPathology: (name: string) => `/interventions/by-pathology/${name}`,
-    byId: (id: number | string) => `/interventions/${id}`,
     update: (id: number | string) => `/interventions/${id}`,
     remove: (id: number | string) => `/interventions/${id}`,
   },
@@ -127,6 +125,8 @@ export const API_ROUTES = {
     markRead: (id: number | string) => `/notifications/${id}/read`,
     markAllRead: '/notifications/read-all',
     remove: (id: number | string) => `/notifications/${id}`,
+    clearRead: '/notifications/clear-read',
+    cleanup: '/notifications/cleanup',
   },
 
   tracking: {

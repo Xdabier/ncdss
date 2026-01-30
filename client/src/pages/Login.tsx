@@ -46,7 +46,7 @@ export default function Login() {
 
     try {
       // Test connection
-      const response = await fetch(`http://${serverAddress}/api/health`);
+      const response = await fetch(`http://${serverAddress}/api${API_ROUTES.health}`);
       if (!response.ok) throw new Error('Serveur non disponible');
 
       await setServerUrl(serverAddress);
