@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth.store';
+import { useNotificationStore } from '../../stores/notification.store';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { getApi } from '../../services/api';
-import { Patient, PatientStatus, Sex } from '@ncdss/shared';
+import { Patient, PatientStatus, Sex, NotificationType } from '@ncdss/shared';
 import {
   Users,
   Clock,
@@ -14,25 +15,48 @@ import {
   Eye,
   UserPlus,
   Search,
-  RefreshCw
+  RefreshCw,
+  List,
+  Bell,
+  X
 } from 'lucide-react';
 
-type FilterTab = 'mine' | 'waiting';
+type FilterTab = 'mine' | 'waiting' | 'all';
 
 interface PatientListItem extends Patient {
   // Full patient data from API
+}
+
+interface ToastMessage {
+  id: string;
+  text: string;
+  type: 'info' | 'warning';
 }
 
 export default function MyPatients() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
+  const { notifications } = useNotificationStore();
   const [patients, setPatients] = useState<PatientListItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const initialTab = searchParams.get('tab') === 'waiting' ? 'waiting' : 'mine';
-  const [activeTab, setActiveTab] = useState<FilterTab>(initialTab);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const initialTab = (searchParams.get('tab') as FilterTab) || 'mine';
+  const [activeTab, setActiveTab] = useState<FilterTab>(
+    ['mine', 'waiting', 'all'].includes(initialTab) ? initialTab : 'mine'
+  );
   const [search, setSearch] = useState('');
   const [takingPatient, setTakingPatient] = useState<string | null>(null);
+  const [recentlyAssignedIds, setRecentlyAssignedIds] = useState<Set<string>>(new Set());
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const prevNotifCountRef = useRef<number>(0);
+  const [now, setNow] = useState(() => new Date());
+
+  // Update "now" every 30 seconds for waiting time display
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Stats
   const myPatients = patients.filter(p => p.assignedDoctorId === user?.id);
@@ -40,18 +64,17 @@ export default function MyPatients() {
     p => (p.status === PatientStatus.IN_TREATMENT || p.status === PatientStatus.WITH_DOCTOR) &&
          !p.assignedDoctorId
   );
+  const allRelevantPatients = patients;
   const criticalPatients = patients.filter(
     p => p.esiLevel && p.esiLevel <= 2 &&
          (p.assignedDoctorId === user?.id || !p.assignedDoctorId)
   );
 
-  const loadPatients = useCallback(async () => {
-    setLoading(true);
+  const loadPatients = useCallback(async (isInitial = false) => {
+    if (isInitial) setInitialLoading(true);
+    else setRefreshing(true);
     try {
       const api = await getApi();
-      // Fetch all patients that are relevant for doctors
-      // IN_TREATMENT = waiting for doctor assignment
-      // WITH_DOCTOR = with a doctor
       const params = new URLSearchParams();
       params.append('status', PatientStatus.IN_TREATMENT);
       params.append('status', PatientStatus.WITH_DOCTOR);
@@ -59,27 +82,73 @@ export default function MyPatients() {
       params.append('limit', '100');
 
       const response = await api.get(`/patients?${params.toString()}`);
-      setPatients(response.data);
+      const newPatients: PatientListItem[] = response.data;
+
+      // Detect newly assigned patients (assigned in last 5 minutes)
+      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const newlyAssigned = new Set(
+        newPatients
+          .filter(p =>
+            p.assignedDoctorId === user?.id &&
+            p.doctorAssignedAt &&
+            p.doctorAssignedAt > fiveMinAgo
+          )
+          .map(p => p.id)
+      );
+      setRecentlyAssignedIds(newlyAssigned);
+      setPatients(newPatients);
     } catch (error) {
       console.error('Error loading patients:', error);
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
+      setRefreshing(false);
     }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
-    loadPatients();
+    loadPatients(true);
 
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(loadPatients, 30000);
+    // Auto-refresh every 10 seconds
+    const interval = setInterval(() => loadPatients(false), 10000);
     return () => clearInterval(interval);
   }, [loadPatients]);
 
+  // Listen for new PATIENT_ASSIGNED notifications
+  useEffect(() => {
+    const assignedNotifs = notifications.filter(
+      n => n.type === NotificationType.PATIENT_ASSIGNED && !n.isRead
+    );
+    if (assignedNotifs.length > prevNotifCountRef.current) {
+      // New assignment notification arrived
+      const newest = assignedNotifs[0];
+      if (newest) {
+        const toast: ToastMessage = {
+          id: newest.id,
+          text: newest.message || 'Nouveau patient assigné',
+          type: 'info',
+        };
+        setToasts(prev => [...prev, toast]);
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+          setToasts(prev => prev.filter(t => t.id !== toast.id));
+        }, 5000);
+      }
+      loadPatients(false);
+    }
+    prevNotifCountRef.current = assignedNotifs.length;
+  }, [notifications, loadPatients]);
+
   // Update tab when URL changes
   useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    setActiveTab(tabParam === 'waiting' ? 'waiting' : 'mine');
+    const tabParam = searchParams.get('tab') as FilterTab | null;
+    if (tabParam && ['mine', 'waiting', 'all'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
   }, [searchParams]);
+
+  const dismissToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
 
   const handleTakePatient = async (patientId: string) => {
     if (!user?.id) return;
@@ -90,7 +159,7 @@ export default function MyPatients() {
       await api.post(`/patients/${patientId}/transfer-to-doctor`, {
         doctorId: user.id
       });
-      await loadPatients();
+      await loadPatients(false);
     } catch (error) {
       console.error('Error taking patient:', error);
     } finally {
@@ -98,8 +167,15 @@ export default function MyPatients() {
     }
   };
 
-  // Filter patients based on active tab and search
-  const filteredPatients = (activeTab === 'mine' ? myPatients : waitingPatients)
+  // Get display list for current tab
+  const tabPatients = activeTab === 'mine'
+    ? myPatients
+    : activeTab === 'waiting'
+      ? waitingPatients
+      : allRelevantPatients;
+
+  // Filter patients based on search and sort
+  const filteredPatients = tabPatients
     .filter(p => {
       if (!search) return true;
       const searchLower = search.toLowerCase();
@@ -109,13 +185,50 @@ export default function MyPatients() {
         p.nationalId?.toLowerCase().includes(searchLower)
       );
     })
-    // Sort by ESI (ascending) then by time
+    // Sort by ESI (ascending) then by time waiting (oldest first)
     .sort((a, b) => {
       const esiA = a.esiLevel || 5;
       const esiB = b.esiLevel || 5;
       if (esiA !== esiB) return esiA - esiB;
-      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      const timeA = a.triageCompletedAt || a.createdAt;
+      const timeB = b.triageCompletedAt || b.createdAt;
+      return new Date(timeA).getTime() - new Date(timeB).getTime();
     });
+
+  // Waiting time helpers
+  const getWaitingMinutes = (patient: PatientListItem): number | null => {
+    const ref = patient.triageCompletedAt || patient.treatmentStartedAt;
+    if (!ref) return null;
+    return Math.floor((now.getTime() - new Date(ref).getTime()) / 60000);
+  };
+
+  const formatWaitingTime = (minutes: number | null): string => {
+    if (minutes === null) return '-';
+    if (minutes < 60) return `${minutes} min`;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${h}h${m > 0 ? String(m).padStart(2, '0') : ''}`;
+  };
+
+  const getWaitingTimeColor = (minutes: number | null): string => {
+    if (minutes === null) return 'text-gray-400';
+    if (minutes < 30) return 'text-green-600';
+    if (minutes < 60) return 'text-yellow-600 font-medium';
+    return 'text-red-600 font-bold';
+  };
+
+  // Row background class based on ESI + recently assigned
+  const getRowClassName = (patient: PatientListItem): string => {
+    const classes: string[] = ['hover:bg-gray-50 transition-colors'];
+    if (recentlyAssignedIds.has(patient.id)) {
+      classes.push('animate-pulse bg-blue-50');
+    } else if (patient.esiLevel === 1) {
+      classes.push('bg-red-100');
+    } else if (patient.esiLevel === 2) {
+      classes.push('bg-orange-50');
+    }
+    return classes.join(' ');
+  };
 
   // ESI badge colors
   const getEsiBadge = (esi: number | undefined) => {
@@ -158,9 +271,36 @@ export default function MyPatients() {
     return false;
   };
 
+  const tabLabel = activeTab === 'mine'
+    ? 'Patients assignés'
+    : activeTab === 'waiting'
+      ? 'Patients en attente'
+      : 'Tous les patients';
+
   return (
     <DashboardLayout>
       <div className="max-w-7xl mx-auto p-6">
+        {/* Toast notifications */}
+        {toasts.length > 0 && (
+          <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">
+            {toasts.map(toast => (
+              <div
+                key={toast.id}
+                className="flex items-center gap-3 px-4 py-3 bg-blue-600 text-white rounded-lg shadow-lg animate-bounce"
+              >
+                <Bell className="h-5 w-5 flex-shrink-0" />
+                <span className="text-sm font-medium">{toast.text}</span>
+                <button
+                  onClick={() => dismissToast(toast.id)}
+                  className="ml-2 hover:opacity-70"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
@@ -169,10 +309,15 @@ export default function MyPatients() {
               Gestion des patients assignés et en attente
             </p>
           </div>
-          <Button onClick={loadPatients} variant="outline" disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Actualiser
-          </Button>
+          <div className="flex items-center gap-3">
+            {refreshing && (
+              <span className="text-xs text-gray-400">Actualisation...</span>
+            )}
+            <Button onClick={() => loadPatients(false)} variant="outline" disabled={initialLoading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${initialLoading ? 'animate-spin' : ''}`} />
+              Actualiser
+            </Button>
+          </div>
         </div>
 
         {/* Critical Alert Banner */}
@@ -255,6 +400,13 @@ export default function MyPatients() {
           >
             En attente ({waitingPatients.length})
           </Button>
+          <Button
+            variant={activeTab === 'all' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('all')}
+          >
+            <List className="h-4 w-4 mr-1" />
+            Tous ({allRelevantPatients.length})
+          </Button>
         </div>
 
         {/* Search */}
@@ -275,12 +427,11 @@ export default function MyPatients() {
         <Card>
           <CardHeader>
             <CardTitle>
-              {activeTab === 'mine' ? 'Patients assignés' : 'Patients en attente'}
-              {' '}({filteredPatients.length})
+              {tabLabel} ({filteredPatients.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {initialLoading ? (
               <div className="flex items-center justify-center py-12">
                 <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
               </div>
@@ -290,7 +441,9 @@ export default function MyPatients() {
                 <p>
                   {activeTab === 'mine'
                     ? 'Aucun patient assigné'
-                    : 'Aucun patient en attente'}
+                    : activeTab === 'waiting'
+                      ? 'Aucun patient en attente'
+                      : 'Aucun patient'}
                 </p>
               </div>
             ) : (
@@ -311,6 +464,9 @@ export default function MyPatients() {
                         Orientation
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Temps d'attente
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Scores
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -322,97 +478,107 @@ export default function MyPatients() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredPatients.map((patient) => (
-                      <tr
-                        key={patient.id}
-                        className={`hover:bg-gray-50 ${
-                          patient.esiLevel && patient.esiLevel <= 2
-                            ? 'bg-red-50'
-                            : ''
-                        }`}
-                      >
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          {getEsiBadge(patient.esiLevel)}
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {patient.fullName}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {formatPatientInfo(patient)}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div
-                            className="text-sm text-gray-900 max-w-xs truncate"
-                            title={patient.chiefComplaint || '-'}
-                          >
-                            {patient.chiefComplaint
-                              ? patient.chiefComplaint.length > 40
-                                ? patient.chiefComplaint.substring(0, 40) + '...'
-                                : patient.chiefComplaint
-                              : '-'}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {patient.finalOrientation || patient.suggestedOrientation || '-'}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="flex flex-col gap-1">
-                            <span
-                              className={`text-sm ${
-                                isScoreCritical('news', patient.newsScore)
-                                  ? 'text-red-600 font-bold'
-                                  : 'text-gray-900'
-                              }`}
+                    {filteredPatients.map((patient) => {
+                      const waitMinutes = getWaitingMinutes(patient);
+                      return (
+                        <tr
+                          key={patient.id}
+                          className={getRowClassName(patient)}
+                        >
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            {getEsiBadge(patient.esiLevel)}
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {patient.fullName}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {formatPatientInfo(patient)}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <div
+                              className="text-sm text-gray-900 max-w-xs truncate"
+                              title={patient.chiefComplaint || '-'}
                             >
-                              NEWS: {patient.newsScore ?? '-'}
-                            </span>
-                            <span
-                              className={`text-sm ${
-                                isScoreCritical('gcs', patient.gcsScore)
-                                  ? 'text-red-600 font-bold'
-                                  : 'text-gray-900'
-                              }`}
-                            >
-                              GCS: {patient.gcsScore ?? '-'}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          {getStatusBadge(patient.status)}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-right">
-                          {patient.assignedDoctorId === user?.id ? (
-                            <Button
-                              size="sm"
-                              onClick={() =>
-                                navigate(`/doctor/patients/${patient.id}`)
-                              }
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              Voir
-                            </Button>
-                          ) : activeTab === 'waiting' ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleTakePatient(patient.id)}
-                              disabled={takingPatient === patient.id}
-                            >
-                              {takingPatient === patient.id ? (
-                                <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-                              ) : (
-                                <UserPlus className="h-4 w-4 mr-1" />
+                              {patient.chiefComplaint
+                                ? patient.chiefComplaint.length > 40
+                                  ? patient.chiefComplaint.substring(0, 40) + '...'
+                                  : patient.chiefComplaint
+                                : '-'}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {patient.finalOrientation || patient.suggestedOrientation || '-'}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-1">
+                              <Clock className={`h-4 w-4 ${getWaitingTimeColor(waitMinutes)}`} />
+                              <span className={`text-sm ${getWaitingTimeColor(waitMinutes)}`}>
+                                {formatWaitingTime(waitMinutes)}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="flex flex-col gap-1">
+                              <span
+                                className={`text-sm ${
+                                  isScoreCritical('news', patient.newsScore)
+                                    ? 'text-red-600 font-bold'
+                                    : 'text-gray-900'
+                                }`}
+                              >
+                                NEWS: {patient.newsScore ?? '-'}
+                              </span>
+                              <span
+                                className={`text-sm ${
+                                  isScoreCritical('gcs', patient.gcsScore)
+                                    ? 'text-red-600 font-bold'
+                                    : 'text-gray-900'
+                                }`}
+                              >
+                                GCS: {patient.gcsScore ?? '-'}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            {getStatusBadge(patient.status)}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {patient.assignedDoctorId === user?.id && (
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    navigate(`/doctor/patients/${patient.id}`)
+                                  }
+                                >
+                                  <Eye className="h-4 w-4 mr-1" />
+                                  Voir
+                                </Button>
                               )}
-                              Prendre
-                            </Button>
-                          ) : null}
-                        </td>
-                      </tr>
-                    ))}
+                              {!patient.assignedDoctorId && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleTakePatient(patient.id)}
+                                  disabled={takingPatient === patient.id}
+                                >
+                                  {takingPatient === patient.id ? (
+                                    <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                                  ) : (
+                                    <UserPlus className="h-4 w-4 mr-1" />
+                                  )}
+                                  Prendre
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
