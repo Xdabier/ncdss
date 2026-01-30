@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { eq, and, like, desc, gte, inArray } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
-import { patients, users, presentingComplaints, boxes } from '../../database/schema';
+import { patients, users, presentingComplaints, boxes, weeklySchedule } from '../../database/schema';
 import { PatientStatus, Orientation, OrientationSource } from '@ncdss/shared';
 import { calculateNEWS, calculateGCS, calculateQSOFA } from '../../utils/scores';
 import {
@@ -16,6 +16,10 @@ import { matchFindingsToPathologies } from '../../services/pathologyMatcher';
 import { getLLMProvider, PreDiagnosisContext } from '../../services/llm';
 import * as aiPreDiagnosisService from '../../services/ai-prediagnosis-service';
 import { getCurrentDoctorForBox } from './box-assignments';
+import {
+  notifyDoctorPatientAssigned,
+  notifyTriageComplete
+} from '../../services/notificationService';
 
 const router = Router();
 
@@ -729,6 +733,37 @@ router.post('/:id/complete-triage', async (req, res) => {
     }
 
     const [updated] = await db.select().from(patients).where(eq(patients.id, id));
+
+    // Notify treatment nurses that triage is complete (fire-and-forget)
+    try {
+      const today = new Date();
+      const dayOfWeek = (today.getDay() + 6) % 7; // Convert to Mon=0..Sun=6
+      const weekStart = getWeekStart(today);
+
+      const treatmentNurses = await db
+        .select({ nurseId: weeklySchedule.nurseId })
+        .from(weeklySchedule)
+        .where(
+          and(
+            eq(weeklySchedule.weekStart, weekStart),
+            eq(weeklySchedule.dayOfWeek, dayOfWeek),
+            eq(weeklySchedule.assignedRole, 'TREATMENT')
+          )
+        );
+
+      if (treatmentNurses.length > 0) {
+        notifyTriageComplete(
+          treatmentNurses.map((n: typeof treatmentNurses[number]) => n.nurseId),
+          id,
+          patient.fullName,
+          esiLevel,
+          finalOrientation
+        ).catch((err) => console.error('Notification error (triage complete):', err));
+      }
+    } catch (notifError) {
+      console.error('Failed to send triage complete notification:', notifError);
+    }
+
     res.json(updated);
   } catch (error) {
     console.error('Complete triage error:', error);
@@ -736,9 +771,18 @@ router.post('/:id/complete-triage', async (req, res) => {
   }
 });
 
-// ============================================================================ 
+// Helper to get the Monday date string for the current week
+function getWeekStart(date: Date): string {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
+  d.setDate(diff);
+  return d.toISOString().split('T')[0]; // YYYY-MM-DD
+}
+
+// ============================================================================
 // STATUS TRANSITIONS
-// ============================================================================ 
+// ============================================================================
 
 // Update patient status
 router.put('/:id/status', async (req, res) => {
@@ -822,6 +866,17 @@ router.post('/:id/start-treatment', async (req, res) => {
     }).where(eq(patients.id, id));
 
     const [updated] = await db.select().from(patients).where(eq(patients.id, id));
+
+    // Notify the auto-assigned doctor (fire-and-forget)
+    if (currentDoctor && boxName) {
+      notifyDoctorPatientAssigned(
+        currentDoctor.doctorId,
+        id,
+        patient.fullName,
+        boxName,
+        patient.esiLevel
+      ).catch((err) => console.error('Notification error (doctor assigned):', err));
+    }
 
     // Return complete info including auto-assigned doctor name
     res.json({
