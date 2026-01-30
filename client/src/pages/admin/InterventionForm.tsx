@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { CLIENT_ROUTES } from '../../routes';
 
 // This page redirects to the list page as CRUD is handled via modal
 export default function InterventionForm() {
@@ -8,7 +9,7 @@ export default function InterventionForm() {
 
   useEffect(() => {
     // Redirect to list page - editing is handled via modal
-    navigate('/admin/interventions', {
+    navigate(CLIENT_ROUTES.admin.interventions, {
       replace: true,
       state: { editId: id }
     });

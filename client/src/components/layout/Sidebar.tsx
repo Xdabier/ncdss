@@ -31,6 +31,7 @@ import {
 import { useAuthStore } from '../../stores/auth.store';
 import { useNotificationStore } from '../../stores/notification.store';
 import { UserRole, NurseAssignment, API_ROUTES } from '@ncdss/shared';
+import { CLIENT_ROUTES } from '../../routes';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { cn } from '../../lib/utils';
@@ -50,7 +51,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   // General
   {
-    path: '/dashboard',
+    path: CLIENT_ROUTES.dashboard,
     label: 'Tableau de bord',
     icon: Home,
     roles: [
@@ -64,49 +65,49 @@ const navItems: NavItem[] = [
 
   // Admin section
   {
-    path: '/admin/users',
+    path: CLIENT_ROUTES.admin.users,
     label: 'Gestion Utilisateurs',
     icon: Users,
     roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
   },
   {
-    path: '/admin/er-config',
+    path: CLIENT_ROUTES.admin.erConfig,
     label: 'Configuration Urgences',
     icon: Settings,
     roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
   },
   {
-    path: '/admin/boxes',
+    path: CLIENT_ROUTES.admin.boxes,
     label: 'Gestion Boxes',
     icon: BedDouble,
     roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
   },
   {
-    path: '/admin/box-assignments',
+    path: CLIENT_ROUTES.admin.boxAssignments,
     label: 'Affectation Médecins',
     icon: CalendarClock,
     roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
   },
   {
-    path: '/admin/pathologies',
+    path: CLIENT_ROUTES.admin.pathologies,
     label: 'Pathologies',
     icon: List,
     roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
   },
   {
-    path: '/admin/interventions',
+    path: CLIENT_ROUTES.admin.interventions,
     label: 'Interventions ABCDE',
     icon: FileText,
     roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
   },
   {
-    path: '/admin/audit',
+    path: CLIENT_ROUTES.admin.audit,
     label: "Journal d'Audit",
     icon: Shield,
     roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
   },
   {
-    path: '/admin/backup',
+    path: CLIENT_ROUTES.admin.backup,
     label: 'Sauvegardes',
     icon: Database,
     roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
@@ -114,25 +115,25 @@ const navItems: NavItem[] = [
 
   // Supervisor section
   {
-    path: '/supervisor/schedule',
+    path: CLIENT_ROUTES.supervisor.schedule,
     label: 'Planning Hebdomadaire',
     icon: Calendar,
     roles: [UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN],
   },
   {
-    path: '/supervisor/stats',
+    path: CLIENT_ROUTES.supervisor.stats,
     label: 'Statistiques',
     icon: BarChart3,
     roles: [UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN],
   },
   {
-    path: '/supervisor/queue',
+    path: CLIENT_ROUTES.supervisor.queue,
     label: "Gestion File d'Attente",
     icon: ClipboardList,
     roles: [UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN],
   },
   {
-    path: '/supervisor/patients',
+    path: CLIENT_ROUTES.supervisor.patients,
     label: 'Tous les Patients',
     icon: Users,
     roles: [UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN],
@@ -140,7 +141,7 @@ const navItems: NavItem[] = [
 
   // Nurse - Inscription section
   {
-    path: '/nurse/inscription',
+    path: CLIENT_ROUTES.nurse.inscription.home,
     label: 'Inscription',
     icon: UserPlus,
     roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN],
@@ -149,7 +150,7 @@ const navItems: NavItem[] = [
 
   // Nurse - Triage section
   {
-    path: '/nurse/triage',
+    path: CLIENT_ROUTES.nurse.triage.queue,
     label: 'File de triage',
     icon: Activity,
     roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN],
@@ -158,7 +159,7 @@ const navItems: NavItem[] = [
 
   // Nurse - Treatment section
   {
-    path: '/nurse/treatment',
+    path: CLIENT_ROUTES.nurse.treatment.queue,
     label: 'Soins',
     icon: Heart,
     roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN],
@@ -167,7 +168,7 @@ const navItems: NavItem[] = [
 
   // Doctor section
   {
-    path: '/doctor/patients',
+    path: CLIENT_ROUTES.doctor.patients,
     label: 'Mes Patients',
     icon: Stethoscope,
     roles: [UserRole.DOCTOR, UserRole.SUPER_ADMIN],
@@ -175,7 +176,7 @@ const navItems: NavItem[] = [
 
   // Tracking board
   {
-    path: '/tracking-board',
+    path: CLIENT_ROUTES.shared.trackingBoard,
     label: 'Tableau de Suivi',
     icon: Monitor,
     roles: [
@@ -189,7 +190,7 @@ const navItems: NavItem[] = [
 
   // Shared/Lookup section
   {
-    path: '/patients/search',
+    path: CLIENT_ROUTES.shared.patientSearch,
     label: 'Recherche Patient',
     icon: Search,
     roles: [
@@ -201,13 +202,13 @@ const navItems: NavItem[] = [
     ],
   },
   {
-    path: '/lookup/pathologies',
+    path: CLIENT_ROUTES.shared.pathologyLookup,
     label: 'Consultation Pathologies',
     icon: BookOpen,
     roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.DOCTOR, UserRole.SUPER_ADMIN],
   },
   {
-    path: '/lookup/interventions',
+    path: CLIENT_ROUTES.shared.interventionsLookup,
     label: 'Consultation Interventions',
     icon: BookOpen,
     roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.DOCTOR, UserRole.SUPER_ADMIN],
@@ -215,7 +216,7 @@ const navItems: NavItem[] = [
 
   // User settings
   {
-    path: '/profile',
+    path: CLIENT_ROUTES.profile,
     label: 'Mon Profil',
     icon: UserCircle,
     roles: [
@@ -227,7 +228,7 @@ const navItems: NavItem[] = [
     ],
   },
   {
-    path: '/settings',
+    path: CLIENT_ROUTES.settings,
     label: 'Paramètres',
     icon: Settings,
     roles: [
@@ -239,7 +240,7 @@ const navItems: NavItem[] = [
     ],
   },
   {
-    path: '/help',
+    path: CLIENT_ROUTES.help,
     label: 'Aide',
     icon: HelpCircle,
     roles: [
@@ -300,7 +301,7 @@ export function Sidebar({ onClose }: Props) {
       // Always clear auth, stop notifications, and navigate to login
       clearNotifications();
       await clearAuth();
-      navigate('/login', { replace: true });
+      navigate(CLIENT_ROUTES.login, { replace: true });
     }
   };
 

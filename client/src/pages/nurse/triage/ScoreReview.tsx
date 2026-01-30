@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { getApi } from '../../../services/api';
+import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, Sex, API_ROUTES } from '@ncdss/shared';
 import { getScoreColor, getScoreLabel } from '../../../utils/scoreUtils';
 
@@ -256,7 +257,7 @@ export default function ScoreReview() {
           <Button variant="outline" onClick={() => navigate(-1)}>
             Retour
           </Button>
-          <Button onClick={() => navigate(`/nurse/triage/${id}/complete`)} className="min-w-[150px]">
+          <Button onClick={() => navigate(CLIENT_ROUTES.nurse.triage.complete(id!))} className="min-w-[150px]">
             Continuer
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>

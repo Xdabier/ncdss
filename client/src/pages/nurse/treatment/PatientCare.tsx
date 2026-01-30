@@ -39,6 +39,7 @@ import {
   SelectValue,
 } from '../../../components/ui/select';
 import { getApi } from '../../../services/api';
+import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, PatientStatus, Box, User as UserType, Prescription, MedicationRoute, AdministrationStatus, PrescriptionStatus, API_ROUTES } from '@ncdss/shared';
 import { formatDateTime } from '../../../utils/dateUtils';
 
@@ -212,7 +213,7 @@ export default function PatientCare() {
   };
 
   const handleUpdateVitals = (): void => {
-    navigate(`/nurse/treatment/${id}/vitals`);
+    navigate(CLIENT_ROUTES.nurse.treatment.vitals(id!));
   };
 
   const handleRequestReTriage = async (reason: string): Promise<void> => {
@@ -223,7 +224,7 @@ export default function PatientCare() {
       const api = await getApi();
       await api.post(API_ROUTES.patients.requestRetriage(id!), { reason: reason.trim() });
       setShowReTriageModal(false);
-      navigate('/nurse/treatment');
+      navigate(CLIENT_ROUTES.nurse.treatment.queue);
     } catch (error) {
       console.error('Error requesting re-triage:', error);
     } finally {
@@ -242,7 +243,7 @@ export default function PatientCare() {
         dischargeNotes: dischargeNotes.trim() || null,
       });
       setShowDischargeModal(false);
-      navigate('/nurse/treatment');
+      navigate(CLIENT_ROUTES.nurse.treatment.queue);
     } catch (error) {
       console.error('Error discharging patient:', error);
     } finally {
@@ -380,7 +381,7 @@ export default function PatientCare() {
               <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
               <h2 className="text-lg font-semibold mb-2">Patient non trouvé</h2>
               <p className="text-gray-500 mb-4">Le patient demandé n'existe pas ou a été supprimé.</p>
-              <Button onClick={() => navigate('/nurse/treatment')}>Retour à la file</Button>
+              <Button onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.queue)}>Retour à la file</Button>
             </CardContent>
           </Card>
         </div>
@@ -396,7 +397,7 @@ export default function PatientCare() {
       <div className="p-6">
         {/* Back button and title */}
         <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/nurse/treatment')}>
+          <Button variant="ghost" size="sm" onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.queue)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour
           </Button>
@@ -967,7 +968,7 @@ export default function PatientCare() {
                   <Button
                     variant="outline"
                     className="w-full border-orange-300 text-orange-700 hover:bg-orange-50"
-                    onClick={() => navigate(`/nurse/treatment/${id}/retriage`)}
+                    onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.retriage(id!))}
                     disabled={actionLoading}
                   >
                     <RefreshCw className="h-4 w-4 mr-2" />
@@ -981,7 +982,7 @@ export default function PatientCare() {
                   <Button
                     variant="outline"
                     className="w-full border-red-300 text-red-700 hover:bg-red-50"
-                    onClick={() => navigate(`/nurse/treatment/${id}/alert`)}
+                    onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.alert(id!))}
                     disabled={actionLoading}
                   >
                     <AlertTriangle className="h-4 w-4 mr-2" />

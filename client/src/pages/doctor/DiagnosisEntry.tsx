@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { RefreshCw } from 'lucide-react';
+import { CLIENT_ROUTES } from '../../routes';
 
 /**
  * DiagnosisEntry page redirects to PatientDetail where the DiagnosisModal
@@ -14,10 +15,10 @@ export default function DiagnosisEntry() {
   useEffect(() => {
     if (id) {
       // Redirect to patient detail page where diagnosis modal can be opened
-      navigate(`/doctor/patient/${id}`, { replace: true });
+      navigate(CLIENT_ROUTES.doctor.patientDetail(id!), { replace: true });
     } else {
       // No patient ID provided, go back to patients list
-      navigate('/doctor/patients', { replace: true });
+      navigate(CLIENT_ROUTES.doctor.patients, { replace: true });
     }
   }, [id, navigate]);
 

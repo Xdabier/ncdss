@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from '../../components/ui/alert';
 import { AlertCircle, Key, X, CheckCircle2 } from 'lucide-react';
 import { getApi } from '../../services/api';
 import { API_ROUTES } from '@ncdss/shared';
+import { CLIENT_ROUTES } from '../../routes';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -69,7 +70,7 @@ export default function ResetPassword() {
       await api.post(API_ROUTES.users.resetPassword(id!), { password });
       setSuccess(true);
       setTimeout(() => {
-        navigate('/admin/users');
+        navigate(CLIENT_ROUTES.admin.users);
       }, 2000);
     } catch (e: any) {
       setError(e.response?.data?.error || 'Erreur de réinitialisation');
@@ -195,7 +196,7 @@ export default function ResetPassword() {
           <div className="mt-6 flex gap-4 justify-end">
             <Button
               variant="outline"
-              onClick={() => navigate('/admin/users')}
+              onClick={() => navigate(CLIENT_ROUTES.admin.users)}
               disabled={loading || success}
             >
               <X className="h-4 w-4 mr-2" />

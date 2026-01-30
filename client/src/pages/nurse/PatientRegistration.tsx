@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '../../components/ui/select';
 import { getApi } from '../../services/api';
+import { CLIENT_ROUTES } from '../../routes';
 import { Sex, API_ROUTES } from '@ncdss/shared';
 import { cn } from '../../lib/utils';
 
@@ -100,7 +101,7 @@ export default function PatientRegistration() {
         currentMedications: formData.currentMedications
       });
       
-      navigate(`/nurse/inscription`);
+      navigate(CLIENT_ROUTES.nurse.inscription.home);
     } catch (e: any) {
       setError(e.response?.data?.error || 'Erreur d\'enregistrement');
     } finally {

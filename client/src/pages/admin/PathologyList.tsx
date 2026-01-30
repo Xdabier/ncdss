@@ -16,6 +16,7 @@ import {
 import { getApi } from '../../services/api';
 import { PathologyModal, Pathology } from '../../components/admin/PathologyModal';
 import { API_ROUTES } from '@ncdss/shared';
+import { CLIENT_ROUTES } from '../../routes';
 
 const orientationLabels: Record<string, string> = {
   SAUV: 'SAUV',
@@ -190,7 +191,7 @@ export default function PathologyList() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate('/admin/pathologies/import')}>
+            <Button variant="outline" onClick={() => navigate(CLIENT_ROUTES.admin.pathologyImport)}>
               <Upload className="h-4 w-4 mr-2" />
               Importer Excel
             </Button>

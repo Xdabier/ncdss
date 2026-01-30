@@ -35,6 +35,7 @@ import {
   CreatePrescriptionRequest,
   API_ROUTES,
 } from '@ncdss/shared';
+import { CLIENT_ROUTES } from '../../routes';
 import {
   ArrowLeft,
   RefreshCw,
@@ -707,7 +708,7 @@ export default function PatientDetail() {
         <div className="p-6">
           <Button
             variant="ghost"
-            onClick={() => navigate('/doctor/patients')}
+            onClick={() => navigate(CLIENT_ROUTES.doctor.patients)}
             className="mb-4"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -733,7 +734,7 @@ export default function PatientDetail() {
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
-              onClick={() => navigate('/doctor/patients')}
+              onClick={() => navigate(CLIENT_ROUTES.doctor.patients)}
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Retour
@@ -1415,7 +1416,7 @@ export default function PatientDetail() {
         onSuccess={() => {
           setShowDischargeModal(false);
           loadPatient();
-          navigate('/doctor/patients');
+          navigate(CLIENT_ROUTES.doctor.patients);
         }}
       />
 

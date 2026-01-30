@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'ax
 import { API_ROUTES } from '@ncdss/shared';
 import { getServerUrl } from './config';
 import { useAuthStore } from '../stores/auth.store';
+import { CLIENT_ROUTES } from '../routes';
 
 let apiInstance: AxiosInstance | null = null;
 let isRefreshing = false;
@@ -107,7 +108,7 @@ export async function getApi(): Promise<AxiosInstance> {
 
           // Clear auth and redirect to login
           await useAuthStore.getState().clearAuth();
-          window.location.href = '/login';
+          window.location.href = CLIENT_ROUTES.login;
 
           return Promise.reject(refreshError);
         }

@@ -17,6 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { getApi } from '../../../services/api';
+import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, Sex, Orientation as OrientationType, OrientationSource, API_ROUTES } from '@ncdss/shared';
 import { getScoreColor, getScoreLabel } from '../../../utils/scoreUtils';
 
@@ -114,7 +115,7 @@ export default function PatientSummary() {
       });
 
       // Success - redirect to triage queue
-      navigate('/nurse/triage', {
+      navigate(CLIENT_ROUTES.nurse.triage.queue, {
         state: {
           message: `Triage terminé avec succès pour ${patient.fullName}`
         },
@@ -167,7 +168,8 @@ export default function PatientSummary() {
               </AlertDescription>
             </Alert>
             <div className="mt-4">
-              <Button onClick={() => navigate(`/nurse/triage/${id}/orientation`)}>
+              <Button onClick={() => navigate(CLIENT_ROUTES.nurse.triage.orientation(id!))}>
+
                 Retour à l'orientation
               </Button>
             </div>
@@ -226,7 +228,7 @@ export default function PatientSummary() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate(`/nurse/patients/${id}/edit`)}
+                onClick={() => navigate(CLIENT_ROUTES.nurse.inscription.edit(id!))}
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Modifier
@@ -268,7 +270,7 @@ export default function PatientSummary() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate(`/nurse/patients/${id}/edit`)}
+                onClick={() => navigate(CLIENT_ROUTES.nurse.inscription.edit(id!))}
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Modifier
@@ -300,7 +302,7 @@ export default function PatientSummary() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate(`/nurse/patients/${id}/edit`)}
+                onClick={() => navigate(CLIENT_ROUTES.nurse.inscription.edit(id!))}
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Modifier
@@ -356,7 +358,7 @@ export default function PatientSummary() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate(`/nurse/triage/${id}/abcde`)}
+                onClick={() => navigate(CLIENT_ROUTES.nurse.triage.abcde(id!))}
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Modifier
@@ -424,7 +426,7 @@ export default function PatientSummary() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate(`/nurse/triage/${id}/score`)}
+                onClick={() => navigate(CLIENT_ROUTES.nurse.triage.score(id!))}
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Voir détails
@@ -481,7 +483,7 @@ export default function PatientSummary() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate(`/nurse/triage/${id}/esi`)}
+                onClick={() => navigate(CLIENT_ROUTES.nurse.triage.esi(id!))}
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Modifier
@@ -515,7 +517,7 @@ export default function PatientSummary() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate(`/nurse/triage/${id}/orientation`)}
+                onClick={() => navigate(CLIENT_ROUTES.nurse.triage.orientation(id!))}
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Modifier

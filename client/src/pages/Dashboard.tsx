@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { useAuthStore } from '../stores/auth.store';
 import { UserRole, NurseAssignment, API_ROUTES } from '@ncdss/shared';
 import { getApi } from '../services/api';
+import { CLIENT_ROUTES } from '../routes';
 import { Users, Activity, Clock, UserCheck, AlertTriangle, ArrowRight, UserCog, Stethoscope, CheckCircle, Info } from 'lucide-react';
 import { AssignmentSelector } from '../components/layout/AssignmentSelector';
 import { DoctorAssignmentSelector } from '../components/layout/DoctorAssignmentSelector';
@@ -82,33 +83,33 @@ export default function Dashboard() {
   const getQuickActions = () => {
     if (isNurse && todayAssignment === NurseAssignment.INSCRIPTION) {
       return [
-        { label: 'Nouveau Patient', path: '/nurse/inscription/register', color: 'bg-green-600 hover:bg-green-700' },
-        { label: 'Mes Inscriptions', path: '/nurse/inscription', color: 'bg-blue-600 hover:bg-blue-700' },
+        { label: 'Nouveau Patient', path: CLIENT_ROUTES.nurse.inscription.register, color: 'bg-green-600 hover:bg-green-700' },
+        { label: 'Mes Inscriptions', path: CLIENT_ROUTES.nurse.inscription.home, color: 'bg-blue-600 hover:bg-blue-700' },
       ];
     }
     if (isNurse && todayAssignment === NurseAssignment.TRIAGE) {
       return [
-        { label: 'File de Triage', path: '/nurse/triage', color: 'bg-yellow-600 hover:bg-yellow-700' },
-        { label: `${stats?.today.waitingTriage || 0} en attente`, path: '/nurse/triage', color: 'bg-orange-600 hover:bg-orange-700' },
+        { label: 'File de Triage', path: CLIENT_ROUTES.nurse.triage.queue, color: 'bg-yellow-600 hover:bg-yellow-700' },
+        { label: `${stats?.today.waitingTriage || 0} en attente`, path: CLIENT_ROUTES.nurse.triage.queue, color: 'bg-orange-600 hover:bg-orange-700' },
       ];
     }
     if (isNurse && todayAssignment === NurseAssignment.TREATMENT) {
       return [
-        { label: 'Patients en Soins', path: '/nurse/treatment', color: 'bg-purple-600 hover:bg-purple-700' },
-        { label: `${stats?.today.inTreatment || 0} patients`, path: '/nurse/treatment', color: 'bg-indigo-600 hover:bg-indigo-700' },
+        { label: 'Patients en Soins', path: CLIENT_ROUTES.nurse.treatment.queue, color: 'bg-purple-600 hover:bg-purple-700' },
+        { label: `${stats?.today.inTreatment || 0} patients`, path: CLIENT_ROUTES.nurse.treatment.queue, color: 'bg-indigo-600 hover:bg-indigo-700' },
       ];
     }
     if (isDoctor) {
       return [
-        { label: 'Mes Patients', path: '/doctor/patients', color: 'bg-blue-600 hover:bg-blue-700' },
-        { label: 'Patients en Attente', path: '/doctor/patients?tab=waiting', color: 'bg-yellow-600 hover:bg-yellow-700' },
+        { label: 'Mes Patients', path: CLIENT_ROUTES.doctor.patients, color: 'bg-blue-600 hover:bg-blue-700' },
+        { label: 'Patients en Attente', path: CLIENT_ROUTES.doctor.patients + '?tab=waiting', color: 'bg-yellow-600 hover:bg-yellow-700' },
       ];
     }
     if (isAdmin || isSupervisor) {
       return [
-        { label: 'Utilisateurs', path: '/admin/users', color: 'bg-blue-600 hover:bg-blue-700' },
-        { label: 'Planning', path: '/supervisor/schedule', color: 'bg-green-600 hover:bg-green-700' },
-        { label: 'Configuration', path: '/admin/er-config', color: 'bg-gray-600 hover:bg-gray-700' },
+        { label: 'Utilisateurs', path: CLIENT_ROUTES.admin.users, color: 'bg-blue-600 hover:bg-blue-700' },
+        { label: 'Planning', path: CLIENT_ROUTES.supervisor.schedule, color: 'bg-green-600 hover:bg-green-700' },
+        { label: 'Configuration', path: CLIENT_ROUTES.admin.erConfig, color: 'bg-gray-600 hover:bg-gray-700' },
       ];
     }
     return [];
@@ -278,7 +279,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card
             className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/nurse/inscription')}
+            onClick={() => navigate(CLIENT_ROUTES.nurse.inscription.home)}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">
@@ -295,7 +296,7 @@ export default function Dashboard() {
 
           <Card
             className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/nurse/triage')}
+            onClick={() => navigate(CLIENT_ROUTES.nurse.triage.queue)}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">
@@ -312,7 +313,7 @@ export default function Dashboard() {
 
           <Card
             className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/nurse/treatment')}
+            onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.queue)}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">En soins</CardTitle>
@@ -365,7 +366,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between text-center py-4">
               <div
                 className="flex-1 cursor-pointer hover:bg-gray-50 rounded-lg p-3 transition-colors"
-                onClick={() => navigate('/nurse/inscription')}
+                onClick={() => navigate(CLIENT_ROUTES.nurse.inscription.home)}
               >
                 <div className="text-2xl font-bold text-yellow-600">
                   {loading ? '...' : stats?.today.waitingTriage || 0}
@@ -377,7 +378,7 @@ export default function Dashboard() {
 
               <div
                 className="flex-1 cursor-pointer hover:bg-gray-50 rounded-lg p-3 transition-colors"
-                onClick={() => navigate('/nurse/triage')}
+                onClick={() => navigate(CLIENT_ROUTES.nurse.triage.queue)}
               >
                 <div className="text-2xl font-bold text-orange-600">
                   {loading ? '...' : stats?.today.inTriage || 0}
@@ -389,7 +390,7 @@ export default function Dashboard() {
 
               <div
                 className="flex-1 cursor-pointer hover:bg-gray-50 rounded-lg p-3 transition-colors"
-                onClick={() => navigate('/nurse/treatment')}
+                onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.queue)}
               >
                 <div className="text-2xl font-bold text-blue-600">
                   {loading ? '...' : stats?.today.waitingTreatment || 0}
@@ -401,7 +402,7 @@ export default function Dashboard() {
 
               <div
                 className="flex-1 cursor-pointer hover:bg-gray-50 rounded-lg p-3 transition-colors"
-                onClick={() => navigate('/nurse/treatment')}
+                onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.queue)}
               >
                 <div className="text-2xl font-bold text-purple-600">
                   {loading ? '...' : stats?.today.inTreatment || 0}

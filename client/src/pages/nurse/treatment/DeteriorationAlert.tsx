@@ -26,6 +26,7 @@ import {
   Bell,
 } from 'lucide-react';
 import { getApi } from '../../../services/api';
+import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, API_ROUTES } from '@ncdss/shared';
 
 // ESI color mapping
@@ -232,7 +233,7 @@ export default function DeteriorationAlert() {
               <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
               <h2 className="text-lg font-semibold mb-2">Patient non trouvé</h2>
               <p className="text-gray-500 mb-4">Le patient demandé n'existe pas.</p>
-              <Button onClick={() => navigate('/nurse/treatment')}>Retour à la file</Button>
+              <Button onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.queue)}>Retour à la file</Button>
             </CardContent>
           </Card>
         </div>
@@ -261,7 +262,7 @@ export default function DeteriorationAlert() {
               </p>
               <Button
                 className="w-full"
-                onClick={() => navigate(`/nurse/treatment/${id}`)}
+                onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.patientCare(id!))}
               >
                 Retour au dossier patient
               </Button>
@@ -284,7 +285,7 @@ export default function DeteriorationAlert() {
       <div className="p-6">
         {/* Back button and title */}
         <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" size="sm" onClick={() => navigate(`/nurse/treatment/${id}`)}>
+          <Button variant="ghost" size="sm" onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.patientCare(id!))}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour
           </Button>
@@ -512,7 +513,7 @@ export default function DeteriorationAlert() {
                 <Button
                   variant="outline"
                   className="flex-1"
-                  onClick={() => navigate(`/nurse/treatment/${id}`)}
+                  onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.patientCare(id!))}
                   disabled={submitting}
                 >
                   Annuler

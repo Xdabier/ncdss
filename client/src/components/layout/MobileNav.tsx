@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, Users, Calendar, Settings } from 'lucide-react';
 import { useAuthStore } from '../../stores/auth.store';
 import { UserRole } from '@ncdss/shared';
+import { CLIENT_ROUTES } from '../../routes';
 import { cn } from '../../lib/utils';
 
 interface NavButtonProps {
@@ -48,8 +49,8 @@ export function MobileNav() {
         icon={<Home className="h-5 w-5" strokeWidth={1.5} />}
         activeIcon={<Home className="h-5 w-5" strokeWidth={2.5} />}
         label="Accueil"
-        isActive={location.pathname === '/dashboard'}
-        onClick={() => navigate('/dashboard')}
+        isActive={location.pathname === CLIENT_ROUTES.dashboard}
+        onClick={() => navigate(CLIENT_ROUTES.dashboard)}
       />
 
       {isAdmin && (
@@ -57,8 +58,8 @@ export function MobileNav() {
           icon={<Users className="h-5 w-5" strokeWidth={1.5} />}
           activeIcon={<Users className="h-5 w-5" strokeWidth={2.5} />}
           label="Utilisateurs"
-          isActive={location.pathname.startsWith('/admin/users')}
-          onClick={() => navigate('/admin/users')}
+          isActive={location.pathname.startsWith(CLIENT_ROUTES.admin.users)}
+          onClick={() => navigate(CLIENT_ROUTES.admin.users)}
         />
       )}
 
@@ -67,8 +68,8 @@ export function MobileNav() {
           icon={<Calendar className="h-5 w-5" strokeWidth={1.5} />}
           activeIcon={<Calendar className="h-5 w-5" strokeWidth={2.5} />}
           label="Planning"
-          isActive={location.pathname === '/supervisor/schedule'}
-          onClick={() => navigate('/supervisor/schedule')}
+          isActive={location.pathname === CLIENT_ROUTES.supervisor.schedule}
+          onClick={() => navigate(CLIENT_ROUTES.supervisor.schedule)}
         />
       )}
 
@@ -77,8 +78,8 @@ export function MobileNav() {
           icon={<Settings className="h-5 w-5" strokeWidth={1.5} />}
           activeIcon={<Settings className="h-5 w-5" strokeWidth={2.5} />}
           label="Config"
-          isActive={location.pathname === '/admin/er-config'}
-          onClick={() => navigate('/admin/er-config')}
+          isActive={location.pathname === CLIENT_ROUTES.admin.erConfig}
+          onClick={() => navigate(CLIENT_ROUTES.admin.erConfig)}
         />
       )}
     </nav>

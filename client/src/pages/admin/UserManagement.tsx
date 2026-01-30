@@ -15,6 +15,7 @@ import {
 } from '../../components/ui/select';
 import { getApi } from '../../services/api';
 import { User, UserRole, API_ROUTES } from '@ncdss/shared';
+import { CLIENT_ROUTES } from '../../routes';
 
 const roleLabels: Record<UserRole, string> = {
   [UserRole.NURSE]: 'Infirmier(ère)',
@@ -86,7 +87,7 @@ export default function UserManagement() {
             <h1 className="text-3xl font-bold text-gray-900">Gestion des Utilisateurs</h1>
             <p className="text-gray-600 mt-1">Gérez les comptes utilisateurs du système</p>
           </div>
-          <Button onClick={() => navigate('/admin/users/new')}>
+          <Button onClick={() => navigate(CLIENT_ROUTES.admin.userNew)}>
             <Plus className="h-4 w-4 mr-2" />
             Nouvel Utilisateur
           </Button>
@@ -195,14 +196,14 @@ export default function UserManagement() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => navigate(`/admin/users/${user.id}/edit`)}
+                              onClick={() => navigate(CLIENT_ROUTES.admin.userEdit(user.id))}
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => navigate(`/admin/users/${user.id}/reset-password`)}
+                              onClick={() => navigate(CLIENT_ROUTES.admin.userResetPassword(user.id))}
                             >
                               <Key className="h-4 w-4" />
                             </Button>

@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '../../components/ui/alert';
 import { ABCDEReviewComponent } from '../../components/doctor/ABCDEReview';
 import { getApi } from '../../services/api';
 import { Patient, Sex, API_ROUTES } from '@ncdss/shared';
+import { CLIENT_ROUTES } from '../../routes';
 import {
   ArrowLeft,
   RefreshCw,
@@ -97,7 +98,7 @@ export default function ABCDEReview() {
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
-              onClick={() => navigate(`/doctor/patients/${id}`)}
+              onClick={() => navigate(CLIENT_ROUTES.doctor.patientDetail(id!))}
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Retour au dossier

@@ -8,6 +8,7 @@ import { Badge } from '../../../components/ui/badge';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Input } from '../../../components/ui/input';
 import { getApi } from '../../../services/api';
+import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, PatientStatus, User as UserType, API_ROUTES } from '@ncdss/shared';
 import { formatDateTime } from '../../../utils/dateUtils';
 
@@ -127,11 +128,11 @@ export default function TreatmentQueue() {
 
   const handleStartTreatment = (patientId: string) => {
     // Navigate to box assignment page for TRIAGED patients
-    navigate(`/nurse/treatment/${patientId}/assign-box`);
+    navigate(CLIENT_ROUTES.nurse.treatment.assignBox(patientId));
   };
 
   const handleViewPatient = (patientId: string) => {
-    navigate(`/nurse/treatment/${patientId}`);
+    navigate(CLIENT_ROUTES.nurse.treatment.patientCare(patientId));
   };
 
   const columns: Column<Patient>[] = [

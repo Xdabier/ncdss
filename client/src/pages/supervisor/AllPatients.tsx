@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { getApi } from '../../services/api';
 import { PatientStatus, Orientation, Sex, API_ROUTES } from '@ncdss/shared';
+import { CLIENT_ROUTES } from '../../routes';
 
 interface PatientSummary {
   id: string;
@@ -502,7 +503,7 @@ export default function AllPatients() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => navigate(`/supervisor/patients/${patient.id}`)}
+                              onClick={() => navigate(CLIENT_ROUTES.supervisor.patientDetail(patient.id))}
                             >
                               <Eye className="h-4 w-4" />
                             </Button>

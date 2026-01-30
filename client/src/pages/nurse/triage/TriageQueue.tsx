@@ -7,6 +7,7 @@ import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Card, CardContent } from '../../../components/ui/card';
 import { getApi } from '../../../services/api';
+import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, PatientStatus, API_ROUTES } from '@ncdss/shared';
 import { formatDateTime } from '../../../utils/dateUtils';
 
@@ -44,7 +45,7 @@ export default function TriageQueue() {
       await api.post(API_ROUTES.patients.startTriage(patientId));
 
       // Redirect to ABCDE assessment
-      navigate(`/nurse/triage/${patientId}/abcde`);
+      navigate(CLIENT_ROUTES.nurse.triage.abcde(patientId));
     } catch (error) {
       console.error('Error starting triage:', error);
       alert('Erreur lors du démarrage du triage');
@@ -53,7 +54,7 @@ export default function TriageQueue() {
 
   const handleResumeTriage = (patientId: string) => {
     // Navigate directly to ABCDE assessment without calling start-triage again
-    navigate(`/nurse/triage/${patientId}/abcde`);
+    navigate(CLIENT_ROUTES.nurse.triage.abcde(patientId));
   };
 
   const columns: Column<Patient>[] = [

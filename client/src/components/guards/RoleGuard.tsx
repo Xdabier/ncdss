@@ -2,6 +2,7 @@ import React, { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth.store';
 import { UserRole, NurseAssignment } from '@ncdss/shared';
+import { CLIENT_ROUTES } from '../../routes';
 
 interface Props {
   children: ReactNode;
@@ -14,12 +15,12 @@ export function RoleGuard({
   children,
   allowedRoles,
   allowedAssignments,
-  redirectTo = '/dashboard',
+  redirectTo = CLIENT_ROUTES.dashboard,
 }: Props) {
   const { user, todayAssignment, isAuthenticated } = useAuthStore();
 
   if (!isAuthenticated || !user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={CLIENT_ROUTES.login} replace />;
   }
 
   // Check role

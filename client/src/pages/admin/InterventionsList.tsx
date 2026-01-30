@@ -21,6 +21,7 @@ import { Badge } from '../../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { getApi } from '../../services/api';
 import { API_ROUTES } from '@ncdss/shared';
+import { CLIENT_ROUTES } from '../../routes';
 import { InterventionModal, Intervention } from '../../components/admin/InterventionModal';
 
 const orientationLabels: Record<string, string> = {
@@ -225,7 +226,7 @@ export default function InterventionsList() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate('/admin/interventions/import')}>
+            <Button variant="outline" onClick={() => navigate(CLIENT_ROUTES.admin.interventionsImport)}>
               <Upload className="h-4 w-4 mr-2" />
               Importer Excel
             </Button>

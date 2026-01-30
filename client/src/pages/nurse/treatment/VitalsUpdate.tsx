@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { getApi } from '../../../services/api';
+import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, Sex, API_ROUTES } from '@ncdss/shared';
 
 interface PreviousScores {
@@ -286,7 +287,7 @@ export default function VitalsUpdate() {
       <div className="p-6 max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/nurse/treatment/${id}`)}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.patientCare(id!))}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1">
@@ -429,7 +430,7 @@ export default function VitalsUpdate() {
                   Modifier à nouveau
                 </Button>
                 <Button
-                  onClick={() => navigate(`/nurse/treatment/${id}`)}
+                  onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.patientCare(id!))}
                   className={`flex-1 ${hasSignificantDeterioration() ? 'bg-red-600 hover:bg-red-700' : ''}`}
                 >
                   Retourner aux soins
@@ -643,7 +644,7 @@ export default function VitalsUpdate() {
         {/* Actions - Hide when showing comparison */}
         {!showComparison && (
           <div className="flex justify-end gap-4">
-            <Button variant="outline" onClick={() => navigate(`/nurse/treatment/${id}`)} disabled={saving}>
+            <Button variant="outline" onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.patientCare(id!))} disabled={saving}>
               Annuler
             </Button>
             <Button onClick={handleSubmit} disabled={saving} className="min-w-[180px]">

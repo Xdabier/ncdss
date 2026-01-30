@@ -1,0 +1,80 @@
+export const CLIENT_ROUTES = {
+  home: '/',
+  login: '/login',
+  dashboard: '/dashboard',
+  profile: '/profile',
+  settings: '/settings',
+  help: '/help',
+
+  admin: {
+    erConfig: '/admin/er-config',
+    users: '/admin/users',
+    userNew: '/admin/users/new',
+    userEdit: (id: string | number) => `/admin/users/${id}/edit`,
+    userResetPassword: (id: string | number) => `/admin/users/${id}/reset-password`,
+    boxes: '/admin/boxes',
+    boxAssignments: '/admin/box-assignments',
+    pathologies: '/admin/pathologies',
+    pathologyImport: '/admin/pathologies/import',
+    pathologyDetail: (id: string | number) => `/admin/pathologies/${id}`,
+    interventions: '/admin/interventions',
+    interventionDetail: (id: string | number) => `/admin/interventions/${id}`,
+    interventionsImport: '/admin/interventions/import',
+    audit: '/admin/audit',
+    backup: '/admin/backup',
+  },
+
+  supervisor: {
+    schedule: '/supervisor/schedule',
+    stats: '/supervisor/stats',
+    queue: '/supervisor/queue',
+    patients: '/supervisor/patients',
+    patientDetail: (id: string | number) => `/supervisor/patients/${id}`,
+  },
+
+  nurse: {
+    inscription: {
+      home: '/nurse/inscription',
+      register: '/nurse/inscription/register',
+      edit: (id: string | number) => `/nurse/inscription/edit/${id}`,
+    },
+    triage: {
+      queue: '/nurse/triage',
+      abcde: (id: string | number) => `/nurse/triage/${id}/abcde`,
+      vitals: (id: string | number) => `/nurse/triage/${id}/vitals`,
+      suggestions: (id: string | number) => `/nurse/triage/${id}/suggestions`,
+      score: (id: string | number) => `/nurse/triage/${id}/score`,
+      complete: (id: string | number) => `/nurse/triage/${id}/complete`,
+      esi: (id: string | number) => `/nurse/triage/${id}/esi`,
+      orientation: (id: string | number) => `/nurse/triage/${id}/orientation`,
+      summary: (id: string | number) => `/nurse/triage/${id}/summary`,
+    },
+    treatment: {
+      queue: '/nurse/treatment',
+      patientCare: (id: string | number) => `/nurse/treatment/${id}`,
+      vitals: (id: string | number) => `/nurse/treatment/${id}/vitals`,
+      assignBox: (id: string | number) => `/nurse/treatment/${id}/assign-box`,
+      retriage: (id: string | number) => `/nurse/treatment/${id}/retriage`,
+      alert: (id: string | number) => `/nurse/treatment/${id}/alert`,
+    },
+  },
+
+  doctor: {
+    patients: '/doctor/patients',
+    patientDetail: (id: string | number) => `/doctor/patients/${id}`,
+    patientHistory: (id: string | number) => `/doctor/patients/${id}/history`,
+    abcdeReview: (id: string | number) => `/doctor/patients/${id}/abcde`,
+    aiDiagnosis: (id: string | number) => `/doctor/patients/${id}/ai-diagnosis`,
+    diagnosis: (id: string | number) => `/doctor/patients/${id}/diagnosis`,
+    ecg: (id: string | number) => `/doctor/patients/${id}/ecg`,
+  },
+
+  shared: {
+    patientSearch: '/patients/search',
+    patientDetail: (id: string | number) => `/patients/${id}`,
+    patientTimeline: (id: string | number) => `/patients/${id}/timeline`,
+    pathologyLookup: '/lookup/pathologies',
+    interventionsLookup: '/lookup/interventions',
+    trackingBoard: '/tracking-board',
+  },
+} as const;

@@ -20,6 +20,7 @@ import { Input } from '../../components/ui/input';
 import { getApi } from '../../services/api';
 import { useAuthStore } from '../../stores/auth.store';
 import { UserRole, API_ROUTES } from '@ncdss/shared';
+import { CLIENT_ROUTES } from '../../routes';
 
 // Types for tracking board data
 interface TrackingPatient {
@@ -165,18 +166,18 @@ export default function TrackingBoard() {
   const handleRowClick = (p: TrackingPatient) => {
     // Navigate based on user role
     if (user?.role === UserRole.DOCTOR || user?.role === UserRole.SUPER_ADMIN) {
-      navigate(`/doctor/patients/${p.id}`);
+      navigate(CLIENT_ROUTES.doctor.patientDetail(p.id));
     } else if (
       user?.role === UserRole.NURSE ||
       user?.role === UserRole.NURSE_SUPERVISOR
     ) {
       if (['IN_TREATMENT', 'WITH_DOCTOR'].includes(p.status)) {
-        navigate(`/nurse/treatment/${p.id}`);
+        navigate(CLIENT_ROUTES.nurse.treatment.patientCare(p.id));
       } else {
-        navigate(`/nurse/triage/${p.id}/abcde`);
+        navigate(CLIENT_ROUTES.nurse.triage.abcde(p.id));
       }
     } else {
-      navigate(`/patients/${p.id}/timeline`);
+      navigate(CLIENT_ROUTES.shared.patientTimeline(p.id));
     }
   };
 

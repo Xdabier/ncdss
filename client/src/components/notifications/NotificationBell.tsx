@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bell, CheckCheck, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Notification, UserRole } from '@ncdss/shared';
+import { CLIENT_ROUTES } from '../../routes';
 import { Button } from '../ui/button';
 import { useNotificationStore } from '../../stores/notification.store';
 import { useAuthStore } from '../../stores/auth.store';
@@ -53,11 +54,11 @@ export function NotificationBell() {
       // Navigate based on user role
       const role = user?.role;
       if (role === UserRole.DOCTOR || role === UserRole.SUPER_ADMIN) {
-        navigate(`/doctor/patients/${notification.relatedPatientId}`);
+        navigate(CLIENT_ROUTES.doctor.patientDetail(notification.relatedPatientId));
       } else if (role === UserRole.NURSE || role === UserRole.NURSE_SUPERVISOR) {
-        navigate(`/nurse/treatment/${notification.relatedPatientId}`);
+        navigate(CLIENT_ROUTES.nurse.treatment.patientCare(notification.relatedPatientId));
       } else {
-        navigate(`/patients/${notification.relatedPatientId}/timeline`);
+        navigate(CLIENT_ROUTES.shared.patientTimeline(notification.relatedPatientId));
       }
     }
   };

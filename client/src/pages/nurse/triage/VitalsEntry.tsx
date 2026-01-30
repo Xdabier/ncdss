@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { getApi } from '../../../services/api';
+import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, Sex, API_ROUTES } from '@ncdss/shared';
 
 interface VitalsFormData {
@@ -122,7 +123,7 @@ export default function VitalsEntry() {
       await api.put(API_ROUTES.patients.vitals(id), vitalsData);
 
       // Navigate to ABCDE assessment
-      navigate(`/nurse/triage/${id}/abcde`);
+      navigate(CLIENT_ROUTES.nurse.triage.abcde(id!));
     } catch (e: any) {
       setError(e.response?.data?.error || 'Erreur d\'enregistrement des constantes');
     } finally {

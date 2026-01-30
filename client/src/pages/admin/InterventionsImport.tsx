@@ -25,6 +25,7 @@ import {
 import { Label } from '../../components/ui/label';
 import { getApi } from '../../services/api';
 import { API_ROUTES } from '@ncdss/shared';
+import { CLIENT_ROUTES } from '../../routes';
 import * as XLSX from 'xlsx';
 
 interface ParsedRow {
@@ -404,7 +405,7 @@ export default function InterventionsImport() {
       <div className="max-w-5xl mx-auto p-6">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" onClick={() => navigate('/admin/interventions')}>
+          <Button variant="ghost" onClick={() => navigate(CLIENT_ROUTES.admin.interventions)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour
           </Button>
@@ -432,7 +433,7 @@ export default function InterventionsImport() {
                   <Button variant="outline" onClick={resetState}>
                     Importer un autre fichier
                   </Button>
-                  <Button onClick={() => navigate('/admin/interventions')}>Voir la liste</Button>
+                  <Button onClick={() => navigate(CLIENT_ROUTES.admin.interventions)}>Voir la liste</Button>
                 </div>
               </div>
             </CardContent>
@@ -817,7 +818,7 @@ export default function InterventionsImport() {
               </div>
 
               <div className="flex gap-3">
-                <Button variant="outline" onClick={() => navigate('/admin/interventions')}>
+                <Button variant="outline" onClick={() => navigate(CLIENT_ROUTES.admin.interventions)}>
                   Annuler
                 </Button>
                 <Button onClick={handleImport} disabled={!canImport || isImporting}>

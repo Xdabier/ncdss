@@ -12,6 +12,7 @@ import { CirculationForm } from '../../../components/abcde/CirculationForm';
 import { DisabilityForm } from '../../../components/abcde/DisabilityForm';
 import { ExposureForm } from '../../../components/abcde/ExposureForm';
 import { getApi } from '../../../services/api';
+import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, API_ROUTES } from '@ncdss/shared';
 import { cn } from '../../../lib/utils';
 
@@ -110,7 +111,7 @@ export default function ABCDEAssessment() {
         setCurrentCategory(categories[currentIndex + 1]);
       } else {
         // Finished E - navigate to Suggestions Review for clinical decision support
-        navigate(`/nurse/triage/${id}/suggestions`);
+        navigate(CLIENT_ROUTES.nurse.triage.suggestions(id!));
       }
       
       await loadPatient(); // Refresh data
@@ -134,7 +135,7 @@ export default function ABCDEAssessment() {
       <div className="p-6 max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/nurse/triage')}>
+            <Button variant="ghost" size="icon" onClick={() => navigate(CLIENT_ROUTES.nurse.triage.queue)}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
@@ -147,7 +148,7 @@ export default function ABCDEAssessment() {
           </div>
           <Button
             variant="outline"
-            onClick={() => navigate(`/nurse/triage/${id}/suggestions`)}
+            onClick={() => navigate(CLIENT_ROUTES.nurse.triage.suggestions(id!))}
             className="hidden md:flex"
           >
             Voir les Suggestions <ArrowRight className="h-4 w-4 ml-2" />

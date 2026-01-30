@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { getApi } from '../../../services/api';
+import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, Sex, Orientation as OrientationType, OrientationSource, API_ROUTES } from '@ncdss/shared';
 import { suggestESI, getScoreColor, getScoreLabel } from '../../../utils/scoreUtils';
 
@@ -401,7 +402,7 @@ export default function TriageComplete() {
         overrideReason: isOrientationOverride ? overrideReason : null,
       });
 
-      navigate('/nurse/triage', {
+      navigate(CLIENT_ROUTES.nurse.triage.queue, {
         state: { message: `Triage termine avec succes pour ${patient?.fullName}` },
       });
     } catch (e: any) {
@@ -741,7 +742,7 @@ export default function TriageComplete() {
 
         {/* Actions */}
         <div className="flex justify-between items-center">
-          <Button variant="outline" onClick={() => navigate(`/nurse/triage/${id}/abcde`)}>
+          <Button variant="outline" onClick={() => navigate(CLIENT_ROUTES.nurse.triage.abcde(id!))}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour au triage
           </Button>

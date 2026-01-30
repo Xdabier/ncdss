@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Card, CardContent } from '../../components/ui/card';
 import { getApi } from '../../services/api';
+import { CLIENT_ROUTES } from '../../routes';
 import { Patient, PatientStatus, API_ROUTES } from '@ncdss/shared';
 import { formatDateTime } from '../../utils/dateUtils';
 
@@ -100,7 +101,7 @@ export default function InscriptionHome() {
               variant="ghost"
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/nurse/inscription/edit/${p.id}`);
+                navigate(CLIENT_ROUTES.nurse.inscription.edit(p.id));
               }}
             >
               <Edit className="h-4 w-4" />
@@ -111,7 +112,7 @@ export default function InscriptionHome() {
             variant="ghost"
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/patients/${p.id}`);
+              navigate(CLIENT_ROUTES.shared.patientDetail(p.id));
             }}
           >
             <Eye className="h-4 w-4" />
@@ -164,7 +165,7 @@ export default function InscriptionHome() {
               placeholder="Rechercher un patient..."
             />
           </div>
-          <Button onClick={() => navigate('/nurse/inscription/register')}>
+          <Button onClick={() => navigate(CLIENT_ROUTES.nurse.inscription.register)}>
             <Plus className="h-4 w-4 mr-2" />
             Nouveau Patient
           </Button>

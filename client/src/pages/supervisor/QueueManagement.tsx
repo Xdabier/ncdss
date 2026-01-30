@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { getApi } from '../../services/api';
 import { PatientStatus, API_ROUTES } from '@ncdss/shared';
+import { CLIENT_ROUTES } from '../../routes';
 
 interface QueuePatient {
   id: string;
@@ -205,7 +206,7 @@ export default function QueueManagement() {
 
   const handlePatientClick = (patientId: string) => {
     // Navigate to appropriate detail view based on patient status
-    navigate(`/supervisor/patients/${patientId}`);
+    navigate(CLIENT_ROUTES.supervisor.patientDetail(patientId));
   };
 
   if (loading && !data) {

@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { getApi } from '../../../services/api';
+import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, Sex, API_ROUTES } from '@ncdss/shared';
 import { suggestESI } from '../../../utils/scoreUtils';
 
@@ -120,7 +121,7 @@ export default function ESISelection() {
         esiLevel: selectedESI,
       });
 
-      navigate(`/nurse/triage/${id}/orientation`, {
+      navigate(CLIENT_ROUTES.nurse.triage.orientation(id!), {
         state: {
           esiLevel: selectedESI,
         },

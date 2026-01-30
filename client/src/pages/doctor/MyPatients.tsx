@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { getApi } from '../../services/api';
 import { Patient, PatientStatus, Sex, NotificationType, API_ROUTES } from '@ncdss/shared';
+import { CLIENT_ROUTES } from '../../routes';
 import {
   Users,
   Clock,
@@ -550,7 +551,7 @@ export default function MyPatients() {
                                 <Button
                                   size="sm"
                                   onClick={() =>
-                                    navigate(`/doctor/patients/${patient.id}`)
+                                    navigate(CLIENT_ROUTES.doctor.patientDetail(patient.id))
                                   }
                                 >
                                   <Eye className="h-4 w-4 mr-1" />

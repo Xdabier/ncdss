@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { getApi } from '../../../services/api';
+import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, Box, BoxType, Sex, PatientStatus, API_ROUTES } from '@ncdss/shared';
 
 // Box occupancy info
@@ -255,7 +256,7 @@ export default function AssignBox() {
       }
 
       // Navigate to patient care page with success feedback
-      navigate(`/nurse/treatment/${id}`, {
+      navigate(CLIENT_ROUTES.nurse.treatment.patientCare(id!), {
         state: { successMessage },
       });
     } catch (e: unknown) {
@@ -305,7 +306,7 @@ export default function AssignBox() {
       <div className="p-6 max-w-3xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/nurse/treatment')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.queue)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1">
@@ -471,7 +472,7 @@ export default function AssignBox() {
         <div className="flex flex-col sm:flex-row gap-3">
           <Button
             variant="outline"
-            onClick={() => navigate('/nurse/treatment')}
+            onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.queue)}
             disabled={submitting}
             className="flex-1"
           >

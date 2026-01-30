@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { getApi } from '../../../services/api';
+import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, Sex, Orientation as OrientationType, OrientationSource, API_ROUTES } from '@ncdss/shared';
 
 interface OrientationOption {
@@ -148,7 +149,7 @@ export default function Orientation() {
     }
 
     // Navigate to summary with orientation data and ESI level
-    navigate(`/nurse/triage/${id}/summary`, {
+    navigate(CLIENT_ROUTES.nurse.triage.summary(id!), {
       state: {
         esiLevel: state?.esiLevel,
         suggestedOrientation: suggestion?.suggestion,

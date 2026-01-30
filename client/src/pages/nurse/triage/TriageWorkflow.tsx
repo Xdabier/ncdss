@@ -26,6 +26,7 @@ import { CirculationForm } from '../../../components/abcde/CirculationForm';
 import { DisabilityForm } from '../../../components/abcde/DisabilityForm';
 import { ExposureForm } from '../../../components/abcde/ExposureForm';
 import { getApi } from '../../../services/api';
+import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, API_ROUTES } from '@ncdss/shared';
 import { cn } from '../../../lib/utils';
 
@@ -347,7 +348,7 @@ export default function TriageWorkflow() {
       // Save and navigate to suggestions
       const saved = await saveTab(activeTab);
       if (saved) {
-        navigate(`/nurse/triage/${id}/suggestions`);
+        navigate(CLIENT_ROUTES.nurse.triage.suggestions(id!));
       }
     } else {
       await handleTabChange(TABS[currentIndex + 1].id);
@@ -435,7 +436,7 @@ export default function TriageWorkflow() {
                 variant="ghost"
                 size="icon"
                 className="shrink-0"
-                onClick={() => navigate('/nurse/triage')}
+                onClick={() => navigate(CLIENT_ROUTES.nurse.triage.queue)}
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>

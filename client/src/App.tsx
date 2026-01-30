@@ -4,6 +4,7 @@ import { useAuthStore } from './stores/auth.store';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { RoleGuard } from './components/guards/RoleGuard';
 import { UserRole } from '@ncdss/shared';
+import { CLIENT_ROUTES } from './routes';
 
 // Auth & General
 import Login from './pages/Login';
@@ -79,11 +80,11 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         {/* Public routes */}
-        <Route path="/login" element={<Login />} />
+        <Route path={CLIENT_ROUTES.login} element={<Login />} />
 
         {/* General routes (all authenticated users) */}
         <Route
-          path="/dashboard"
+          path={CLIENT_ROUTES.dashboard}
           element={
             <ProtectedRoute>
               <Dashboard />
@@ -91,7 +92,7 @@ export default function App() {
           }
         />
         <Route
-          path="/profile"
+          path={CLIENT_ROUTES.profile}
           element={
             <ProtectedRoute>
               <Profile />
@@ -99,7 +100,7 @@ export default function App() {
           }
         />
         <Route
-          path="/settings"
+          path={CLIENT_ROUTES.settings}
           element={
             <ProtectedRoute>
               <Settings />
@@ -107,7 +108,7 @@ export default function App() {
           }
         />
         <Route
-          path="/help"
+          path={CLIENT_ROUTES.help}
           element={
             <ProtectedRoute>
               <Help />
@@ -117,7 +118,7 @@ export default function App() {
 
         {/* Admin routes */}
         <Route
-          path="/admin/er-config"
+          path={CLIENT_ROUTES.admin.erConfig}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
@@ -127,7 +128,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/users"
+          path={CLIENT_ROUTES.admin.users}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
@@ -137,7 +138,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/users/new"
+          path={CLIENT_ROUTES.admin.userNew}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
@@ -147,7 +148,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/users/:id/edit"
+          path={CLIENT_ROUTES.admin.userEdit(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
@@ -157,7 +158,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/users/:id/reset-password"
+          path={CLIENT_ROUTES.admin.userResetPassword(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
@@ -167,7 +168,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/boxes"
+          path={CLIENT_ROUTES.admin.boxes}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
@@ -177,7 +178,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/box-assignments"
+          path={CLIENT_ROUTES.admin.boxAssignments}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
@@ -187,7 +188,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/pathologies"
+          path={CLIENT_ROUTES.admin.pathologies}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
@@ -197,7 +198,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/pathologies/import"
+          path={CLIENT_ROUTES.admin.pathologyImport}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
@@ -207,7 +208,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/pathologies/:id"
+          path={CLIENT_ROUTES.admin.pathologyDetail(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
@@ -217,7 +218,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/interventions"
+          path={CLIENT_ROUTES.admin.interventions}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
@@ -227,7 +228,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/interventions/:id"
+          path={CLIENT_ROUTES.admin.interventionDetail(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
@@ -237,7 +238,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/interventions/import"
+          path={CLIENT_ROUTES.admin.interventionsImport}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
@@ -247,7 +248,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/audit"
+          path={CLIENT_ROUTES.admin.audit}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
@@ -257,7 +258,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/backup"
+          path={CLIENT_ROUTES.admin.backup}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
@@ -269,7 +270,7 @@ export default function App() {
 
         {/* Supervisor routes */}
         <Route
-          path="/supervisor/schedule"
+          path={CLIENT_ROUTES.supervisor.schedule}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
@@ -279,7 +280,7 @@ export default function App() {
           }
         />
         <Route
-          path="/supervisor/stats"
+          path={CLIENT_ROUTES.supervisor.stats}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
@@ -289,7 +290,7 @@ export default function App() {
           }
         />
         <Route
-          path="/supervisor/queue"
+          path={CLIENT_ROUTES.supervisor.queue}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
@@ -299,7 +300,7 @@ export default function App() {
           }
         />
         <Route
-          path="/supervisor/patients"
+          path={CLIENT_ROUTES.supervisor.patients}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
@@ -309,7 +310,7 @@ export default function App() {
           }
         />
         <Route
-          path="/supervisor/patients/:id"
+          path={CLIENT_ROUTES.supervisor.patientDetail(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}>
@@ -321,7 +322,7 @@ export default function App() {
 
         {/* Nurse - Inscription routes */}
         <Route
-          path="/nurse/inscription"
+          path={CLIENT_ROUTES.nurse.inscription.home}
           element={
             <ProtectedRoute>
               <RoleGuard
@@ -333,7 +334,7 @@ export default function App() {
           }
         />
         <Route
-          path="/nurse/inscription/register"
+          path={CLIENT_ROUTES.nurse.inscription.register}
           element={
             <ProtectedRoute>
               <RoleGuard
@@ -345,7 +346,7 @@ export default function App() {
           }
         />
         <Route
-          path="/nurse/inscription/edit/:id"
+          path={CLIENT_ROUTES.nurse.inscription.edit(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard
@@ -359,7 +360,7 @@ export default function App() {
 
         {/* Nurse - Triage routes */}
         <Route
-          path="/nurse/triage"
+          path={CLIENT_ROUTES.nurse.triage.queue}
           element={
             <ProtectedRoute>
               <RoleGuard
@@ -371,7 +372,7 @@ export default function App() {
           }
         />
         <Route
-          path="/nurse/triage/:id/abcde"
+          path={CLIENT_ROUTES.nurse.triage.abcde(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard
@@ -384,11 +385,11 @@ export default function App() {
         />
         {/* Legacy vitals route - redirect to ABCDE */}
         <Route
-          path="/nurse/triage/:id/vitals"
+          path={CLIENT_ROUTES.nurse.triage.vitals(':id')}
           element={<Navigate to="../abcde" replace />}
         />
         <Route
-          path="/nurse/triage/:id/suggestions"
+          path={CLIENT_ROUTES.nurse.triage.suggestions(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard
@@ -400,7 +401,7 @@ export default function App() {
           }
         />
         <Route
-          path="/nurse/triage/:id/score"
+          path={CLIENT_ROUTES.nurse.triage.score(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard
@@ -412,7 +413,7 @@ export default function App() {
           }
         />
         <Route
-          path="/nurse/triage/:id/complete"
+          path={CLIENT_ROUTES.nurse.triage.complete(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard
@@ -425,21 +426,21 @@ export default function App() {
         />
         {/* Legacy routes - redirect to consolidated complete page */}
         <Route
-          path="/nurse/triage/:id/esi"
+          path={CLIENT_ROUTES.nurse.triage.esi(':id')}
           element={<Navigate to="../complete" replace />}
         />
         <Route
-          path="/nurse/triage/:id/orientation"
+          path={CLIENT_ROUTES.nurse.triage.orientation(':id')}
           element={<Navigate to="../complete" replace />}
         />
         <Route
-          path="/nurse/triage/:id/summary"
+          path={CLIENT_ROUTES.nurse.triage.summary(':id')}
           element={<Navigate to="../complete" replace />}
         />
 
         {/* Nurse - Treatment routes */}
         <Route
-          path="/nurse/treatment"
+          path={CLIENT_ROUTES.nurse.treatment.queue}
           element={
             <ProtectedRoute>
               <RoleGuard
@@ -451,7 +452,7 @@ export default function App() {
           }
         />
         <Route
-          path="/nurse/treatment/:id"
+          path={CLIENT_ROUTES.nurse.treatment.patientCare(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard
@@ -463,7 +464,7 @@ export default function App() {
           }
         />
         <Route
-          path="/nurse/treatment/:id/vitals"
+          path={CLIENT_ROUTES.nurse.treatment.vitals(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard
@@ -475,7 +476,7 @@ export default function App() {
           }
         />
         <Route
-          path="/nurse/treatment/:id/assign-box"
+          path={CLIENT_ROUTES.nurse.treatment.assignBox(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard
@@ -487,7 +488,7 @@ export default function App() {
           }
         />
         <Route
-          path="/nurse/treatment/:id/retriage"
+          path={CLIENT_ROUTES.nurse.treatment.retriage(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard
@@ -499,7 +500,7 @@ export default function App() {
           }
         />
         <Route
-          path="/nurse/treatment/:id/alert"
+          path={CLIENT_ROUTES.nurse.treatment.alert(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard
@@ -513,7 +514,7 @@ export default function App() {
 
         {/* Doctor routes */}
         <Route
-          path="/doctor/patients"
+          path={CLIENT_ROUTES.doctor.patients}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.DOCTOR, UserRole.SUPER_ADMIN]}>
@@ -523,7 +524,7 @@ export default function App() {
           }
         />
         <Route
-          path="/doctor/patients/:id"
+          path={CLIENT_ROUTES.doctor.patientDetail(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.DOCTOR, UserRole.SUPER_ADMIN]}>
@@ -533,7 +534,7 @@ export default function App() {
           }
         />
         <Route
-          path="/doctor/patients/:id/history"
+          path={CLIENT_ROUTES.doctor.patientHistory(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.DOCTOR, UserRole.SUPER_ADMIN]}>
@@ -543,7 +544,7 @@ export default function App() {
           }
         />
         <Route
-          path="/doctor/patients/:id/abcde"
+          path={CLIENT_ROUTES.doctor.abcdeReview(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.DOCTOR, UserRole.SUPER_ADMIN]}>
@@ -553,7 +554,7 @@ export default function App() {
           }
         />
         <Route
-          path="/doctor/patients/:id/ai-diagnosis"
+          path={CLIENT_ROUTES.doctor.aiDiagnosis(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.DOCTOR, UserRole.SUPER_ADMIN]}>
@@ -563,7 +564,7 @@ export default function App() {
           }
         />
         <Route
-          path="/doctor/patients/:id/diagnosis"
+          path={CLIENT_ROUTES.doctor.diagnosis(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.DOCTOR, UserRole.SUPER_ADMIN]}>
@@ -573,7 +574,7 @@ export default function App() {
           }
         />
         <Route
-          path="/doctor/patients/:id/ecg"
+          path={CLIENT_ROUTES.doctor.ecg(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.DOCTOR, UserRole.SUPER_ADMIN]}>
@@ -585,7 +586,7 @@ export default function App() {
 
         {/* Tracking board (all authenticated users) */}
         <Route
-          path="/tracking-board"
+          path={CLIENT_ROUTES.shared.trackingBoard}
           element={
             <ProtectedRoute>
               <TrackingBoard />
@@ -595,7 +596,7 @@ export default function App() {
 
         {/* Shared routes (all authenticated users) */}
         <Route
-          path="/patients/search"
+          path={CLIENT_ROUTES.shared.patientSearch}
           element={
             <ProtectedRoute>
               <PatientSearch />
@@ -603,7 +604,7 @@ export default function App() {
           }
         />
         <Route
-          path="/patients/:id"
+          path={CLIENT_ROUTES.shared.patientDetail(':id')}
           element={
             <ProtectedRoute>
               <PatientDetail />
@@ -611,7 +612,7 @@ export default function App() {
           }
         />
         <Route
-          path="/patients/:id/timeline"
+          path={CLIENT_ROUTES.shared.patientTimeline(':id')}
           element={
             <ProtectedRoute>
               <PatientTimeline />
@@ -619,7 +620,7 @@ export default function App() {
           }
         />
         <Route
-          path="/lookup/pathologies"
+          path={CLIENT_ROUTES.shared.pathologyLookup}
           element={
             <ProtectedRoute>
               <PathologyLookup />
@@ -627,7 +628,7 @@ export default function App() {
           }
         />
         <Route
-          path="/lookup/interventions"
+          path={CLIENT_ROUTES.shared.interventionsLookup}
           element={
             <ProtectedRoute>
               <InterventionsLookup />
@@ -636,7 +637,7 @@ export default function App() {
         />
 
         {/* Default redirect */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path={CLIENT_ROUTES.home} element={<Navigate to={CLIENT_ROUTES.dashboard} replace />} />
       </Routes>
     </BrowserRouter>
   );

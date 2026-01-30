@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import { AIPreDiagnosisPanel } from '../../../components/shared/AIPreDiagnosisPanel';
 import { getApi } from '../../../services/api';
+import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, API_ROUTES } from '@ncdss/shared';
 import type { AnalysisResult, PathologyMatch } from '@ncdss/shared';
 
@@ -91,7 +92,7 @@ export default function SuggestionsReview() {
   };
 
   const handleContinue = () => {
-    navigate(`/nurse/triage/${id}/score`);
+    navigate(CLIENT_ROUTES.nurse.triage.score(id!));
   };
 
   const toggleIntervention = (intervention: string) => {
@@ -157,7 +158,7 @@ export default function SuggestionsReview() {
         {/* Compact Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate(`/nurse/triage/${id}/abcde`)}>
+            <Button variant="ghost" size="icon" onClick={() => navigate(CLIENT_ROUTES.nurse.triage.abcde(id!))}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
@@ -351,7 +352,7 @@ export default function SuggestionsReview() {
 
             {/* Navigation */}
             <div className="flex justify-between items-center pt-2">
-              <Button variant="outline" size="sm" onClick={() => navigate(`/nurse/triage/${id}/abcde`)}>
+              <Button variant="outline" size="sm" onClick={() => navigate(CLIENT_ROUTES.nurse.triage.abcde(id!))}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Modifier ABCDE
               </Button>

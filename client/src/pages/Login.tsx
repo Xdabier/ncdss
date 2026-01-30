@@ -9,6 +9,7 @@ import { getServerUrl, setServerUrl } from '../services/config';
 import { getApi, setAuthToken, clearApi } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 import { API_ROUTES } from '@ncdss/shared';
+import { CLIENT_ROUTES } from '../routes';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ export default function Login() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard');
+      navigate(CLIENT_ROUTES.dashboard);
     }
   }, [isAuthenticated, navigate]);
 
@@ -69,7 +70,7 @@ export default function Login() {
       setAuthToken(accessToken);
       await setAuth(user, accessToken, refreshToken, todayAssignment);
 
-      navigate('/dashboard');
+      navigate(CLIENT_ROUTES.dashboard);
     } catch (e: any) {
       setError(e.response?.data?.error || 'Erreur de connexion');
     } finally {
