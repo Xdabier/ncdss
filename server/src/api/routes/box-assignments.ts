@@ -1,8 +1,9 @@
 import { Router } from 'express';
-import { eq, and, lte, gt } from 'drizzle-orm';
+import { eq, and, lte, gt, ne, gte } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
-import { boxAssignments, boxes, users } from '../../database/schema';
+import { boxAssignments, boxes, users, patients } from '../../database/schema';
 
 // Helper function to get the doctor currently assigned to a box
 export async function getCurrentDoctorForBox(boxId: string): Promise<{ doctorId: string; doctorName: string } | null> {
@@ -188,6 +189,67 @@ router.get('/current-doctor/:boxId', async (req, res) => {
     }
   } catch (error) {
     console.error('Get current doctor error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// GET /ending-soon - Shifts ending in the next 30 minutes with patient counts
+router.get('/ending-soon', async (req, res) => {
+  try {
+    const db = getDb();
+    const now = new Date();
+    const thirtyMinutesFromNow = new Date(now.getTime() + 30 * 60 * 1000);
+    const nowISO = now.toISOString();
+    const futureISO = thirtyMinutesFromNow.toISOString();
+
+    // Find active shifts that are currently running and ending within 30 minutes
+    const endingShifts = await db
+      .select({
+        assignmentId: boxAssignments.id,
+        doctorId: boxAssignments.doctorId,
+        doctorName: users.fullName,
+        boxId: boxAssignments.boxId,
+        boxName: boxes.name,
+        boxType: boxes.boxType,
+        startDateTime: boxAssignments.startDateTime,
+        endDateTime: boxAssignments.endDateTime,
+      })
+      .from(boxAssignments)
+      .innerJoin(users, eq(boxAssignments.doctorId, users.id))
+      .innerJoin(boxes, eq(boxAssignments.boxId, boxes.id))
+      .where(
+        and(
+          eq(boxAssignments.isActive, true),
+          lte(boxAssignments.startDateTime, nowISO),
+          gt(boxAssignments.endDateTime, nowISO)
+        )
+      );
+
+    // Filter for ending within 30 minutes and count patients for each
+    const results = [];
+
+    for (const shift of endingShifts) {
+      if (shift.endDateTime > futureISO) continue;
+
+      const countResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(patients)
+        .where(
+          and(
+            eq(patients.assignedDoctorId, shift.doctorId),
+            ne(patients.status, 'DISCHARGED')
+          )
+        );
+
+      results.push({
+        ...shift,
+        patientCount: countResult[0]?.count ?? 0,
+      });
+    }
+
+    res.json(results);
+  } catch (error) {
+    console.error('Get ending-soon shifts error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });

@@ -100,7 +100,8 @@ export async function notifyShiftEnding(
   doctorId: string,
   boxName: string,
   endTime: string,
-  patientCount: number
+  patientCount: number,
+  relatedBoxId?: string | null
 ): Promise<void> {
   const formattedTime = formatTime(endTime);
 
@@ -110,6 +111,7 @@ export async function notifyShiftEnding(
     title: 'Votre garde se termine bient\u00f4t',
     message: `Vous avez encore ${patientCount} patient(s) assign\u00e9(s) (${boxName}). Fin de garde: ${formattedTime}`,
     priority: patientCount > 0 ? NotificationPriority.HIGH : NotificationPriority.MEDIUM,
+    relatedBoxId: relatedBoxId ?? null,
     expiresAt: endTime,
   });
 }

@@ -3,6 +3,7 @@ import path from 'path';
 import { startServer, stopServer, getServerStatus } from './server';
 import { getLocalIP } from '../utils/network';
 import { closeDatabase } from '../database';
+import { startShiftMonitor, stopShiftMonitor } from '../services/shiftMonitorService';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -40,6 +41,9 @@ app.whenReady().then(async () => {
   // Auto-start server
   const ip = getLocalIP();
   await startServer(PORT);
+
+  // Start background shift monitor
+  startShiftMonitor();
 
   // Send initial status to renderer
   mainWindow?.webContents.send('server-status', {
@@ -103,6 +107,7 @@ ipcMain.handle('open-data-folder', () => {
 });
 
 app.on('window-all-closed', () => {
+  stopShiftMonitor();
   stopServer();
   closeDatabase();
   if (process.platform !== 'darwin') {
