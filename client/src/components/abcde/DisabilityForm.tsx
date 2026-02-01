@@ -1,7 +1,7 @@
 import React from 'react';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
+import { ReadOnlyVitalBadge } from './ReadOnlyVitalBadge';
 import {
   Select,
   SelectContent,
@@ -9,15 +9,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
+import type { VitalsData } from './VitalsForm';
 
 interface DisabilityData {
-  gcsEye?: number;
-  gcsVerbal?: number;
-  gcsMotor?: number;
-  gcsTotal?: number;
   pupils?: string;
   motorResponse?: string;
-  glucoseLevel?: number;
   seizures: boolean;
   confusion: boolean;
   notes?: string;
@@ -28,15 +24,16 @@ interface Props {
   onChange: (data: Partial<DisabilityData>) => void;
   onSave?: () => void;
   loading?: boolean;
+  vitalsData?: Partial<VitalsData>;
 }
 
-export function DisabilityForm({ data, onChange, onSave, loading }: Props) {
+export function DisabilityForm({ data, onChange, onSave, loading, vitalsData }: Props) {
   const updateField = <K extends keyof DisabilityData>(field: K, value: DisabilityData[K]) => {
     onChange({ ...data, [field]: value });
   };
 
-  // Calculate GCS total
-  const gcsTotal = (data.gcsEye || 0) + (data.gcsVerbal || 0) + (data.gcsMotor || 0);
+  // Calculate GCS total from vitalsData
+  const gcsTotal = (vitalsData?.gcsEye || 0) + (vitalsData?.gcsVerbal || 0) + (vitalsData?.gcsMotor || 0);
 
   // GCS color coding
   const getGCSColor = (gcs: number) => {
@@ -47,11 +44,10 @@ export function DisabilityForm({ data, onChange, onSave, loading }: Props) {
     return 'bg-green-500 text-white';
   };
 
-  const getGlucoseColor = (glucose: number | undefined) => {
-    if (glucose === undefined) return 'bg-gray-100';
-    if (glucose < 60 || glucose > 300) return 'bg-red-100 border-red-300';
-    if (glucose < 70 || glucose > 180) return 'bg-yellow-100 border-yellow-300';
-    return 'bg-green-100 border-green-300';
+  const getGlucoseColor = (glucose: number): string => {
+    if (glucose < 60 || glucose > 300) return 'bg-red-100 text-red-800 border-red-300';
+    if (glucose < 70 || glucose > 180) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+    return 'bg-green-100 text-green-800 border-green-300';
   };
 
   // Warning indicators
@@ -61,8 +57,8 @@ export function DisabilityForm({ data, onChange, onSave, loading }: Props) {
     data.pupils === 'fixed' ||
     data.motorResponse === 'paralysis' ||
     data.motorResponse === 'lateralized' ||
-    gcsTotal <= 8 ||
-    (data.glucoseLevel !== undefined && (data.glucoseLevel < 60 || data.glucoseLevel > 300));
+    (gcsTotal > 0 && gcsTotal <= 8) ||
+    (vitalsData?.glucoseLevel !== undefined && (vitalsData.glucoseLevel! < 60 || vitalsData.glucoseLevel! > 300));
 
   const hasWarnings =
     hasCritical ||
@@ -70,15 +66,17 @@ export function DisabilityForm({ data, onChange, onSave, loading }: Props) {
     data.pupils === 'dilated' ||
     data.motorResponse === 'weakness' ||
     (gcsTotal > 0 && gcsTotal < 15) ||
-    (data.glucoseLevel !== undefined && (data.glucoseLevel < 70 || data.glucoseLevel > 180));
+    (vitalsData?.glucoseLevel !== undefined && (vitalsData.glucoseLevel! < 70 || vitalsData.glucoseLevel! > 180));
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h3 className="font-medium text-lg">D - Neurologique (Disability)</h3>
-        <div className={`px-4 py-2 rounded-full font-bold text-lg ${getGCSColor(gcsTotal)}`}>
-          GCS: {gcsTotal || '--'}/15
-        </div>
+        {gcsTotal > 0 && (
+          <div className={`px-4 py-2 rounded-full font-bold text-lg ${getGCSColor(gcsTotal)}`}>
+            GCS: {gcsTotal}/15
+          </div>
+        )}
       </div>
 
       {/* Critical warning banner */}
@@ -90,87 +88,52 @@ export function DisabilityForm({ data, onChange, onSave, loading }: Props) {
         </div>
       )}
 
-      {/* Glasgow Coma Scale */}
-      <div className="space-y-4 border p-4 rounded-md">
-        <h4 className="font-medium text-sm">Score de Glasgow (GCS)</h4>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label>Ouverture des yeux (E)</Label>
-            <Select
-              value={data.gcsEye?.toString()}
-              onValueChange={(val) => updateField('gcsEye', parseInt(val))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selectionner" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="4">4 - Spontanee</SelectItem>
-                <SelectItem value="3">3 - A la demande</SelectItem>
-                <SelectItem value="2">2 - A la douleur</SelectItem>
-                <SelectItem value="1">1 - Nulle</SelectItem>
-              </SelectContent>
-            </Select>
+      {/* Read-only vital badges from vitals tab */}
+      {(vitalsData?.gcsEye != null || vitalsData?.glucoseLevel != null) && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-gray-500">Depuis Vitaux:</span>
+            <ReadOnlyVitalBadge label="Glycemie" value={vitalsData?.glucoseLevel} unit="mg/dL" getColor={getGlucoseColor} />
           </div>
-
-          <div className="space-y-2">
-            <Label>Reponse verbale (V)</Label>
-            <Select
-              value={data.gcsVerbal?.toString()}
-              onValueChange={(val) => updateField('gcsVerbal', parseInt(val))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selectionner" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="5">5 - Orientee</SelectItem>
-                <SelectItem value="4">4 - Confuse</SelectItem>
-                <SelectItem value="3">3 - Inappropriee</SelectItem>
-                <SelectItem value="2">2 - Incomprehensible</SelectItem>
-                <SelectItem value="1">1 - Nulle</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Reponse motrice (M)</Label>
-            <Select
-              value={data.gcsMotor?.toString()}
-              onValueChange={(val) => updateField('gcsMotor', parseInt(val))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selectionner" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="6">6 - A la commande</SelectItem>
-                <SelectItem value="5">5 - Orientee a la douleur</SelectItem>
-                <SelectItem value="4">4 - Evitement</SelectItem>
-                <SelectItem value="3">3 - Decortication</SelectItem>
-                <SelectItem value="2">2 - Decerebration</SelectItem>
-                <SelectItem value="1">1 - Nulle</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {gcsTotal > 0 && (
+            <div className="flex items-center gap-3 p-2 rounded-lg bg-gray-50 border">
+              <span className="text-sm text-gray-500">GCS:</span>
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <div className="text-center px-2 py-1 bg-white rounded border">
+                  <div className="text-xs text-gray-500">E</div>
+                  <div className="font-semibold">{vitalsData?.gcsEye || '--'}</div>
+                </div>
+                <div className="text-center px-2 py-1 bg-white rounded border">
+                  <div className="text-xs text-gray-500">V</div>
+                  <div className="font-semibold">{vitalsData?.gcsVerbal || '--'}</div>
+                </div>
+                <div className="text-center px-2 py-1 bg-white rounded border">
+                  <div className="text-xs text-gray-500">M</div>
+                  <div className="font-semibold">{vitalsData?.gcsMotor || '--'}</div>
+                </div>
+              </div>
+              <span className="font-bold">{gcsTotal}/15</span>
+            </div>
+          )}
+          {/* GCS interpretation */}
+          {gcsTotal > 0 && (
+            <div className={`p-2 rounded text-sm ${
+              gcsTotal <= 8 ? 'bg-red-100 text-red-800' :
+              gcsTotal < 12 ? 'bg-orange-100 text-orange-800' :
+              gcsTotal < 15 ? 'bg-yellow-100 text-yellow-800' :
+              'bg-green-100 text-green-800'
+            }`}>
+              {gcsTotal <= 8 ? 'Coma - Intubation a considerer' :
+               gcsTotal < 12 ? 'Alteration severe de la conscience' :
+               gcsTotal < 15 ? 'Alteration moderee de la conscience' :
+               'Conscience normale'}
+            </div>
+          )}
         </div>
-
-        {/* GCS interpretation */}
-        {gcsTotal > 0 && (
-          <div className={`p-2 rounded text-sm ${
-            gcsTotal <= 8 ? 'bg-red-100 text-red-800' :
-            gcsTotal < 12 ? 'bg-orange-100 text-orange-800' :
-            gcsTotal < 15 ? 'bg-yellow-100 text-yellow-800' :
-            'bg-green-100 text-green-800'
-          }`}>
-            {gcsTotal <= 8 ? 'Coma - Intubation a considerer' :
-             gcsTotal < 12 ? 'Alteration severe de la conscience' :
-             gcsTotal < 15 ? 'Alteration moderee de la conscience' :
-             'Conscience normale'}
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Neurological Assessment */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Pupilles</Label>
           <Select
@@ -214,21 +177,6 @@ export function DisabilityForm({ data, onChange, onSave, loading }: Props) {
               <SelectItem value="paralysis">Paralysie (CRITIQUE)</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-
-        <div className={`space-y-2 p-3 rounded-lg border-2 ${getGlucoseColor(data.glucoseLevel)}`}>
-          <Label className="font-medium">Glycemie Capillaire (mg/dL)</Label>
-          <Input
-            type="number"
-            value={data.glucoseLevel ?? ''}
-            onChange={(e) => {
-              const val = e.target.value === '' ? undefined : parseInt(e.target.value);
-              updateField('glucoseLevel', val as number);
-            }}
-            placeholder="Ex: 100"
-            className="bg-white"
-          />
-          <div className="text-xs text-gray-500">Normal: 70-180 mg/dL</div>
         </div>
       </div>
 

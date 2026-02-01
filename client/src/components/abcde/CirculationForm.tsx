@@ -2,6 +2,7 @@ import React from 'react';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { ReadOnlyVitalBadge } from './ReadOnlyVitalBadge';
 import {
   Select,
   SelectContent,
@@ -9,11 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
+import type { VitalsData } from './VitalsForm';
 
 interface CirculationData {
-  heartRate?: number;
-  systolicBP?: number;
-  diastolicBP?: number;
   capillaryRefill?: number;
   skinColor?: string;
   peripheralPulses?: string;
@@ -27,26 +26,24 @@ interface Props {
   onChange: (data: Partial<CirculationData>) => void;
   onSave?: () => void;
   loading?: boolean;
+  vitalsData?: Partial<VitalsData>;
 }
 
-export function CirculationForm({ data, onChange, onSave, loading }: Props) {
+export function CirculationForm({ data, onChange, onSave, loading, vitalsData }: Props) {
   const updateField = <K extends keyof CirculationData>(field: K, value: CirculationData[K]) => {
     onChange({ ...data, [field]: value });
   };
 
-  // Determine status colors based on values
-  const getHRColor = (hr: number | undefined) => {
-    if (hr === undefined) return 'bg-gray-100';
-    if (hr < 50 || hr > 120) return 'bg-red-100 border-red-300';
-    if (hr < 60 || hr > 100) return 'bg-yellow-100 border-yellow-300';
-    return 'bg-green-100 border-green-300';
+  const getHRColor = (hr: number): string => {
+    if (hr < 50 || hr > 120) return 'bg-red-100 text-red-800 border-red-300';
+    if (hr < 60 || hr > 100) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+    return 'bg-green-100 text-green-800 border-green-300';
   };
 
-  const getSystolicColor = (systolic: number | undefined) => {
-    if (systolic === undefined) return 'bg-gray-100';
-    if (systolic < 90 || systolic > 180) return 'bg-red-100 border-red-300';
-    if (systolic < 100 || systolic > 140) return 'bg-yellow-100 border-yellow-300';
-    return 'bg-green-100 border-green-300';
+  const getSystolicColor = (systolic: number): string => {
+    if (systolic < 90 || systolic > 180) return 'bg-red-100 text-red-800 border-red-300';
+    if (systolic < 100 || systolic > 140) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+    return 'bg-green-100 text-green-800 border-green-300';
   };
 
   const getTRCColor = (trc: number | undefined) => {
@@ -56,14 +53,14 @@ export function CirculationForm({ data, onChange, onSave, loading }: Props) {
     return 'bg-green-100 border-green-300';
   };
 
-  // Warning indicators
+  // Warning indicators using vitalsData for vital thresholds
   const hasCritical =
     data.bleeding ||
     data.skinColor === 'mottled' ||
     data.skinColor === 'cyanotic' ||
     data.peripheralPulses === 'absent' ||
-    (data.heartRate !== undefined && (data.heartRate < 50 || data.heartRate > 120)) ||
-    (data.systolicBP !== undefined && (data.systolicBP < 90 || data.systolicBP > 180));
+    (vitalsData?.heartRate !== undefined && (vitalsData.heartRate! < 50 || vitalsData.heartRate! > 120)) ||
+    (vitalsData?.systolicBP !== undefined && (vitalsData.systolicBP! < 90 || vitalsData.systolicBP! > 180));
 
   const hasWarnings =
     hasCritical ||
@@ -71,8 +68,8 @@ export function CirculationForm({ data, onChange, onSave, loading }: Props) {
     data.skinColor === 'pale' ||
     data.peripheralPulses === 'weak' ||
     (data.capillaryRefill !== undefined && data.capillaryRefill > 3) ||
-    (data.heartRate !== undefined && (data.heartRate < 60 || data.heartRate > 100)) ||
-    (data.systolicBP !== undefined && (data.systolicBP < 100 || data.systolicBP > 140));
+    (vitalsData?.heartRate !== undefined && (vitalsData.heartRate! < 60 || vitalsData.heartRate! > 100)) ||
+    (vitalsData?.systolicBP !== undefined && (vitalsData.systolicBP! < 100 || vitalsData.systolicBP! > 140));
 
   return (
     <div className="space-y-6">
@@ -87,53 +84,15 @@ export function CirculationForm({ data, onChange, onSave, loading }: Props) {
         </div>
       )}
 
-      {/* Vital Signs */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className={`space-y-2 p-3 rounded-lg border-2 ${getHRColor(data.heartRate)}`}>
-          <Label className="font-medium">Frequence Cardiaque (bpm)</Label>
-          <Input
-            type="number"
-            value={data.heartRate ?? ''}
-            onChange={(e) => {
-              const val = e.target.value === '' ? undefined : parseInt(e.target.value);
-              updateField('heartRate', val as number);
-            }}
-            placeholder="Ex: 80"
-            className="bg-white"
-          />
-          <div className="text-xs text-gray-500">Normal: 60-100 bpm</div>
+      {/* Read-only vital badges from vitals tab */}
+      {(vitalsData?.heartRate != null || vitalsData?.systolicBP != null || vitalsData?.diastolicBP != null) && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-gray-500">Depuis Vitaux:</span>
+          <ReadOnlyVitalBadge label="FC" value={vitalsData?.heartRate} unit="bpm" getColor={getHRColor} />
+          <ReadOnlyVitalBadge label="PAS" value={vitalsData?.systolicBP} unit="mmHg" getColor={getSystolicColor} />
+          <ReadOnlyVitalBadge label="PAD" value={vitalsData?.diastolicBP} unit="mmHg" />
         </div>
-
-        <div className={`space-y-2 p-3 rounded-lg border-2 ${getSystolicColor(data.systolicBP)}`}>
-          <Label className="font-medium">PAS (mmHg)</Label>
-          <Input
-            type="number"
-            value={data.systolicBP ?? ''}
-            onChange={(e) => {
-              const val = e.target.value === '' ? undefined : parseInt(e.target.value);
-              updateField('systolicBP', val as number);
-            }}
-            placeholder="Ex: 120"
-            className="bg-white"
-          />
-          <div className="text-xs text-gray-500">Normal: 100-140 mmHg</div>
-        </div>
-
-        <div className="space-y-2 p-3 rounded-lg border-2 bg-gray-100">
-          <Label className="font-medium">PAD (mmHg)</Label>
-          <Input
-            type="number"
-            value={data.diastolicBP ?? ''}
-            onChange={(e) => {
-              const val = e.target.value === '' ? undefined : parseInt(e.target.value);
-              updateField('diastolicBP', val as number);
-            }}
-            placeholder="Ex: 80"
-            className="bg-white"
-          />
-          <div className="text-xs text-gray-500">Normal: 60-90 mmHg</div>
-        </div>
-      </div>
+      )}
 
       {/* Perfusion Assessment */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

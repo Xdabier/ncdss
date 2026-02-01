@@ -126,6 +126,14 @@ export interface CreatePatientRequest {
   symptomOnset?: string;
 }
 
+export interface UpdateMedicalHistoryRequest {
+  chiefComplaint?: string;
+  symptomOnset?: string;
+  allergies?: string;
+  chronicConditions?: string[];
+  currentMedications?: string[];
+}
+
 export interface UpdateVitalsRequest {
   temperature?: number;
   heartRate?: number;

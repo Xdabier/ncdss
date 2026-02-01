@@ -221,9 +221,43 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// ============================================================================ 
+// Update medical history (during triage)
+router.put('/:id/medical-history', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = getDb();
+
+    const [existing] = await db.select().from(patients).where(eq(patients.id, id));
+    if (!existing) {
+      return res.status(404).json({ error: 'Patient non trouve' });
+    }
+
+    if (existing.status !== PatientStatus.REGISTERED && existing.status !== PatientStatus.IN_TRIAGE) {
+      return res.status(400).json({ error: 'Modification des antecedents non autorisee a ce stade' });
+    }
+
+    const { chiefComplaint, symptomOnset, allergies, chronicConditions, currentMedications } = req.body;
+
+    await db.update(patients).set({
+      chiefComplaint: chiefComplaint !== undefined ? chiefComplaint : existing.chiefComplaint,
+      symptomOnset: symptomOnset !== undefined ? symptomOnset : existing.symptomOnset,
+      allergies: allergies !== undefined ? allergies : existing.allergies,
+      chronicConditions: chronicConditions !== undefined ? JSON.stringify(chronicConditions) : existing.chronicConditions,
+      currentMedications: currentMedications !== undefined ? JSON.stringify(currentMedications) : existing.currentMedications,
+      updatedAt: new Date().toISOString()
+    }).where(eq(patients.id, id));
+
+    const [updated] = await db.select().from(patients).where(eq(patients.id, id));
+    res.json(updated);
+  } catch (error) {
+    console.error('Update medical history error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// ============================================================================
 // TRIAGE
-// ============================================================================ 
+// ============================================================================
 
 // Start triage (changes status to IN_TRIAGE)
 router.post('/:id/start-triage', async (req, res) => {

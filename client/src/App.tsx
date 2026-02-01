@@ -42,9 +42,7 @@ import PatientRegistration from './pages/nurse/PatientRegistration';
 import PatientEdit from './pages/nurse/PatientEdit';
 import TriageQueue from './pages/nurse/triage/TriageQueue';
 import TriageWorkflow from './pages/nurse/triage/TriageWorkflow';
-import SuggestionsReview from './pages/nurse/triage/SuggestionsReview';
-// VitalsEntry removed - vitals are now collected in ABCDE forms
-import ScoreReview from './pages/nurse/triage/ScoreReview';
+// SuggestionsReview and ScoreReview merged into TriageComplete (3-tab layout)
 import TriageComplete from './pages/nurse/triage/TriageComplete';
 import TreatmentQueue from './pages/nurse/treatment/TreatmentQueue';
 import PatientCare from './pages/nurse/treatment/PatientCare';
@@ -388,29 +386,14 @@ export default function App() {
           path={CLIENT_ROUTES.nurse.triage.vitals(':id')}
           element={<Navigate to="../abcde" replace />}
         />
+        {/* Legacy routes - suggestions and score merged into complete page */}
         <Route
           path={CLIENT_ROUTES.nurse.triage.suggestions(':id')}
-          element={
-            <ProtectedRoute>
-              <RoleGuard
-                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
-              >
-                <SuggestionsReview />
-              </RoleGuard>
-            </ProtectedRoute>
-          }
+          element={<Navigate to="../complete" replace />}
         />
         <Route
           path={CLIENT_ROUTES.nurse.triage.score(':id')}
-          element={
-            <ProtectedRoute>
-              <RoleGuard
-                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
-              >
-                <ScoreReview />
-              </RoleGuard>
-            </ProtectedRoute>
-          }
+          element={<Navigate to="../complete" replace />}
         />
         <Route
           path={CLIENT_ROUTES.nurse.triage.complete(':id')}

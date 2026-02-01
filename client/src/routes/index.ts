@@ -42,8 +42,8 @@ export const CLIENT_ROUTES = {
       queue: '/nurse/triage',
       abcde: (id: string | number) => `/nurse/triage/${id}/abcde`,
       vitals: (id: string | number) => `/nurse/triage/${id}/vitals`,
-      suggestions: (id: string | number) => `/nurse/triage/${id}/suggestions`,
-      score: (id: string | number) => `/nurse/triage/${id}/score`,
+      suggestions: (id: string | number) => `/nurse/triage/${id}/suggestions`, // Legacy: redirects to complete
+      score: (id: string | number) => `/nurse/triage/${id}/score`, // Legacy: redirects to complete
       complete: (id: string | number) => `/nurse/triage/${id}/complete`,
       esi: (id: string | number) => `/nurse/triage/${id}/esi`,
       orientation: (id: string | number) => `/nurse/triage/${id}/orientation`,

@@ -42,6 +42,7 @@ export const API_ROUTES = {
     create: '/patients',
     byId: (id: number | string) => `/patients/${id}`,
     update: (id: number | string) => `/patients/${id}`,
+    medicalHistory: (id: number | string) => `/patients/${id}/medical-history`,
     startTriage: (id: number | string) => `/patients/${id}/start-triage`,
     vitals: (id: number | string) => `/patients/${id}/vitals`,
     abcde: (id: number | string, category: string) => `/patients/${id}/abcde/${category}`,

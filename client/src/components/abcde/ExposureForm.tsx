@@ -1,10 +1,10 @@
 import React from 'react';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
+import { ReadOnlyVitalBadge } from './ReadOnlyVitalBadge';
+import type { VitalsData } from './VitalsForm';
 
 interface ExposureData {
-  temperature?: number;
   hypothermia: boolean;
   hyperthermia: boolean;
   rash: boolean;
@@ -21,41 +21,40 @@ interface Props {
   onChange: (data: Partial<ExposureData>) => void;
   onSave?: () => void;
   loading?: boolean;
+  vitalsData?: Partial<VitalsData>;
 }
 
-export function ExposureForm({ data, onChange, onSave, loading }: Props) {
+export function ExposureForm({ data, onChange, onSave, loading, vitalsData }: Props) {
   const updateField = <K extends keyof ExposureData>(field: K, value: ExposureData[K]) => {
     onChange({ ...data, [field]: value });
   };
 
-  // Temperature color coding
-  const getTempColor = (temp: number | undefined) => {
-    if (temp === undefined) return 'bg-gray-100';
-    if (temp < 35 || temp > 39) return 'bg-red-100 border-red-300';
-    if (temp < 36 || temp > 38) return 'bg-yellow-100 border-yellow-300';
-    return 'bg-green-100 border-green-300';
+  const getTempColor = (temp: number): string => {
+    if (temp < 35 || temp > 39) return 'bg-red-100 text-red-800 border-red-300';
+    if (temp < 36 || temp > 38) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+    return 'bg-green-100 text-green-800 border-green-300';
   };
 
-  // Auto-detect hypothermia/hyperthermia based on temperature
+  // Auto-detect hypothermia/hyperthermia based on vitalsData temperature
   React.useEffect(() => {
-    if (data.temperature !== undefined) {
-      if (data.temperature < 36 && !data.hypothermia) {
+    if (vitalsData?.temperature !== undefined) {
+      if (vitalsData.temperature < 36 && !data.hypothermia) {
         updateField('hypothermia', true);
-      } else if (data.temperature >= 36 && data.hypothermia) {
+      } else if (vitalsData.temperature >= 36 && data.hypothermia) {
         updateField('hypothermia', false);
       }
-      if (data.temperature > 38 && !data.hyperthermia) {
+      if (vitalsData.temperature > 38 && !data.hyperthermia) {
         updateField('hyperthermia', true);
-      } else if (data.temperature <= 38 && data.hyperthermia) {
+      } else if (vitalsData.temperature <= 38 && data.hyperthermia) {
         updateField('hyperthermia', false);
       }
     }
-  }, [data.temperature]);
+  }, [vitalsData?.temperature]);
 
-  // Warning indicators
+  // Warning indicators using vitalsData for temperature thresholds
   const hasCritical =
     data.burns ||
-    (data.temperature !== undefined && (data.temperature < 35 || data.temperature > 39));
+    (vitalsData?.temperature !== undefined && (vitalsData.temperature! < 35 || vitalsData.temperature! > 39));
 
   const hasWarnings =
     hasCritical ||
@@ -63,7 +62,7 @@ export function ExposureForm({ data, onChange, onSave, loading }: Props) {
     data.traumaSigns ||
     data.hypothermia ||
     data.hyperthermia ||
-    (data.temperature !== undefined && (data.temperature < 36 || data.temperature > 38));
+    (vitalsData?.temperature !== undefined && (vitalsData.temperature! < 36 || vitalsData.temperature! > 38));
 
   return (
     <div className="space-y-6">
@@ -78,28 +77,13 @@ export function ExposureForm({ data, onChange, onSave, loading }: Props) {
         </div>
       )}
 
-      {/* Temperature */}
-      <div className={`space-y-2 p-4 rounded-lg border-2 ${getTempColor(data.temperature)}`}>
-        <Label className="font-medium text-base">Temperature (°C)</Label>
-        <div className="flex items-center gap-4">
-          <Input
-            type="number"
-            step="0.1"
-            value={data.temperature ?? ''}
-            onChange={(e) => {
-              const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
-              updateField('temperature', val as number);
-            }}
-            placeholder="Ex: 37.5"
-            className="max-w-[150px] bg-white text-lg"
-          />
-          <span className="text-2xl font-bold text-gray-600">°C</span>
+      {/* Read-only temperature badge from vitals tab */}
+      {vitalsData?.temperature != null && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-gray-500">Depuis Vitaux:</span>
+          <ReadOnlyVitalBadge label="T" value={vitalsData.temperature} unit="°C" getColor={getTempColor} />
         </div>
-        <div className="flex justify-between text-xs text-gray-500 mt-2">
-          <span>Normal: 36.1-37.8°C</span>
-          <span className="text-red-500">&lt;35°C ou &gt;39°C = Critique</span>
-        </div>
-      </div>
+      )}
 
       {/* Temperature-related checkboxes */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

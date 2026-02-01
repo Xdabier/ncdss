@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Plus, Save, ArrowLeft } from 'lucide-react';
+import { Save, ArrowLeft } from 'lucide-react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Alert, AlertDescription } from '../../components/ui/alert';
-import { Badge } from '../../components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -18,7 +17,6 @@ import {
 import { getApi } from '../../services/api';
 import { CLIENT_ROUTES } from '../../routes';
 import { Sex, API_ROUTES } from '@ncdss/shared';
-import { cn } from '../../lib/utils';
 
 interface FormData {
   fullName: string;
@@ -27,11 +25,6 @@ interface FormData {
   nationalId: string;
   phone: string;
   address: string;
-  allergies: string;
-  chronicConditions: string[];
-  currentMedications: string[];
-  chiefComplaint: string;
-  symptomOnset: string;
 }
 
 interface FormErrors {
@@ -40,16 +33,11 @@ interface FormErrors {
   sex?: string;
 }
 
-const chronicConditionOptions = [
-  'Diabète', 'Hypertension', 'Asthme', 'BPCO', 'Insuffisance cardiaque',
-  'Insuffisance rénale', 'AVC', 'Epilepsie', 'Cancer', 'VIH/SIDA'
-];
-
 export default function PatientRegistration() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
     age: '',
@@ -57,50 +45,46 @@ export default function PatientRegistration() {
     nationalId: '',
     phone: '',
     address: '',
-    allergies: '',
-    chronicConditions: [],
-    currentMedications: [],
-    chiefComplaint: '',
-    symptomOnset: ''
   });
   const [errors, setErrors] = useState<FormErrors>({});
-  const [newMedication, setNewMedication] = useState('');
 
   const validate = (): boolean => {
     const newErrors: FormErrors = {};
-    
+
     if (!formData.fullName.trim()) {
       newErrors.fullName = 'Le nom est requis';
     }
-    
+
     const age = parseInt(formData.age);
     if (!formData.age || isNaN(age) || age < 0 || age > 150) {
-      newErrors.age = 'Âge invalide (0-150)';
+      newErrors.age = 'Age invalide (0-150)';
     }
-    
+
     if (!formData.sex) {
       newErrors.sex = 'Le sexe est requis';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async () => {
     if (!validate()) return;
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
       const api = await getApi();
       await api.post(API_ROUTES.patients.create, {
-        ...formData,
+        fullName: formData.fullName,
         age: parseInt(formData.age),
-        chronicConditions: formData.chronicConditions,
-        currentMedications: formData.currentMedications
+        sex: formData.sex,
+        nationalId: formData.nationalId || undefined,
+        phone: formData.phone || undefined,
+        address: formData.address || undefined,
       });
-      
+
       navigate(CLIENT_ROUTES.nurse.inscription.home);
     } catch (e: any) {
       setError(e.response?.data?.error || 'Erreur d\'enregistrement');
@@ -109,31 +93,11 @@ export default function PatientRegistration() {
     }
   };
 
-  const updateField = (field: keyof FormData, value: any) => {
+  const updateField = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field as keyof FormErrors]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
-  };
-
-  const toggleCondition = (condition: string) => {
-    const current = formData.chronicConditions;
-    if (current.includes(condition)) {
-      updateField('chronicConditions', current.filter(c => c !== condition));
-    } else {
-      updateField('chronicConditions', [...current, condition]);
-    }
-  };
-
-  const addMedication = () => {
-    if (newMedication.trim()) {
-      updateField('currentMedications', [...formData.currentMedications, newMedication.trim()]);
-      setNewMedication('');
-    }
-  };
-
-  const removeMedication = (index: number) => {
-    updateField('currentMedications', formData.currentMedications.filter((_, i) => i !== index));
   };
 
   return (
@@ -153,10 +117,9 @@ export default function PatientRegistration() {
         )}
 
         <div className="grid gap-6">
-          {/* Demographics Section */}
           <Card>
             <CardHeader>
-              <CardTitle>👤 Informations Personnelles</CardTitle>
+              <CardTitle>Informations Personnelles</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-2">
@@ -173,7 +136,7 @@ export default function PatientRegistration() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="age">Âge <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="age">Age <span className="text-red-500">*</span></Label>
                   <Input
                     id="age"
                     type="number"
@@ -192,7 +155,7 @@ export default function PatientRegistration() {
                     onValueChange={val => updateField('sex', val)}
                   >
                     <SelectTrigger id="sex" className={errors.sex ? "border-red-500" : ""}>
-                      <SelectValue placeholder="Sélectionner" />
+                      <SelectValue placeholder="Selectionner" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={Sex.MALE}>Homme</SelectItem>
@@ -215,7 +178,7 @@ export default function PatientRegistration() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="phone">Téléphone</Label>
+                  <Label htmlFor="phone">Telephone</Label>
                   <Input
                     id="phone"
                     type="tel"
@@ -232,113 +195,12 @@ export default function PatientRegistration() {
                   id="address"
                   value={formData.address}
                   onChange={e => updateField('address', e.target.value)}
-                  placeholder="Ville, délégation"
+                  placeholder="Ville, delegation"
                 />
               </div>
             </CardContent>
           </Card>
 
-          {/* Medical History Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>📋 Antécédents Médicaux</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="allergies">Allergies connues</Label>
-                <textarea
-                  id="allergies"
-                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  value={formData.allergies}
-                  onChange={e => updateField('allergies', e.target.value)}
-                  placeholder="Ex: Pénicilline, Aspirine, Latex..."
-                  rows={2}
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label>Maladies chroniques</Label>
-                <div className="flex flex-wrap gap-2">
-                  {chronicConditionOptions.map(condition => (
-                    <Badge
-                      key={condition}
-                      variant={formData.chronicConditions.includes(condition) ? "default" : "outline"}
-                      className="cursor-pointer hover:bg-primary/90"
-                      onClick={() => toggleCondition(condition)}
-                    >
-                      {condition}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid gap-2">
-                <Label>Médicaments en cours</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={newMedication}
-                    onChange={e => setNewMedication(e.target.value)}
-                    placeholder="Nom du médicament"
-                    className="flex-1"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        addMedication();
-                      }
-                    }}
-                  />
-                  <Button type="button" onClick={addMedication} size="icon">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.currentMedications.map((med, index) => (
-                    <Badge key={index} variant="secondary" className="pl-2 pr-1 py-1 flex items-center gap-1">
-                      {med}
-                      <button
-                        onClick={() => removeMedication(index)}
-                        className="ml-1 rounded-full p-0.5 hover:bg-gray-200 transition-colors"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Chief Complaint Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>🩺 Motif de Consultation</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="chiefComplaint">Motif principal</Label>
-                <textarea
-                  id="chiefComplaint"
-                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  value={formData.chiefComplaint}
-                  onChange={e => updateField('chiefComplaint', e.target.value)}
-                  placeholder="Ex: Douleur thoracique, difficulté à respirer..."
-                  rows={3}
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="symptomOnset">Début des symptômes</Label>
-                <Input
-                  id="symptomOnset"
-                  value={formData.symptomOnset}
-                  onChange={e => updateField('symptomOnset', e.target.value)}
-                  placeholder="Ex: Depuis ce matin, il y a 2 jours..."
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Actions */}
           <div className="flex justify-end gap-4">
             <Button variant="outline" onClick={() => navigate(-1)}>
               Annuler

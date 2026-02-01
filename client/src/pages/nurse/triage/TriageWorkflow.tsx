@@ -11,6 +11,7 @@ import {
   Droplets,
   Brain,
   Thermometer,
+  ClipboardList,
   Save,
   Loader2,
 } from 'lucide-react';
@@ -25,6 +26,7 @@ import { BreathingForm } from '../../../components/abcde/BreathingForm';
 import { CirculationForm } from '../../../components/abcde/CirculationForm';
 import { DisabilityForm } from '../../../components/abcde/DisabilityForm';
 import { ExposureForm } from '../../../components/abcde/ExposureForm';
+import { MedicalHistoryForm, MedicalHistoryData } from '../../../components/abcde/MedicalHistoryForm';
 import { getApi } from '../../../services/api';
 import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, API_ROUTES } from '@ncdss/shared';
@@ -35,6 +37,7 @@ import { cn } from '../../../lib/utils';
 // ---------------------------------------------------------------------------
 
 const TABS = [
+  { id: 'history', label: 'Antecedents', shortLabel: 'Hx', icon: ClipboardList, category: null },
   { id: 'vitals', label: 'Signes vitaux', shortLabel: 'Vitaux', icon: Heart, category: null },
   { id: 'airway', label: 'A - Airway', shortLabel: 'A', icon: Wind, category: 'A' },
   { id: 'breathing', label: 'B - Breathing', shortLabel: 'B', icon: Activity, category: 'B' },
@@ -49,8 +52,10 @@ type TabId = (typeof TABS)[number]['id'];
 // Critical findings helpers
 // ---------------------------------------------------------------------------
 
-function hasCriticalFindings(tabId: TabId, data: Record<string, any>): boolean {
+function hasCriticalFindings(tabId: TabId, data: Record<string, any>, vitalsData?: Record<string, any>): boolean {
   switch (tabId) {
+    case 'history':
+      return false;
     case 'airway':
       return !!(data.obstructed || data.stridor);
     case 'breathing':
@@ -58,8 +63,8 @@ function hasCriticalFindings(tabId: TabId, data: Record<string, any>): boolean {
         data.cyanosis ||
         data.breathSounds === 'absent' ||
         data.workOfBreathing === 'severe' ||
-        (data.respiratoryRate != null && (data.respiratoryRate < 8 || data.respiratoryRate > 30)) ||
-        (data.oxygenSaturation != null && data.oxygenSaturation < 90)
+        (vitalsData?.respiratoryRate != null && (vitalsData.respiratoryRate < 8 || vitalsData.respiratoryRate > 30)) ||
+        (vitalsData?.oxygenSaturation != null && vitalsData.oxygenSaturation < 90)
       );
     case 'circulation':
       return !!(
@@ -67,11 +72,11 @@ function hasCriticalFindings(tabId: TabId, data: Record<string, any>): boolean {
         data.skinColor === 'mottled' ||
         data.skinColor === 'cyanotic' ||
         data.peripheralPulses === 'absent' ||
-        (data.heartRate != null && (data.heartRate < 50 || data.heartRate > 120)) ||
-        (data.systolicBP != null && (data.systolicBP < 90 || data.systolicBP > 180))
+        (vitalsData?.heartRate != null && (vitalsData.heartRate < 50 || vitalsData.heartRate > 120)) ||
+        (vitalsData?.systolicBP != null && (vitalsData.systolicBP < 90 || vitalsData.systolicBP > 180))
       );
     case 'disability': {
-      const gcs = (data.gcsEye || 0) + (data.gcsVerbal || 0) + (data.gcsMotor || 0);
+      const gcs = (vitalsData?.gcsEye || 0) + (vitalsData?.gcsVerbal || 0) + (vitalsData?.gcsMotor || 0);
       return !!(
         data.seizures ||
         data.pupils === 'unequal' ||
@@ -79,13 +84,13 @@ function hasCriticalFindings(tabId: TabId, data: Record<string, any>): boolean {
         data.motorResponse === 'paralysis' ||
         data.motorResponse === 'lateralized' ||
         (gcs > 0 && gcs <= 8) ||
-        (data.glucoseLevel != null && (data.glucoseLevel < 60 || data.glucoseLevel > 300))
+        (vitalsData?.glucoseLevel != null && (vitalsData.glucoseLevel < 60 || vitalsData.glucoseLevel > 300))
       );
     }
     case 'exposure':
       return !!(
         data.burns ||
-        (data.temperature != null && (data.temperature < 35 || data.temperature > 39))
+        (vitalsData?.temperature != null && (vitalsData.temperature < 35 || vitalsData.temperature > 39))
       );
     case 'vitals': {
       return !!(
@@ -102,6 +107,11 @@ function hasCriticalFindings(tabId: TabId, data: Record<string, any>): boolean {
 }
 
 function hasAnyData(tabId: TabId, data: Record<string, any>): boolean {
+  if (tabId === 'history') {
+    return !!(data.chiefComplaint || data.symptomOnset || data.allergies ||
+      (data.chronicConditions && data.chronicConditions.length > 0) ||
+      (data.currentMedications && data.currentMedications.length > 0));
+  }
   return Object.values(data).some(
     (v) => v !== undefined && v !== null && v !== '' && v !== false
   );
@@ -143,13 +153,14 @@ export default function TriageWorkflow() {
   const navigate = useNavigate();
 
   const [patient, setPatient] = useState<Patient | null>(null);
-  const [activeTab, setActiveTab] = useState<TabId>('vitals');
+  const [activeTab, setActiveTab] = useState<TabId>('history');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Form data
+  const [medicalHistoryData, setMedicalHistoryData] = useState<Partial<MedicalHistoryData>>({});
   const [vitalsData, setVitalsData] = useState<Partial<VitalsData>>({});
   const [abcdeData, setAbcdeData] = useState<Record<string, any>>({
     A: {},
@@ -161,6 +172,7 @@ export default function TriageWorkflow() {
 
   // Track which tabs have persisted data
   const [savedTabs, setSavedTabs] = useState<Record<TabId, boolean>>({
+    history: false,
     vitals: false,
     airway: false,
     breathing: false,
@@ -184,6 +196,24 @@ export default function TriageWorkflow() {
       const p: Patient = response.data;
       setPatient(p);
 
+      // Initialise medical history
+      let parsedChronicConditions: string[] = [];
+      let parsedCurrentMedications: string[] = [];
+      try {
+        parsedChronicConditions = p.chronicConditions ? JSON.parse(p.chronicConditions) : [];
+      } catch { /* ignore */ }
+      try {
+        parsedCurrentMedications = p.currentMedications ? JSON.parse(p.currentMedications) : [];
+      } catch { /* ignore */ }
+
+      setMedicalHistoryData({
+        chiefComplaint: p.chiefComplaint ?? undefined,
+        symptomOnset: p.symptomOnset ?? undefined,
+        allergies: p.allergies ?? undefined,
+        chronicConditions: parsedChronicConditions,
+        currentMedications: parsedCurrentMedications,
+      });
+
       // Initialise vitals from flat fields
       setVitalsData({
         temperature: p.temperature ?? undefined,
@@ -199,43 +229,18 @@ export default function TriageWorkflow() {
         gcsMotor: p.gcsMotor ?? undefined,
       });
 
-      // Initialise ABCDE from JSON blobs, with fallback to flat fields
+      // Initialise ABCDE from JSON blobs
       setAbcdeData({
-        A: p.abcdeAirway
-          ? JSON.parse(p.abcdeAirway as string)
-          : p.painLevel != null
-            ? { painLevel: p.painLevel }
-            : {},
-        B: p.abcdeBreathing
-          ? JSON.parse(p.abcdeBreathing as string)
-          : {
-              ...(p.respiratoryRate != null ? { respiratoryRate: p.respiratoryRate } : {}),
-              ...(p.oxygenSaturation != null ? { oxygenSaturation: p.oxygenSaturation } : {}),
-            },
-        C: p.abcdeCirculation
-          ? JSON.parse(p.abcdeCirculation as string)
-          : {
-              ...(p.heartRate != null ? { heartRate: p.heartRate } : {}),
-              ...(p.systolicBP != null ? { systolicBP: p.systolicBP } : {}),
-              ...(p.diastolicBP != null ? { diastolicBP: p.diastolicBP } : {}),
-            },
-        D: p.abcdeDisability
-          ? JSON.parse(p.abcdeDisability as string)
-          : {
-              ...(p.gcsEye != null ? { gcsEye: p.gcsEye } : {}),
-              ...(p.gcsVerbal != null ? { gcsVerbal: p.gcsVerbal } : {}),
-              ...(p.gcsMotor != null ? { gcsMotor: p.gcsMotor } : {}),
-              ...(p.glucoseLevel != null ? { glucoseLevel: p.glucoseLevel } : {}),
-            },
-        E: p.abcdeExposure
-          ? JSON.parse(p.abcdeExposure as string)
-          : p.temperature != null
-            ? { temperature: p.temperature }
-            : {},
+        A: p.abcdeAirway ? JSON.parse(p.abcdeAirway as string) : {},
+        B: p.abcdeBreathing ? JSON.parse(p.abcdeBreathing as string) : {},
+        C: p.abcdeCirculation ? JSON.parse(p.abcdeCirculation as string) : {},
+        D: p.abcdeDisability ? JSON.parse(p.abcdeDisability as string) : {},
+        E: p.abcdeExposure ? JSON.parse(p.abcdeExposure as string) : {},
       });
 
       // Track saved state
       setSavedTabs({
+        history: !!(p.chiefComplaint || p.allergies || p.chronicConditions || p.currentMedications),
         vitals: !!(p.temperature || p.heartRate || p.respiratoryRate || p.oxygenSaturation || p.systolicBP),
         airway: !!p.abcdeAirway,
         breathing: !!p.abcdeBreathing,
@@ -270,7 +275,16 @@ export default function TriageWorkflow() {
       try {
         const api = await getApi();
 
-        if (tabId === 'vitals') {
+        if (tabId === 'history') {
+          const response = await api.put(API_ROUTES.patients.medicalHistory(id), {
+            chiefComplaint: medicalHistoryData.chiefComplaint,
+            symptomOnset: medicalHistoryData.symptomOnset,
+            allergies: medicalHistoryData.allergies,
+            chronicConditions: medicalHistoryData.chronicConditions,
+            currentMedications: medicalHistoryData.currentMedications,
+          });
+          setPatient(response.data);
+        } else if (tabId === 'vitals') {
           const vitals: Record<string, number | undefined> = {};
           if (vitalsData.temperature != null) vitals.temperature = vitalsData.temperature;
           if (vitalsData.heartRate != null) vitals.heartRate = vitalsData.heartRate;
@@ -309,7 +323,7 @@ export default function TriageWorkflow() {
         setSaving(false);
       }
     },
-    [id, vitalsData, abcdeData],
+    [id, medicalHistoryData, vitalsData, abcdeData],
   );
 
   // -----------------------------------------------------------------------
@@ -345,10 +359,10 @@ export default function TriageWorkflow() {
 
   const handleNext = useCallback(async () => {
     if (isLastTab) {
-      // Save and navigate to suggestions
+      // Save and navigate to triage complete
       const saved = await saveTab(activeTab);
       if (saved) {
-        navigate(CLIENT_ROUTES.nurse.triage.suggestions(id!));
+        navigate(CLIENT_ROUTES.nurse.triage.complete(id!));
       }
     } else {
       await handleTabChange(TABS[currentIndex + 1].id);
@@ -366,6 +380,11 @@ export default function TriageWorkflow() {
   // -----------------------------------------------------------------------
   // Form change handlers (mark dirty)
   // -----------------------------------------------------------------------
+
+  const handleHistoryChange = useCallback((data: Partial<MedicalHistoryData>) => {
+    setMedicalHistoryData(data);
+    isDirtyRef.current = true;
+  }, []);
 
   const handleVitalsChange = useCallback((data: Partial<VitalsData>) => {
     setVitalsData(data);
@@ -387,13 +406,20 @@ export default function TriageWorkflow() {
   const getTabStatus = useCallback(
     (tabId: TabId): 'empty' | 'completed' | 'critical' => {
       const tab = TABS.find((t) => t.id === tabId)!;
-      const data = tab.category ? abcdeData[tab.category] : vitalsData;
+      let data: Record<string, any>;
+      if (tabId === 'history') {
+        data = medicalHistoryData;
+      } else if (tab.category) {
+        data = abcdeData[tab.category];
+      } else {
+        data = vitalsData;
+      }
 
-      if (hasCriticalFindings(tabId, data || {})) return 'critical';
+      if (hasCriticalFindings(tabId, data || {}, vitalsData as Record<string, any>)) return 'critical';
       if (savedTabs[tabId] && hasAnyData(tabId, data || {})) return 'completed';
       return 'empty';
     },
-    [abcdeData, vitalsData, savedTabs],
+    [abcdeData, vitalsData, medicalHistoryData, savedTabs],
   );
 
   // -----------------------------------------------------------------------
@@ -549,6 +575,12 @@ export default function TriageWorkflow() {
         <div className="flex-1 overflow-y-auto p-4 md:p-6 max-w-4xl mx-auto w-full">
           <Card className="border-t-4 border-t-blue-600">
             <CardContent className="p-6">
+              {activeTab === 'history' && (
+                <MedicalHistoryForm
+                  data={medicalHistoryData}
+                  onChange={handleHistoryChange}
+                />
+              )}
               {activeTab === 'vitals' && (
                 <VitalsForm
                   data={vitalsData}
@@ -559,30 +591,35 @@ export default function TriageWorkflow() {
                 <AirwayForm
                   data={abcdeData.A}
                   onChange={(d) => handleAbcdeChange('A', d)}
+                  vitalsData={vitalsData}
                 />
               )}
               {activeTab === 'breathing' && (
                 <BreathingForm
                   data={abcdeData.B}
                   onChange={(d) => handleAbcdeChange('B', d)}
+                  vitalsData={vitalsData}
                 />
               )}
               {activeTab === 'circulation' && (
                 <CirculationForm
                   data={abcdeData.C}
                   onChange={(d) => handleAbcdeChange('C', d)}
+                  vitalsData={vitalsData}
                 />
               )}
               {activeTab === 'disability' && (
                 <DisabilityForm
                   data={abcdeData.D}
                   onChange={(d) => handleAbcdeChange('D', d)}
+                  vitalsData={vitalsData}
                 />
               )}
               {activeTab === 'exposure' && (
                 <ExposureForm
                   data={abcdeData.E}
                   onChange={(d) => handleAbcdeChange('E', d)}
+                  vitalsData={vitalsData}
                 />
               )}
             </CardContent>

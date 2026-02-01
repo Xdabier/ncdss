@@ -1,10 +1,10 @@
 import React from 'react';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
+import { ReadOnlyVitalBadge } from './ReadOnlyVitalBadge';
+import type { VitalsData } from './VitalsForm';
 
 interface AirwayData {
-  painLevel?: number;
   patent: boolean;
   obstructed: boolean;
   secretions: boolean;
@@ -17,18 +17,18 @@ interface Props {
   onChange: (data: Partial<AirwayData>) => void;
   onSave?: () => void;
   loading?: boolean;
+  vitalsData?: Partial<VitalsData>;
 }
 
-export function AirwayForm({ data, onChange, onSave, loading }: Props) {
+export function AirwayForm({ data, onChange, onSave, loading, vitalsData }: Props) {
   const updateField = <K extends keyof AirwayData>(field: K, value: AirwayData[K]) => {
     onChange({ ...data, [field]: value });
   };
 
-  const getPainLevelColor = (level: number | undefined) => {
-    if (level === undefined) return 'bg-gray-100';
-    if (level <= 3) return 'bg-green-100 border-green-300';
-    if (level <= 6) return 'bg-yellow-100 border-yellow-300';
-    return 'bg-red-100 border-red-300';
+  const getPainColor = (level: number): string => {
+    if (level <= 3) return 'bg-green-100 text-green-800 border-green-300';
+    if (level <= 6) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+    return 'bg-red-100 text-red-800 border-red-300';
   };
 
   // Warning indicators
@@ -37,34 +37,18 @@ export function AirwayForm({ data, onChange, onSave, loading }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Pain Level - First assessment */}
-      <div className="space-y-3">
-        <h3 className="font-medium text-lg">Evaluation initiale</h3>
-        <div className={`p-4 rounded-lg border-2 ${getPainLevelColor(data.painLevel)}`}>
-          <div className="flex items-center justify-between">
-            <Label className="text-base font-medium">Niveau de douleur (EVA)</Label>
-            <div className="flex items-center gap-3">
-              <Input
-                type="number"
-                min="0"
-                max="10"
-                value={data.painLevel ?? ''}
-                onChange={(e) => {
-                  const val = e.target.value === '' ? undefined : Math.min(10, Math.max(0, parseInt(e.target.value)));
-                  updateField('painLevel', val as number);
-                }}
-                className="w-20 text-center text-lg font-bold"
-                placeholder="0-10"
-              />
-              <span className="text-2xl font-bold text-gray-600">/10</span>
-            </div>
-          </div>
-          <div className="flex justify-between text-xs text-gray-500 mt-2">
-            <span>0 = Pas de douleur</span>
-            <span>10 = Douleur maximale</span>
-          </div>
+      {/* Read-only pain badge from vitals */}
+      {vitalsData?.painLevel != null && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">Depuis Vitaux:</span>
+          <ReadOnlyVitalBadge
+            label="Douleur"
+            value={vitalsData.painLevel}
+            unit="/10"
+            getColor={getPainColor}
+          />
         </div>
-      </div>
+      )}
 
       {/* Airway Status */}
       <div className="space-y-4">

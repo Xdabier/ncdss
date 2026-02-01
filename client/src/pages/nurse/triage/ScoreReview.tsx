@@ -1,3 +1,5 @@
+// @deprecated - This page is now merged into TriageComplete (Resume tab).
+// Routes redirect to /complete. Kept for reference only.
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Activity, Brain, AlertTriangle, Heart } from 'lucide-react';
