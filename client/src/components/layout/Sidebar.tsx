@@ -5,8 +5,6 @@ import {
   Users,
   BedDouble,
   Calendar,
-  List,
-  FileText,
   Settings,
   LogOut,
   UserCircle,
@@ -89,15 +87,9 @@ const navItems: NavItem[] = [
     roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
   },
   {
-    path: CLIENT_ROUTES.admin.pathologies,
-    label: 'Pathologies',
-    icon: List,
-    roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
-  },
-  {
-    path: CLIENT_ROUTES.admin.interventions,
-    label: 'Interventions ABCDE',
-    icon: FileText,
+    path: CLIENT_ROUTES.admin.clinicalData,
+    label: 'Données Cliniques',
+    icon: Database,
     roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
   },
   {

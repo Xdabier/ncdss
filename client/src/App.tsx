@@ -20,12 +20,8 @@ import UserForm from './pages/admin/UserForm';
 import ResetPassword from './pages/admin/ResetPassword';
 import BoxManagement from './pages/admin/BoxManagement';
 import BoxAssignments from './pages/admin/BoxAssignments';
-import PathologyList from './pages/admin/PathologyList';
-import PathologyForm from './pages/admin/PathologyForm';
-import PathologyImport from './pages/admin/PathologyImport';
-import InterventionsList from './pages/admin/InterventionsList';
-import InterventionForm from './pages/admin/InterventionForm';
-import InterventionsImport from './pages/admin/InterventionsImport';
+import ClinicalDataPage from './pages/admin/ClinicalDataPage';
+import ClinicalDataImportPage from './pages/admin/ClinicalDataImportPage';
 import AuditLog from './pages/admin/AuditLog';
 import BackupManagement from './pages/admin/BackupManagement';
 
@@ -185,65 +181,51 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        {/* Clinical Data (new unified pages) */}
         <Route
-          path={CLIENT_ROUTES.admin.pathologies}
+          path={CLIENT_ROUTES.admin.clinicalData}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
-                <PathologyList />
+                <ClinicalDataPage />
               </RoleGuard>
             </ProtectedRoute>
           }
+        />
+        <Route
+          path={CLIENT_ROUTES.admin.clinicalDataImport}
+          element={
+            <ProtectedRoute>
+              <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
+                <ClinicalDataImportPage />
+              </RoleGuard>
+            </ProtectedRoute>
+          }
+        />
+        {/* Redirects from old pathology/intervention routes */}
+        <Route
+          path={CLIENT_ROUTES.admin.pathologies}
+          element={<Navigate to={CLIENT_ROUTES.admin.clinicalData} replace />}
         />
         <Route
           path={CLIENT_ROUTES.admin.pathologyImport}
-          element={
-            <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
-                <PathologyImport />
-              </RoleGuard>
-            </ProtectedRoute>
-          }
+          element={<Navigate to={CLIENT_ROUTES.admin.clinicalDataImport} replace />}
         />
         <Route
           path={CLIENT_ROUTES.admin.pathologyDetail(':id')}
-          element={
-            <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
-                <PathologyForm />
-              </RoleGuard>
-            </ProtectedRoute>
-          }
+          element={<Navigate to={CLIENT_ROUTES.admin.clinicalData} replace />}
         />
         <Route
           path={CLIENT_ROUTES.admin.interventions}
-          element={
-            <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
-                <InterventionsList />
-              </RoleGuard>
-            </ProtectedRoute>
-          }
+          element={<Navigate to={CLIENT_ROUTES.admin.clinicalData} replace />}
         />
         <Route
           path={CLIENT_ROUTES.admin.interventionDetail(':id')}
-          element={
-            <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
-                <InterventionForm />
-              </RoleGuard>
-            </ProtectedRoute>
-          }
+          element={<Navigate to={CLIENT_ROUTES.admin.clinicalData} replace />}
         />
         <Route
           path={CLIENT_ROUTES.admin.interventionsImport}
-          element={
-            <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
-                <InterventionsImport />
-              </RoleGuard>
-            </ProtectedRoute>
-          }
+          element={<Navigate to={CLIENT_ROUTES.admin.clinicalDataImport} replace />}
         />
         <Route
           path={CLIENT_ROUTES.admin.audit}

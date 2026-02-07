@@ -14,6 +14,9 @@ export const CLIENT_ROUTES = {
     userResetPassword: (id: string | number) => `/admin/users/${id}/reset-password`,
     boxes: '/admin/boxes',
     boxAssignments: '/admin/box-assignments',
+    clinicalData: '/admin/clinical-data',
+    clinicalDataImport: '/admin/clinical-data/import',
+    // Deprecated: old routes kept for redirect support
     pathologies: '/admin/pathologies',
     pathologyImport: '/admin/pathologies/import',
     pathologyDetail: (id: string | number) => `/admin/pathologies/${id}`,
