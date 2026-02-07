@@ -173,7 +173,7 @@ async function migrate(): Promise<void> {
   const db = drizzle(sqlite);
 
   // --- Locate Excel file -----------------------------------------------------
-  const excelPath = path.join(process.cwd(), '..', 'docs', 'ABCDE_NCDSS_v2_fixed.xlsx');
+  const excelPath = path.join(process.cwd(), '..', 'docs', 'ABCDE_NCDSS_v2_updated.xlsx');
 
   if (!fs.existsSync(excelPath)) {
     console.error('ERROR: Excel file not found at', excelPath);

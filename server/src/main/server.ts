@@ -53,7 +53,7 @@ export async function startServer(port: number): Promise<void> {
     },
     credentials: true
   }));
-  app.use(express.json());
+  app.use(express.json({ limit: '10mb' }));
 
   // Public routes
   app.use('/api/auth', authRouter);
