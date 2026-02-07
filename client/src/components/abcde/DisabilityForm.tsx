@@ -16,6 +16,7 @@ interface DisabilityData {
   motorResponse?: string;
   seizures: boolean;
   confusion: boolean;
+  headache?: boolean;
   notes?: string;
 }
 
@@ -204,6 +205,18 @@ export function DisabilityForm({ data, onChange, onSave, loading, vitalsData }: 
             onChange={(e) => updateField('confusion', e.target.checked)}
           />
           <span className="font-medium text-sm text-orange-600">Confusion / Desorientation</span>
+        </label>
+
+        <label className={`flex items-center space-x-3 border p-3 rounded-md cursor-pointer transition-colors ${
+          data.headache ? 'bg-red-50 border-red-300' : 'hover:bg-gray-50 border-red-200'
+        }`}>
+          <input
+            type="checkbox"
+            className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-500"
+            checked={data.headache || false}
+            onChange={(e) => updateField('headache', e.target.checked)}
+          />
+          <span className="font-medium text-sm text-red-600">Cephalees brutales severes (CRITIQUE)</span>
         </label>
       </div>
 

@@ -18,6 +18,8 @@ interface CirculationData {
   peripheralPulses?: string;
   bleeding: boolean;
   coldExtremities: boolean;
+  jvd?: boolean;
+  oliguria?: boolean;
   notes?: string;
 }
 
@@ -180,6 +182,30 @@ export function CirculationForm({ data, onChange, onSave, loading, vitalsData }:
             onChange={(e) => updateField('coldExtremities', e.target.checked)}
           />
           <span className="font-medium text-sm text-orange-600">Extremites froides</span>
+        </label>
+
+        <label className={`flex items-center space-x-3 border p-3 rounded-md cursor-pointer transition-colors ${
+          data.jvd ? 'bg-orange-50 border-orange-300' : 'hover:bg-gray-50 border-orange-200'
+        }`}>
+          <input
+            type="checkbox"
+            className="h-5 w-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+            checked={data.jvd || false}
+            onChange={(e) => updateField('jvd', e.target.checked)}
+          />
+          <span className="font-medium text-sm text-orange-600">Turgescence jugulaire (TJV)</span>
+        </label>
+
+        <label className={`flex items-center space-x-3 border p-3 rounded-md cursor-pointer transition-colors ${
+          data.oliguria ? 'bg-orange-50 border-orange-300' : 'hover:bg-gray-50 border-orange-200'
+        }`}>
+          <input
+            type="checkbox"
+            className="h-5 w-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+            checked={data.oliguria || false}
+            onChange={(e) => updateField('oliguria', e.target.checked)}
+          />
+          <span className="font-medium text-sm text-orange-600">Oligurie</span>
         </label>
       </div>
 

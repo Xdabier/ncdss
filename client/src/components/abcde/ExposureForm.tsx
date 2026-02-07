@@ -8,6 +8,7 @@ interface ExposureData {
   hypothermia: boolean;
   hyperthermia: boolean;
   rash: boolean;
+  vomiting?: boolean;
   wounds: boolean;
   edema: boolean;
   burns: boolean;
@@ -175,6 +176,18 @@ export function ExposureForm({ data, onChange, onSave, loading, vitalsData }: Pr
               onChange={(e) => updateField('rash', e.target.checked)}
             />
             <span className="font-medium text-sm">Eruption cutanee / Rash</span>
+          </label>
+
+          <label className={`flex items-center space-x-3 border p-3 rounded-md cursor-pointer transition-colors ${
+            data.vomiting ? 'bg-orange-50 border-orange-300' : 'hover:bg-gray-50 border-orange-200'
+          }`}>
+            <input
+              type="checkbox"
+              className="h-5 w-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+              checked={data.vomiting || false}
+              onChange={(e) => updateField('vomiting', e.target.checked)}
+            />
+            <span className="font-medium text-sm text-orange-600">Vomissements</span>
           </label>
         </div>
       </div>

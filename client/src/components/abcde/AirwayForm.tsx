@@ -9,6 +9,8 @@ interface AirwayData {
   obstructed: boolean;
   secretions: boolean;
   stridor: boolean;
+  drooling?: boolean;
+  dysphagia?: boolean;
   notes?: string;
 }
 
@@ -110,6 +112,30 @@ export function AirwayForm({ data, onChange, onSave, loading, vitalsData }: Prop
               onChange={(e) => updateField('stridor', e.target.checked)}
             />
             <span className="font-medium text-sm text-red-600">Stridor</span>
+          </label>
+
+          <label className={`flex items-center space-x-3 border p-3 rounded-md cursor-pointer transition-colors ${
+            data.drooling ? 'bg-orange-50 border-orange-300' : 'hover:bg-gray-50 border-orange-200'
+          }`}>
+            <input
+              type="checkbox"
+              className="h-5 w-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+              checked={data.drooling || false}
+              onChange={(e) => updateField('drooling', e.target.checked)}
+            />
+            <span className="font-medium text-sm text-orange-600">Hypersalivation / Bave</span>
+          </label>
+
+          <label className={`flex items-center space-x-3 border p-3 rounded-md cursor-pointer transition-colors ${
+            data.dysphagia ? 'bg-orange-50 border-orange-300' : 'hover:bg-gray-50 border-orange-200'
+          }`}>
+            <input
+              type="checkbox"
+              className="h-5 w-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+              checked={data.dysphagia || false}
+              onChange={(e) => updateField('dysphagia', e.target.checked)}
+            />
+            <span className="font-medium text-sm text-orange-600">Dysphagie</span>
           </label>
         </div>
 

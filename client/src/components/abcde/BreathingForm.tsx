@@ -16,6 +16,7 @@ interface BreathingData {
   workOfBreathing?: string;
   cyanosis: boolean;
   accessoryMuscles: boolean;
+  hemoptysis?: boolean;
   notes?: string;
 }
 
@@ -154,6 +155,18 @@ export function BreathingForm({ data, onChange, onSave, loading, vitalsData }: P
             onChange={(e) => updateField('accessoryMuscles', e.target.checked)}
           />
           <span className="font-medium text-sm text-orange-600">Muscles accessoires</span>
+        </label>
+
+        <label className={`flex items-center space-x-3 border p-3 rounded-md cursor-pointer transition-colors ${
+          data.hemoptysis ? 'bg-red-50 border-red-300' : 'hover:bg-gray-50 border-red-200'
+        }`}>
+          <input
+            type="checkbox"
+            className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-500"
+            checked={data.hemoptysis || false}
+            onChange={(e) => updateField('hemoptysis', e.target.checked)}
+          />
+          <span className="font-medium text-sm text-red-600">Hemoptysie (CRITIQUE)</span>
         </label>
       </div>
 
