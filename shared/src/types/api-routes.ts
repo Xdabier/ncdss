@@ -135,5 +135,15 @@ export const API_ROUTES = {
     stats: '/tracking/stats',
   },
 
+  clinicalData: {
+    import: '/clinical-data/import',
+    pathologies: {
+      list: '/clinical-data/pathologies',
+      get: (id: string) => `/clinical-data/pathologies/${id}`,
+    },
+    symptoms: '/clinical-data/symptoms',
+    stats: '/clinical-data/stats',
+  },
+
   health: '/health',
 } as const;

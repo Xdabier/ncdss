@@ -16,6 +16,7 @@ import { diagnosesRouter } from '../api/routes/diagnoses';
 import { auditRouter } from '../api/routes/audit';
 import { notificationsRouter } from '../api/routes/notifications';
 import { trackingRouter } from '../api/routes/tracking';
+import { clinicalDataRouter } from '../api/routes/clinical-data';
 import { authMiddleware } from '../api/middleware/auth';
 import { auditMiddleware } from '../api/middleware/audit';
 import { initDatabase } from '../database';
@@ -82,6 +83,7 @@ export async function startServer(port: number): Promise<void> {
   app.use('/api/audit-log', authMiddleware, auditRouter);
   app.use('/api/notifications', authMiddleware, notificationsRouter);
   app.use('/api/tracking', authMiddleware, trackingRouter);
+  app.use('/api/clinical-data', authMiddleware, clinicalDataRouter);
 
   server = app.listen(port, '0.0.0.0', () => {
     console.log(`✓ Server running on port ${port}`);
