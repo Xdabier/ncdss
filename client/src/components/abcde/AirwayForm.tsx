@@ -20,9 +20,11 @@ interface Props {
   onSave?: () => void;
   loading?: boolean;
   vitalsData?: Partial<VitalsData>;
+  hideVitalBadges?: boolean;
+  hideNotes?: boolean;
 }
 
-export function AirwayForm({ data, onChange, onSave, loading, vitalsData }: Props) {
+export function AirwayForm({ data, onChange, onSave, loading, vitalsData, hideVitalBadges, hideNotes }: Props) {
   const updateField = <K extends keyof AirwayData>(field: K, value: AirwayData[K]) => {
     onChange({ ...data, [field]: value });
   };
@@ -40,7 +42,7 @@ export function AirwayForm({ data, onChange, onSave, loading, vitalsData }: Prop
   return (
     <div className="space-y-6">
       {/* Read-only pain badge from vitals */}
-      {vitalsData?.painLevel != null && (
+      {!hideVitalBadges && vitalsData?.painLevel != null && (
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-500">Depuis Vitaux:</span>
           <ReadOnlyVitalBadge
@@ -54,7 +56,7 @@ export function AirwayForm({ data, onChange, onSave, loading, vitalsData }: Prop
 
       {/* Airway Status */}
       <div className="space-y-4">
-        <h3 className="font-medium text-lg">A - Voies aeriennes (Airway)</h3>
+        {!hideVitalBadges && <h3 className="font-medium text-lg">A - Voies aeriennes (Airway)</h3>}
 
         {/* Warning banner */}
         {hasCritical && (
@@ -154,17 +156,19 @@ export function AirwayForm({ data, onChange, onSave, loading, vitalsData }: Prop
       </div>
 
       {/* Notes */}
-      <div className="space-y-2">
-        <Label>Notes & Observations</Label>
-        <textarea
-          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          value={data.notes || ''}
-          onChange={(e) => updateField('notes', e.target.value)}
-          placeholder="Details supplementaires sur les voies aeriennes..."
-        />
-      </div>
+      {!hideNotes && (
+        <div className="space-y-2">
+          <Label>Notes & Observations</Label>
+          <textarea
+            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            value={data.notes || ''}
+            onChange={(e) => updateField('notes', e.target.value)}
+            placeholder="Details supplementaires sur les voies aeriennes..."
+          />
+        </div>
+      )}
 
-      {onSave && (
+      {!hideNotes && onSave && (
         <Button onClick={onSave} disabled={loading} className="w-full" size="lg">
           {loading ? 'Enregistrement...' : 'Valider et Continuer (B)'}
         </Button>

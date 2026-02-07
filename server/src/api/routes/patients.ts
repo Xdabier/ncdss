@@ -229,7 +229,7 @@ router.put('/:id/medical-history', async (req, res) => {
       return res.status(400).json({ error: 'Modification des antecedents non autorisee a ce stade' });
     }
 
-    const { chiefComplaint, symptomOnset, allergies, chronicConditions, currentMedications } = req.body;
+    const { chiefComplaint, symptomOnset, allergies, chronicConditions, currentMedications, medicalHistoryNotes } = req.body;
 
     await db.update(patients).set({
       chiefComplaint: chiefComplaint !== undefined ? chiefComplaint : existing.chiefComplaint,
@@ -237,6 +237,7 @@ router.put('/:id/medical-history', async (req, res) => {
       allergies: allergies !== undefined ? allergies : existing.allergies,
       chronicConditions: chronicConditions !== undefined ? JSON.stringify(chronicConditions) : existing.chronicConditions,
       currentMedications: currentMedications !== undefined ? JSON.stringify(currentMedications) : existing.currentMedications,
+      medicalHistoryNotes: medicalHistoryNotes !== undefined ? medicalHistoryNotes : existing.medicalHistoryNotes,
       updatedAt: new Date().toISOString()
     }).where(eq(patients.id, id));
 

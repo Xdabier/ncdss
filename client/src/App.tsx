@@ -38,8 +38,7 @@ import PatientRegistration from './pages/nurse/PatientRegistration';
 import PatientEdit from './pages/nurse/PatientEdit';
 import TriageQueue from './pages/nurse/triage/TriageQueue';
 import TriageWorkflow from './pages/nurse/triage/TriageWorkflow';
-// SuggestionsReview and ScoreReview merged into TriageComplete (3-tab layout)
-import TriageComplete from './pages/nurse/triage/TriageComplete';
+// TriageComplete functionality absorbed into TriageWorkflow
 import TreatmentQueue from './pages/nurse/treatment/TreatmentQueue';
 import PatientCare from './pages/nurse/treatment/PatientCare';
 import VitalsUpdate from './pages/nurse/treatment/VitalsUpdate';
@@ -368,39 +367,30 @@ export default function App() {
           path={CLIENT_ROUTES.nurse.triage.vitals(':id')}
           element={<Navigate to="../abcde" replace />}
         />
-        {/* Legacy routes - suggestions and score merged into complete page */}
+        {/* Legacy routes - all redirect to abcde (consolidated workflow) */}
         <Route
           path={CLIENT_ROUTES.nurse.triage.suggestions(':id')}
-          element={<Navigate to="../complete" replace />}
+          element={<Navigate to="../abcde" replace />}
         />
         <Route
           path={CLIENT_ROUTES.nurse.triage.score(':id')}
-          element={<Navigate to="../complete" replace />}
+          element={<Navigate to="../abcde" replace />}
         />
         <Route
           path={CLIENT_ROUTES.nurse.triage.complete(':id')}
-          element={
-            <ProtectedRoute>
-              <RoleGuard
-                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
-              >
-                <TriageComplete />
-              </RoleGuard>
-            </ProtectedRoute>
-          }
+          element={<Navigate to="../abcde" replace />}
         />
-        {/* Legacy routes - redirect to consolidated complete page */}
         <Route
           path={CLIENT_ROUTES.nurse.triage.esi(':id')}
-          element={<Navigate to="../complete" replace />}
+          element={<Navigate to="../abcde" replace />}
         />
         <Route
           path={CLIENT_ROUTES.nurse.triage.orientation(':id')}
-          element={<Navigate to="../complete" replace />}
+          element={<Navigate to="../abcde" replace />}
         />
         <Route
           path={CLIENT_ROUTES.nurse.triage.summary(':id')}
-          element={<Navigate to="../complete" replace />}
+          element={<Navigate to="../abcde" replace />}
         />
 
         {/* Nurse - Treatment routes */}

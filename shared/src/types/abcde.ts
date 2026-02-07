@@ -78,6 +78,8 @@ export interface ExposureObservations {
   hypothermia: boolean;        // Temp < 35°C
   hyperthermia: boolean;       // Temp > 39°C
   vomiting?: boolean;          // Vomissements
+  diarrhea?: boolean;          // Diarrhée
+  lastMeal?: string;           // Dernier repas (heure/contenu)
   findings: string[];          // Free text list of findings
   traumaType?: ('cranial' | 'maxillofacial' | 'thoracic' | 'pelvic' | 'limbs' | 'spinal')[];  // P1.3
   edemaType?: ('angioedema' | 'lower_limbs' | 'upper_limbs' | 'ascites')[];  // P2.3
@@ -118,4 +120,30 @@ export interface SaveSelectedInterventionsRequest {
   nursingInterventions: string[];
   medicalInterventions: string[];
   selectedPathologyIds: string[];
+}
+
+// =============================================================================
+// SYMPTOMS FORM DATA (Unified symptom collection for triage workflow)
+// =============================================================================
+
+export interface SymptomsFormData {
+  airwayStatus?: 'libre' | 'a_risque' | 'obstrue';
+  auscultationNormal?: boolean;
+  breathSoundsDetail?: string[];
+  signesLutte?: string[];
+  pauseRespiratoire?: boolean;
+  signesCutanes?: string[];
+  capillaryRefill?: number;
+  bleedingInterne?: boolean;
+  bleedingExteriorisee?: boolean;
+  bleedingTypes?: string[];
+  painLocations?: string[];
+  pupilSize?: 'dilate' | 'constricte';
+  pupilSymmetry?: 'symetrique' | 'asymetrique';
+  pupilReactivity?: boolean;
+  traumaTypes?: string[];
+  burns?: boolean;
+  electrocution?: boolean;
+  intoxication?: boolean;
+  notes?: string;
 }

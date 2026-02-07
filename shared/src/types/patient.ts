@@ -42,6 +42,7 @@ export interface Patient {
   allergies?: string;
   chronicConditions?: string;    // JSON array
   currentMedications?: string;   // JSON array
+  medicalHistoryNotes?: string | null;
   
   // Chief Complaint (from inscription)
   chiefComplaint?: string;

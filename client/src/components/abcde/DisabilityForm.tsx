@@ -26,9 +26,12 @@ interface Props {
   onSave?: () => void;
   loading?: boolean;
   vitalsData?: Partial<VitalsData>;
+  hideVitalBadges?: boolean;
+  hideNotes?: boolean;
+  hideGCSDisplay?: boolean;
 }
 
-export function DisabilityForm({ data, onChange, onSave, loading, vitalsData }: Props) {
+export function DisabilityForm({ data, onChange, onSave, loading, vitalsData, hideVitalBadges, hideNotes, hideGCSDisplay }: Props) {
   const updateField = <K extends keyof DisabilityData>(field: K, value: DisabilityData[K]) => {
     onChange({ ...data, [field]: value });
   };
@@ -71,14 +74,16 @@ export function DisabilityForm({ data, onChange, onSave, loading, vitalsData }: 
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h3 className="font-medium text-lg">D - Neurologique (Disability)</h3>
-        {gcsTotal > 0 && (
-          <div className={`px-4 py-2 rounded-full font-bold text-lg ${getGCSColor(gcsTotal)}`}>
-            GCS: {gcsTotal}/15
-          </div>
-        )}
-      </div>
+      {!hideVitalBadges && (
+        <div className="flex justify-between items-center">
+          <h3 className="font-medium text-lg">D - Neurologique (Disability)</h3>
+          {!hideGCSDisplay && gcsTotal > 0 && (
+            <div className={`px-4 py-2 rounded-full font-bold text-lg ${getGCSColor(gcsTotal)}`}>
+              GCS: {gcsTotal}/15
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Critical warning banner */}
       {hasCritical && (
@@ -90,7 +95,7 @@ export function DisabilityForm({ data, onChange, onSave, loading, vitalsData }: 
       )}
 
       {/* Read-only vital badges from vitals tab */}
-      {(vitalsData?.gcsEye != null || vitalsData?.glucoseLevel != null) && (
+      {!hideVitalBadges && (vitalsData?.gcsEye != null || vitalsData?.glucoseLevel != null) && (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-gray-500">Depuis Vitaux:</span>
@@ -240,17 +245,19 @@ export function DisabilityForm({ data, onChange, onSave, loading, vitalsData }: 
       </div>
 
       {/* Notes */}
-      <div className="space-y-2">
-        <Label>Notes & Observations</Label>
-        <textarea
-          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          value={data.notes || ''}
-          onChange={(e) => updateField('notes', e.target.value)}
-          placeholder="Details supplementaires sur l'etat neurologique..."
-        />
-      </div>
+      {!hideNotes && (
+        <div className="space-y-2">
+          <Label>Notes & Observations</Label>
+          <textarea
+            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            value={data.notes || ''}
+            onChange={(e) => updateField('notes', e.target.value)}
+            placeholder="Details supplementaires sur l'etat neurologique..."
+          />
+        </div>
+      )}
 
-      {onSave && (
+      {!hideNotes && onSave && (
         <Button onClick={onSave} disabled={loading} className="w-full" size="lg">
           {loading ? 'Enregistrement...' : 'Valider et Continuer (E)'}
         </Button>

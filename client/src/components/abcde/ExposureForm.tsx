@@ -23,9 +23,11 @@ interface Props {
   onSave?: () => void;
   loading?: boolean;
   vitalsData?: Partial<VitalsData>;
+  hideVitalBadges?: boolean;
+  hideNotes?: boolean;
 }
 
-export function ExposureForm({ data, onChange, onSave, loading, vitalsData }: Props) {
+export function ExposureForm({ data, onChange, onSave, loading, vitalsData, hideVitalBadges, hideNotes }: Props) {
   const updateField = <K extends keyof ExposureData>(field: K, value: ExposureData[K]) => {
     onChange({ ...data, [field]: value });
   };
@@ -67,7 +69,7 @@ export function ExposureForm({ data, onChange, onSave, loading, vitalsData }: Pr
 
   return (
     <div className="space-y-6">
-      <h3 className="font-medium text-lg">E - Exposition & Environnement</h3>
+      {!hideVitalBadges && <h3 className="font-medium text-lg">E - Exposition & Environnement</h3>}
 
       {/* Critical warning banner */}
       {hasCritical && (
@@ -79,7 +81,7 @@ export function ExposureForm({ data, onChange, onSave, loading, vitalsData }: Pr
       )}
 
       {/* Read-only temperature badge from vitals tab */}
-      {vitalsData?.temperature != null && (
+      {!hideVitalBadges && vitalsData?.temperature != null && (
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-gray-500">Depuis Vitaux:</span>
           <ReadOnlyVitalBadge label="T" value={vitalsData.temperature} unit="°C" getColor={getTempColor} />
@@ -212,17 +214,19 @@ export function ExposureForm({ data, onChange, onSave, loading, vitalsData }: Pr
       </div>
 
       {/* Notes */}
-      <div className="space-y-2">
-        <Label>Notes & Observations</Label>
-        <textarea
-          className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          value={data.notes || ''}
-          onChange={(e) => updateField('notes', e.target.value)}
-          placeholder="Description detaillee des lesions, localisation, etendue, contexte de survenue..."
-        />
-      </div>
+      {!hideNotes && (
+        <div className="space-y-2">
+          <Label>Notes & Observations</Label>
+          <textarea
+            className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            value={data.notes || ''}
+            onChange={(e) => updateField('notes', e.target.value)}
+            placeholder="Description detaillee des lesions, localisation, etendue, contexte de survenue..."
+          />
+        </div>
+      )}
 
-      {onSave && (
+      {!hideNotes && onSave && (
         <Button onClick={onSave} disabled={loading} className="w-full" size="lg">
           {loading ? 'Enregistrement...' : 'Terminer Evaluation ABCDE'}
         </Button>
