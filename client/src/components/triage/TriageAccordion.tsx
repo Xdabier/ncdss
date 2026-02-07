@@ -4,12 +4,14 @@ interface TriageAccordionContextType {
   openSections: Set<string>;
   pinnedSections: Set<string>;
   handleClick: (id: string) => void;
+  openSection: (id: string) => void;
 }
 
 const TriageAccordionContext = createContext<TriageAccordionContextType>({
   openSections: new Set(),
   pinnedSections: new Set(),
   handleClick: () => {},
+  openSection: () => {},
 });
 
 export function useTriageAccordion(): TriageAccordionContextType {
@@ -86,8 +88,17 @@ export function TriageAccordion({ children, onSectionCollapse, defaultOpen }: Tr
     }, 250);
   }, [pinnedSections, onSectionCollapse]);
 
+  const openSection = useCallback((id: string) => {
+    setOpenSections(prev => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
+
   return (
-    <TriageAccordionContext.Provider value={{ openSections, pinnedSections, handleClick }}>
+    <TriageAccordionContext.Provider value={{ openSections, pinnedSections, handleClick, openSection }}>
       <div className="space-y-2">
         {children}
       </div>

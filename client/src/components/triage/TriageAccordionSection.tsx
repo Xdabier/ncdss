@@ -9,6 +9,7 @@ interface TriageAccordionSectionProps {
   icon: LucideIcon;
   statusSummary?: React.ReactNode;
   children: React.ReactNode;
+  sectionRef?: React.RefObject<HTMLDivElement>;
 }
 
 export function TriageAccordionSection({
@@ -17,13 +18,14 @@ export function TriageAccordionSection({
   icon: Icon,
   statusSummary,
   children,
+  sectionRef,
 }: TriageAccordionSectionProps): React.ReactElement {
   const { openSections, pinnedSections, handleClick } = useTriageAccordion();
   const isOpen = openSections.has(id);
   const isPinned = pinnedSections.has(id);
 
   return (
-    <div className="border rounded-lg bg-white shadow-sm overflow-hidden">
+    <div ref={sectionRef} className="border rounded-lg bg-white shadow-sm overflow-hidden">
       {/* Header */}
       <button
         type="button"
