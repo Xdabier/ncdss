@@ -29,7 +29,7 @@ import { AIPreDiagnosisPanel } from '../../../components/shared/AIPreDiagnosisPa
 import { getApi } from '../../../services/api';
 import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, Sex, Orientation as OrientationType, OrientationSource, API_ROUTES } from '@ncdss/shared';
-import type { AnalysisResult, PathologyMatch } from '@ncdss/shared';
+import type { ClinicalAnalysisResult, PathologyMatchResult } from '@ncdss/shared';
 import { suggestESI, getScoreColor, getScoreLabel } from '../../../utils/scoreUtils';
 import { cn } from '../../../lib/utils';
 
@@ -222,7 +222,7 @@ export default function TriageComplete() {
   const [activeTab, setActiveTab] = useState<CompleteTabId>('suggestions');
 
   // Suggestions tab state
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [analysis, setAnalysis] = useState<ClinicalAnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [showAllPathologies, setShowAllPathologies] = useState(false);
   const [showAllInterventions, setShowAllInterventions] = useState(false);
@@ -345,8 +345,8 @@ export default function TriageComplete() {
 
   const getCombinedInterventions = (): string[] => {
     if (!analysis) return [];
-    const nursing = analysis.suggestedNursingInterventions || [];
-    const medical = analysis.suggestedMedicalInterventions || [];
+    const nursing = (analysis.suggestedNursingInterventions || []).map(i => i.descriptionFr);
+    const medical = (analysis.suggestedMedicalInterventions || []).map(i => i.descriptionFr);
     const combined: string[] = [];
     const maxLen = Math.max(nursing.length, medical.length);
     for (let i = 0; i < maxLen; i++) {
@@ -524,17 +524,17 @@ export default function TriageComplete() {
                             <div className="flex items-center gap-2">
                               <div className="w-16 bg-gray-200 rounded-full h-2">
                                 <div
-                                  className={`h-2 rounded-full ${topPathology.matchScore >= 70 ? 'bg-green-500' : topPathology.matchScore >= 40 ? 'bg-yellow-500' : 'bg-orange-500'}`}
-                                  style={{ width: `${topPathology.matchScore}%` }}
+                                  className={`h-2 rounded-full ${topPathology.confidence >= 70 ? 'bg-green-500' : topPathology.confidence >= 40 ? 'bg-yellow-500' : 'bg-orange-500'}`}
+                                  style={{ width: `${topPathology.confidence}%` }}
                                 />
                               </div>
-                              <span className="text-sm font-medium text-gray-700">{topPathology.matchScore}%</span>
+                              <span className="text-sm font-medium text-gray-700">{topPathology.confidence}%</span>
                             </div>
                           </div>
-                          {topPathology.matchedSigns && topPathology.matchedSigns.length > 0 && (
+                          {topPathology.matchedSymptomCodes && topPathology.matchedSymptomCodes.length > 0 && (
                             <p className="text-xs text-gray-500 mt-1">
-                              Signes: {topPathology.matchedSigns.slice(0, 3).join(', ')}
-                              {topPathology.matchedSigns.length > 3 && '...'}
+                              Signes: {topPathology.matchedSymptomCodes.slice(0, 3).join(', ')}
+                              {topPathology.matchedSymptomCodes.length > 3 && '...'}
                             </p>
                           )}
                         </div>
@@ -547,10 +547,10 @@ export default function TriageComplete() {
                           </button>
                           {showAllPathologies && (
                             <div className="mt-3 space-y-2">
-                              {otherPathologies.map((match: PathologyMatch) => (
+                              {otherPathologies.map((match: PathologyMatchResult) => (
                                 <div key={match.pathologyId} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded text-sm">
                                   <span className="text-gray-700">{match.pathologyName}</span>
-                                  <span className="text-gray-500">{match.matchScore}%</span>
+                                  <span className="text-gray-500">{match.confidence}%</span>
                                 </div>
                               ))}
                             </div>
@@ -605,7 +605,7 @@ export default function TriageComplete() {
 
                   {/* Metadata */}
                   <p className="text-xs text-gray-400 text-center">
-                    {analysis.extractedSignsCount} signes | {analysis.matchedPathologiesCount} pathologies |
+                    {analysis.observedSymptomCodes?.length || 0} signes | {analysis.matchedPathologiesCount} pathologies |
                     Analyse {new Date(analysis.analysisTimestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </>

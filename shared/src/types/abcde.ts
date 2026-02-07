@@ -82,17 +82,6 @@ export interface ABCDEObservations {
 }
 
 // =============================================================================
-// EXTRACTED SIGNS (Processed from observations for matching)
-// =============================================================================
-
-export interface ExtractedSigns {
-  category: 'A' | 'B' | 'C' | 'D' | 'E';
-  signs: string[];             // French text for display
-  normalizedSigns: string[];   // Normalized for matching
-  criticalSigns: string[];     // Life-threatening findings
-}
-
-// =============================================================================
 // API REQUEST/RESPONSE TYPES
 // =============================================================================
 

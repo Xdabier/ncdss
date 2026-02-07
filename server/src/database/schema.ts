@@ -229,62 +229,7 @@ export const auditLog = sqliteTable('audit_log', {
 });
 
 // ============================================================================
-// PRESENTING COMPLAINTS (Motifs de consultation - Reference Data)
-// These are SYMPTOMS/PRESENTATIONS, not diagnoses
-// Used at registration to categorize chief complaints
-// ============================================================================
-
-export const presentingComplaints = sqliteTable('presenting_complaints', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  name: text('name').notNull().unique(),                    // French name: "Douleur thoracique"
-  nameNormalized: text('name_normalized').notNull(),        // Normalized: "douleur thoracique"
-  category: text('category').notNull(),                     // Original: 'Médical / SAUV', 'Chirurgical', etc.
-  primaryOrientation: text('primary_orientation').notNull(), // Mapped: SAUV, MEDICAL, SURGICAL, TRAUMA
-  secondaryOrientation: text('secondary_orientation'),       // For multi-category: the second option
-  isMultiCategory: integer('is_multi_category', { mode: 'boolean' }).notNull().default(false),
-  createdAt: text('created_at')
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: text('updated_at')
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-});
-
-// Keep old table name as alias for backward compatibility during migration
-export const pathologyClassification = presentingComplaints;
-
-// ============================================================================
-// CLINICAL PATHOLOGIES (ABCDE Interventions - Reference Data)
-// These are actual clinical conditions/diagnoses with their interventions
-// Used during triage to match observed signs to probable pathologies
-// ============================================================================
-
-export const clinicalPathologies = sqliteTable('clinical_pathologies', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  pathologyName: text('pathology_name').notNull(),           // French name: "Asthme sévère"
-  pathologyNameNormalized: text('pathology_name_normalized').notNull(), // Normalized for matching
-  abcdeCategory: text('abcde_category').notNull(),           // A, B, C, D, E, or GENERAL
-  severitySigns: text('severity_signs'),                     // JSON array of severity signs
-  nursingInterventions: text('nursing_interventions'),       // JSON array of nursing interventions
-  medicalInterventions: text('medical_interventions'),       // JSON array of medical interventions
-  dosageFormulas: text('dosage_formulas'),                   // Dosage calculation formulas
-  orientation: text('orientation'),                          // Raw from Excel: "SAUV / Médical"
-  primaryOrientation: text('primary_orientation'),           // Mapped: SAUV, MEDICAL, SURGICAL, TRAUMA
-  secondaryOrientation: text('secondary_orientation'),       // For combined orientations
-  isSAUV: integer('is_sauv', { mode: 'boolean' }).notNull().default(false), // Quick flag for critical
-  createdAt: text('created_at')
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: text('updated_at')
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-});
-
-// Keep old table name as alias for backward compatibility during migration
-export const abcdeInterventions = clinicalPathologies;
-
-// ============================================================================
-// NEW CLINICAL DATA TABLES (Language-Agnostic Pathology Matching)
+// CLINICAL DATA TABLES (Language-Agnostic Pathology Matching)
 // ============================================================================
 
 export const pathologies = sqliteTable('pathologies', {

@@ -29,12 +29,12 @@ router.get('/:weekStart', async (req, res) => {
       .where(eq(weeklySchedule.weekStart, weekStart));
 
     // Build response: nurse -> day -> assignment
-    const result = nurses.map((nurse) => {
-      const nurseSchedules = schedules.filter((s) => s.nurseId === nurse.id);
+    const result = nurses.map((nurse: { id: string; fullName: string }) => {
+      const nurseSchedules = schedules.filter((s: typeof schedules[number]) => s.nurseId === nurse.id);
       const days: Record<number, string> = {};
 
       for (let i = 0; i < 7; i++) {
-        const daySchedule = nurseSchedules.find((s) => s.dayOfWeek === i);
+        const daySchedule = nurseSchedules.find((s: typeof schedules[number]) => s.dayOfWeek === i);
         days[i] = daySchedule?.assignedRole || NurseAssignment.OFF;
       }
 

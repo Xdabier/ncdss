@@ -15,6 +15,13 @@
       "when": 1770468912485,
       "tag": "0001_lying_angel",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1770475091303,
+      "tag": "0002_loose_taskmaster",
+      "breakpoints": true
     }
   ]
 }
