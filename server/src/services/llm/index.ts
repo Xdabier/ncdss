@@ -12,7 +12,7 @@ export interface StreamChunk {
 
 /**
  * LLM Provider interface for AI-assisted pre-diagnosis
- * This is ADDITIVE to existing clinical decision support (signExtractor, pathologyMatcher)
+ * This is ADDITIVE to existing clinical decision support (symptomMapper, pathologyMatcher)
  */
 export interface LLMProvider {
   generatePreDiagnosis(context: PreDiagnosisContext): Promise<PreDiagnosisSuggestion>;

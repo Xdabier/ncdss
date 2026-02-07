@@ -82,28 +82,6 @@ export const API_ROUTES = {
     ruleOut: (id: number | string) => `/diagnoses/${id}/rule-out`,
   },
 
-  pathologies: {
-    list: '/pathologies',
-    create: '/pathologies',
-    search: '/pathologies/search',
-    categories: '/pathologies/categories',
-    orientations: '/pathologies/orientations',
-    import: '/pathologies/import',
-    byId: (id: number | string) => `/pathologies/${id}`,
-    update: (id: number | string) => `/pathologies/${id}`,
-    remove: (id: number | string) => `/pathologies/${id}`,
-  },
-
-  interventions: {
-    list: '/interventions',
-    create: '/interventions',
-    categories: '/interventions/categories',
-    import: '/interventions/import',
-    byPathology: (name: string) => `/interventions/by-pathology/${name}`,
-    update: (id: number | string) => `/interventions/${id}`,
-    remove: (id: number | string) => `/interventions/${id}`,
-  },
-
   stats: {
     dashboard: '/stats/dashboard',
     queues: '/stats/queues',

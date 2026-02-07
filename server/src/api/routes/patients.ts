@@ -2,16 +2,9 @@ import { Router } from 'express';
 import { eq, and, like, desc, gte, inArray } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
-import { patients, users, presentingComplaints, boxes, weeklySchedule } from '../../database/schema';
+import { patients, users, boxes, weeklySchedule } from '../../database/schema';
 import { PatientStatus, Orientation, OrientationSource } from '@ncdss/shared';
 import { calculateNEWS, calculateGCS, calculateQSOFA } from '../../utils/scores';
-import {
-  extractAirwaySigns,
-  extractBreathingSigns,
-  extractCirculationSigns,
-  extractDisabilitySigns,
-  extractExposureSigns
-} from '../../services/signExtractor';
 import { matchFindingsToPathologies } from '../../services/pathologyMatcher';
 import { getLLMProvider, PreDiagnosisContext } from '../../services/llm';
 import * as aiPreDiagnosisService from '../../services/ai-prediagnosis-service';
@@ -486,7 +479,7 @@ router.post('/:id/analyze-findings', async (req, res) => {
             esi: patient.esiLevel
           },
           analysisTimestamp: patient.analysisTimestamp || new Date().toISOString(),
-          extractedSignsCount: 0, // Not stored
+          observedSymptomCodes: [], // Not stored, would need re-analysis
           matchedPathologiesCount: Array.isArray(topMatches) ? topMatches.length : 0,
           patientId: patient.id,
           patientName: patient.fullName,
@@ -505,14 +498,18 @@ router.post('/:id/analyze-findings', async (req, res) => {
     const disability = patient.abcdeDisability ? JSON.parse(patient.abcdeDisability) : {};
     const exposure = patient.abcdeExposure ? JSON.parse(patient.abcdeExposure) : {};
 
-    // Extract clinical signs from observations
-    const extractedSigns = [
-      extractAirwaySigns(airway),
-      extractBreathingSigns(breathing),
-      extractCirculationSigns(circulation),
-      extractDisabilitySigns(disability),
-      extractExposureSigns(exposure)
-    ];
+    // Build vitals from patient fields
+    const vitals = {
+      heartRate: patient.heartRate ?? undefined,
+      systolicBP: patient.systolicBP ?? undefined,
+      diastolicBP: patient.diastolicBP ?? undefined,
+      respiratoryRate: patient.respiratoryRate ?? undefined,
+      oxygenSaturation: patient.oxygenSaturation ?? undefined,
+      temperature: patient.temperature ?? undefined,
+      gcsScore: patient.gcsScore ?? undefined,
+      painLevel: patient.painLevel ?? undefined,
+      glucoseLevel: patient.glucoseLevel ?? undefined,
+    };
 
     // Get current scores
     const scores = {
@@ -522,12 +519,10 @@ router.post('/:id/analyze-findings', async (req, res) => {
       esi: patient.esiLevel || undefined
     };
 
-    // Run pathology matching
+    // Run code-based pathology matching
     const result = await matchFindingsToPathologies(
-      extractedSigns,
-      patient.chiefComplaint || undefined,
-      patient.chiefComplaintId || undefined,
-      scores
+      airway, breathing, circulation, disability, exposure,
+      vitals, scores,
     );
 
     // Store results in patient record
@@ -603,8 +598,8 @@ router.get('/:id/analysis', async (req, res) => {
   }
 });
 
-// Get orientation suggestion based on presenting complaint and scores
-// Note: For full clinical decision support, use POST /:id/analyze-findings instead
+// Get orientation suggestion
+// Returns stored analysis orientation, or runs full analysis if none exists
 router.get('/:id/suggest-orientation', async (req, res) => {
   try {
     const { id } = req.params;
@@ -615,59 +610,68 @@ router.get('/:id/suggest-orientation', async (req, res) => {
       return res.status(404).json({ error: 'Patient non trouvé' });
     }
 
-    let suggestion: Orientation = Orientation.MEDICAL;
-    let source: OrientationSource = OrientationSource.MANUAL;
-    let reason = '';
-
-    // 1. Check if patient has stored analysis results
+    // If analysis has already been run, return stored orientation
     if (patient.suggestedOrientation) {
-      suggestion = patient.suggestedOrientation as Orientation;
-      source = (patient.orientationSource as OrientationSource) || OrientationSource.MANUAL;
-      reason = patient.orientationReason || '';
-    }
-    // 2. Check presenting complaint (motif de consultation)
-    else if (patient.chiefComplaint) {
-      const [complaint] = await db.select()
-        .from(presentingComplaints)
-        .where(like(presentingComplaints.name, `%${patient.chiefComplaint}%`))
-        .limit(1);
-
-      if (complaint) {
-        if (!complaint.isMultiCategory) {
-          suggestion = complaint.primaryOrientation as Orientation;
-          source = OrientationSource.PATHOLOGY_LOOKUP;
-          reason = `Motif: ${complaint.name} → ${complaint.category}`;
-        } else {
-          source = OrientationSource.SCORE_BASED;
-
-          if ((patient.newsScore && patient.newsScore >= 7) ||
-              (patient.esiLevel && patient.esiLevel <= 2) ||
-              (patient.gcsScore && patient.gcsScore < 12) ||
-              (patient.qsofaScore && patient.qsofaScore >= 2)) {
-            suggestion = Orientation.SAUV;
-            reason = 'Scores critiques détectés';
-          } else {
-            suggestion = complaint.primaryOrientation as Orientation;
-            reason = `Motif multi-catégorie: ${complaint.category}`;
-          }
+      return res.json({
+        suggestion: patient.suggestedOrientation as Orientation,
+        source: (patient.orientationSource as OrientationSource) || OrientationSource.MANUAL,
+        reason: patient.orientationReason || '',
+        scores: {
+          news: patient.newsScore,
+          gcs: patient.gcsScore,
+          qsofa: patient.qsofaScore,
+          esi: patient.esiLevel
         }
-      }
+      });
     }
 
-    // 3. Override with score-based rules if critical
-    if (source !== OrientationSource.SCORE_BASED) {
-      if ((patient.newsScore && patient.newsScore >= 7) ||
-          (patient.gcsScore && patient.gcsScore < 9)) {
-        suggestion = Orientation.SAUV;
-        source = OrientationSource.SCORE_BASED;
-        reason = 'Scores critiques (NEWS ≥7 ou GCS <9)';
-      }
-    }
+    // No stored orientation — run full analysis via the matcher
+    const airway = patient.abcdeAirway ? JSON.parse(patient.abcdeAirway) : {};
+    const breathing = patient.abcdeBreathing ? JSON.parse(patient.abcdeBreathing) : {};
+    const circulation = patient.abcdeCirculation ? JSON.parse(patient.abcdeCirculation) : {};
+    const disability = patient.abcdeDisability ? JSON.parse(patient.abcdeDisability) : {};
+    const exposure = patient.abcdeExposure ? JSON.parse(patient.abcdeExposure) : {};
+
+    const vitals = {
+      heartRate: patient.heartRate ?? undefined,
+      systolicBP: patient.systolicBP ?? undefined,
+      diastolicBP: patient.diastolicBP ?? undefined,
+      respiratoryRate: patient.respiratoryRate ?? undefined,
+      oxygenSaturation: patient.oxygenSaturation ?? undefined,
+      temperature: patient.temperature ?? undefined,
+      gcsScore: patient.gcsScore ?? undefined,
+      painLevel: patient.painLevel ?? undefined,
+      glucoseLevel: patient.glucoseLevel ?? undefined,
+    };
+
+    const scores = {
+      news: patient.newsScore || undefined,
+      gcs: patient.gcsScore || undefined,
+      qsofa: patient.qsofaScore || undefined,
+      esi: patient.esiLevel || undefined
+    };
+
+    const result = await matchFindingsToPathologies(
+      airway, breathing, circulation, disability, exposure,
+      vitals, scores,
+    );
+
+    // Store results for future calls
+    await db.update(patients).set({
+      matchedPathologies: JSON.stringify(result.topMatches),
+      suggestedNursingInterventions: JSON.stringify(result.suggestedNursingInterventions),
+      suggestedMedicalInterventions: JSON.stringify(result.suggestedMedicalInterventions),
+      suggestedOrientation: result.suggestedOrientation,
+      orientationSource: result.orientationSource,
+      orientationReason: result.orientationReason,
+      analysisTimestamp: result.analysisTimestamp,
+      updatedAt: new Date().toISOString()
+    }).where(eq(patients.id, id));
 
     res.json({
-      suggestion,
-      source,
-      reason,
+      suggestion: result.suggestedOrientation as Orientation,
+      source: result.orientationSource as OrientationSource,
+      reason: result.orientationReason,
       scores: {
         news: patient.newsScore,
         gcs: patient.gcsScore,

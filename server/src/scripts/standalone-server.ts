@@ -12,8 +12,6 @@ import { usersRouter } from '../api/routes/users';
 import { configRouter } from '../api/routes/config';
 import { scheduleRouter } from '../api/routes/schedule';
 import { boxAssignmentsRouter } from '../api/routes/box-assignments';
-import { pathologiesRouter } from '../api/routes/pathologies';
-import { interventionsRouter } from '../api/routes/interventions';
 import { syncRouter } from '../api/routes/sync';
 import { authMiddleware } from '../api/middleware/auth';
 
@@ -61,8 +59,6 @@ app.use('/api/users', authMiddleware, usersRouter);
 app.use('/api/config', authMiddleware, configRouter);
 app.use('/api/schedule', authMiddleware, scheduleRouter);
 app.use('/api/box-assignments', authMiddleware, boxAssignmentsRouter);
-app.use('/api/pathologies', authMiddleware, pathologiesRouter);
-app.use('/api/interventions', authMiddleware, interventionsRouter);
 app.use('/api/sync', authMiddleware, syncRouter);
 
 // Start server

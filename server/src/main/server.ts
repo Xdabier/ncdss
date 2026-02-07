@@ -6,8 +6,6 @@ import { usersRouter } from '../api/routes/users';
 import { syncRouter } from '../api/routes/sync';
 import { configRouter } from '../api/routes/config';
 import { scheduleRouter } from '../api/routes/schedule';
-import { pathologiesRouter } from '../api/routes/pathologies';
-import { interventionsRouter } from '../api/routes/interventions';
 import { boxAssignmentsRouter } from '../api/routes/box-assignments';
 import { patientsRouter } from '../api/routes/patients';
 import { statsRouter } from '../api/routes/stats';
@@ -73,8 +71,6 @@ export async function startServer(port: number): Promise<void> {
   app.use('/api/sync', authMiddleware, syncRouter);
   app.use('/api/config', authMiddleware, configRouter);
   app.use('/api/schedule', authMiddleware, scheduleRouter);
-  app.use('/api/pathologies', authMiddleware, pathologiesRouter);
-  app.use('/api/interventions', authMiddleware, interventionsRouter);
   app.use('/api/box-assignments', authMiddleware, boxAssignmentsRouter);
   app.use('/api/patients', authMiddleware, patientsRouter);
   app.use('/api/stats', authMiddleware, statsRouter);
