@@ -284,6 +284,81 @@ export const clinicalPathologies = sqliteTable('clinical_pathologies', {
 export const abcdeInterventions = clinicalPathologies;
 
 // ============================================================================
+// NEW CLINICAL DATA TABLES (Language-Agnostic Pathology Matching)
+// ============================================================================
+
+export const pathologies = sqliteTable('pathologies', {
+  pathologyId: text('pathology_id').primaryKey(),
+  icd10Code: text('icd10_code').notNull(),
+  abcdeCategory: text('abcde_category').notNull(),
+  nameFr: text('name_fr').notNull(),
+  nameEn: text('name_en'),
+  triagePriority: text('triage_priority').notNull(),
+  departmentCodes: text('department_codes'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const pathologySymptoms = sqliteTable('pathology_symptoms', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  pathologyId: text('pathology_id')
+    .notNull()
+    .references(() => pathologies.pathologyId),
+  symptomCode: text('symptom_code').notNull(),
+  descriptionFr: text('description_fr').notNull(),
+  descriptionEn: text('description_en'),
+  isVitalSign: integer('is_vital_sign', { mode: 'boolean' }).notNull().default(false),
+  vitalOperator: text('vital_operator'),
+  vitalValue: real('vital_value'),
+  vitalUnit: text('vital_unit'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const nursingInterventions = sqliteTable('nursing_interventions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  pathologyId: text('pathology_id')
+    .notNull()
+    .references(() => pathologies.pathologyId),
+  interventionCode: text('intervention_code').notNull(),
+  descriptionFr: text('description_fr').notNull(),
+  descriptionEn: text('description_en'),
+  priorityOrder: integer('priority_order').notNull(),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const medicalInterventions = sqliteTable('medical_interventions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  pathologyId: text('pathology_id')
+    .notNull()
+    .references(() => pathologies.pathologyId),
+  interventionCode: text('intervention_code').notNull(),
+  descriptionFr: text('description_fr').notNull(),
+  descriptionEn: text('description_en'),
+  isSurgical: integer('is_surgical', { mode: 'boolean' }).notNull().default(false),
+  priorityOrder: integer('priority_order').notNull(),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ============================================================================
 // PRESCRIPTIONS
 // ============================================================================
 
