@@ -13,6 +13,9 @@ export * from './types/patient';
 // ABCDE Assessment types
 export * from './types/abcde';
 
+// Clinical data types (language-agnostic pathology matching)
+export * from './types/clinical';
+
 // Prescription & Diagnosis types
 export * from './types/prescription';
 

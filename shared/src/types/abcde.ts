@@ -12,6 +12,8 @@ export interface AirwayObservations {
   obstructed: boolean;         // Obstruction
   secretions: boolean;         // Sécrétions
   stridor: boolean;            // Stridor
+  drooling?: boolean;          // Hypersalivation
+  dysphagia?: boolean;         // Difficulté à avaler
   painLevel?: number;          // EVA 0-10
   notes?: string;
 }
@@ -23,6 +25,7 @@ export interface BreathingObservations {
   workOfBreathing: 'normal' | 'increased' | 'severe';
   cyanosis: boolean;
   accessoryMuscles: boolean;   // Utilisation muscles accessoires
+  hemoptysis?: boolean;        // Hémoptysie (crachats de sang)
   notes?: string;
 }
 
@@ -36,6 +39,8 @@ export interface CirculationObservations {
   peripheralPulses: 'strong' | 'weak' | 'absent';
   bleeding: boolean;
   coldExtremities: boolean;    // Extrémités froides
+  jvd?: boolean;               // Distension jugulaire
+  oliguria?: boolean;          // Oligurie (faible débit urinaire)
   notes?: string;
 }
 
@@ -49,6 +54,7 @@ export interface DisabilityObservations {
   glucoseLevel?: number;       // mg/dL
   seizures: boolean;
   confusion: boolean;
+  headache?: boolean;          // Céphalée sévère soudaine
   notes?: string;
 }
 
@@ -61,6 +67,7 @@ export interface ExposureObservations {
   traumaSigns: boolean;
   hypothermia: boolean;        // Temp < 35°C
   hyperthermia: boolean;       // Temp > 39°C
+  vomiting?: boolean;          // Vomissements
   findings: string[];          // Free text list of findings
   notes?: string;
 }
@@ -86,100 +93,10 @@ export interface ExtractedSigns {
 }
 
 // =============================================================================
-// CLINICAL PATHOLOGY (Reference data from database)
-// =============================================================================
-
-export interface ClinicalPathology {
-  id: number;
-  pathologyName: string;
-  pathologyNameNormalized: string;
-  abcdeCategory: string;       // A, B, C, D, E, or GENERAL
-  severitySigns: string[];
-  nursingInterventions: string[];
-  medicalInterventions: string[];
-  dosageFormulas?: string;
-  orientation?: string;        // Raw: "SAUV / Médical"
-  primaryOrientation: string;  // Mapped: SAUV, MEDICAL, SURGICAL, TRAUMA
-  secondaryOrientation?: string;
-  isSAUV: boolean;
-}
-
-// =============================================================================
-// PATHOLOGY MATCH RESULT (Output from matching algorithm)
-// =============================================================================
-
-export interface PathologyMatch {
-  pathologyId: number;
-  pathologyName: string;
-  abcdeCategory: string;
-  matchScore: number;          // 0-100
-  matchedSigns: string[];      // Signs that matched this pathology
-  totalSigns: number;          // Total severity signs for this pathology
-  nursingInterventions: string[];
-  medicalInterventions: string[];
-  dosageFormulas?: string;
-  orientation?: string;
-  primaryOrientation: string;
-  isSAUV: boolean;
-}
-
-// =============================================================================
-// ANALYSIS RESULT (Complete output from clinical decision support)
-// =============================================================================
-
-export type OrientationSourceType =
-  | 'SCORE_BASED'           // NEWS/GCS/qSOFA critical thresholds
-  | 'PATHOLOGY_MATCH'       // Top matched pathology
-  | 'CHIEF_COMPLAINT'       // From presenting complaint category
-  | 'MANUAL';               // Nurse override
-
-export interface AnalysisResult {
-  // Matched pathologies ranked by score
-  topMatches: PathologyMatch[];
-
-  // Aggregated suggested interventions
-  suggestedNursingInterventions: string[];
-  suggestedMedicalInterventions: string[];
-
-  // Orientation suggestion
-  suggestedOrientation: string;
-  orientationSource: OrientationSourceType;
-  orientationReason: string;
-
-  // Critical alerts requiring immediate attention
-  criticalAlerts: string[];
-
-  // Clinical scores at time of analysis
-  scores: {
-    news?: number;
-    gcs?: number;
-    qsofa?: number;
-    esi?: number;
-  };
-
-  // Metadata
-  analysisTimestamp: string;
-  extractedSignsCount: number;
-  matchedPathologiesCount: number;
-}
-
-// =============================================================================
-// PRESENTING COMPLAINT (Chief complaint / Motif de consultation)
-// =============================================================================
-
-export interface PresentingComplaint {
-  id: number;
-  name: string;
-  nameNormalized: string;
-  category: string;            // Original: "Médical / SAUV"
-  primaryOrientation: string;  // Mapped: SAUV, MEDICAL, etc.
-  secondaryOrientation?: string;
-  isMultiCategory: boolean;
-}
-
-// =============================================================================
 // API REQUEST/RESPONSE TYPES
 // =============================================================================
+
+import type { ClinicalAnalysisResult } from './clinical';
 
 export interface AnalyzeFindingsRequest {
   patientId: string;
@@ -187,7 +104,7 @@ export interface AnalyzeFindingsRequest {
   forceReanalyze?: boolean;
 }
 
-export interface AnalyzeFindingsResponse extends AnalysisResult {
+export interface AnalyzeFindingsResponse extends ClinicalAnalysisResult {
   patientId: string;
   patientName: string;
   chiefComplaint?: string;
@@ -197,5 +114,5 @@ export interface SaveSelectedInterventionsRequest {
   patientId: string;
   nursingInterventions: string[];
   medicalInterventions: string[];
-  selectedPathologyIds: number[];
+  selectedPathologyIds: string[];
 }
