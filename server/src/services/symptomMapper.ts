@@ -43,12 +43,27 @@ function mapAirway(
   observedCodes: Set<string>,
   criticalCodes: Set<string>
 ): void {
-  if (data.patent === false) {
-    addCodes(observedCodes, criticalCodes, [{ code: 'SYM_AIRWAY_COMPROMISED', critical: true }]);
+  // New airwayStatus field takes priority over legacy patent/obstructed booleans
+  if (data.airwayStatus != null) {
+    if (data.airwayStatus === 'at_risk') {
+      addCodes(observedCodes, criticalCodes, [{ code: 'SYM_AIRWAY_AT_RISK', critical: false }]);
+    } else if (data.airwayStatus === 'obstructed') {
+      addCodes(observedCodes, criticalCodes, [
+        { code: 'SYM_AIRWAY_OBSTRUCTION', critical: true },
+        { code: 'SYM_AIRWAY_COMPROMISED', critical: true },
+      ]);
+    }
+    // 'patent' → no code (normal state)
+  } else {
+    // Legacy fallback
+    if (data.patent === false) {
+      addCodes(observedCodes, criticalCodes, [{ code: 'SYM_AIRWAY_COMPROMISED', critical: true }]);
+    }
+    if (data.obstructed) {
+      addCodes(observedCodes, criticalCodes, [{ code: 'SYM_AIRWAY_OBSTRUCTION', critical: true }]);
+    }
   }
-  if (data.obstructed) {
-    addCodes(observedCodes, criticalCodes, [{ code: 'SYM_AIRWAY_OBSTRUCTION', critical: true }]);
-  }
+
   if (data.secretions) {
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_SECRETIONS', critical: false }]);
   }
@@ -61,6 +76,27 @@ function mapAirway(
   if (data.dysphagia) {
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_DYSPHAGIA', critical: false }]);
   }
+
+  // Pain location (P1.2)
+  if (data.painLocation && data.painLocation.length > 0) {
+    const painMap: Record<string, string> = {
+      thoracic: 'SYM_CHEST_PAIN',
+      abdominal: 'SYM_ABDOMINAL_PAIN',
+      cephalic: 'SYM_HEADACHE',
+      neurologic: 'SYM_NEUROLOGIC_PAIN',
+      orthopedic: 'SYM_ORTHOPEDIC_PAIN',
+      muscular: 'SYM_MUSCULAR_PAIN',
+      limbs: 'SYM_LIMB_PAIN',
+      facial: 'SYM_FACIAL_PAIN',
+      oral: 'SYM_ORAL_PAIN',
+    };
+    for (const loc of data.painLocation) {
+      const code = painMap[loc];
+      if (code) {
+        addCodes(observedCodes, criticalCodes, [{ code, critical: false }]);
+      }
+    }
+  }
 }
 
 function mapBreathing(
@@ -68,14 +104,36 @@ function mapBreathing(
   observedCodes: Set<string>,
   criticalCodes: Set<string>
 ): void {
-  if (data.breathSounds === 'wheezing') {
-    addCodes(observedCodes, criticalCodes, [{ code: 'SYM_WHEEZING', critical: false }]);
-  } else if (data.breathSounds === 'crackles') {
-    addCodes(observedCodes, criticalCodes, [{ code: 'SYM_CRACKLES', critical: false }]);
-  } else if (data.breathSounds === 'decreased') {
-    addCodes(observedCodes, criticalCodes, [{ code: 'SYM_BREATH_SOUNDS_DECREASED', critical: false }]);
-  } else if (data.breathSounds === 'absent') {
-    addCodes(observedCodes, criticalCodes, [{ code: 'SYM_BREATH_SOUNDS_ABSENT', critical: true }]);
+  // New multi-select breath sounds takes priority over legacy single-select
+  if (data.breathSoundsMulti && data.breathSoundsMulti.length > 0) {
+    const breathSoundsMap: Record<string, CodeMapping | null> = {
+      stridor: { code: 'SYM_STRIDOR', critical: true },
+      wheezing: { code: 'SYM_WHEEZING', critical: false },
+      crackles: { code: 'SYM_CRACKLES', critical: false },
+      snoring: { code: 'SYM_SNORING', critical: false },
+      gurgling: { code: 'SYM_GURGLING', critical: true },
+      decreased: { code: 'SYM_BREATH_SOUNDS_DECREASED', critical: false },
+      absent: { code: 'SYM_BREATH_SOUNDS_ABSENT', critical: true },
+      gasping: { code: 'SYM_GASPING', critical: true },
+      normal: null,
+    };
+    for (const sound of data.breathSoundsMulti) {
+      const mapping = breathSoundsMap[sound];
+      if (mapping) {
+        addCodes(observedCodes, criticalCodes, [mapping]);
+      }
+    }
+  } else {
+    // Legacy single-select fallback
+    if (data.breathSounds === 'wheezing') {
+      addCodes(observedCodes, criticalCodes, [{ code: 'SYM_WHEEZING', critical: false }]);
+    } else if (data.breathSounds === 'crackles') {
+      addCodes(observedCodes, criticalCodes, [{ code: 'SYM_CRACKLES', critical: false }]);
+    } else if (data.breathSounds === 'decreased') {
+      addCodes(observedCodes, criticalCodes, [{ code: 'SYM_BREATH_SOUNDS_DECREASED', critical: false }]);
+    } else if (data.breathSounds === 'absent') {
+      addCodes(observedCodes, criticalCodes, [{ code: 'SYM_BREATH_SOUNDS_ABSENT', critical: true }]);
+    }
   }
 
   if (data.workOfBreathing === 'increased') {
@@ -93,6 +151,14 @@ function mapBreathing(
   if (data.hemoptysis) {
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_HEMOPTYSIS', critical: false }]);
   }
+
+  // New breathing fields
+  if (data.nasalFlaring) {
+    addCodes(observedCodes, criticalCodes, [{ code: 'SYM_NASAL_FLARING', critical: false }]);
+  }
+  if (data.apnea) {
+    addCodes(observedCodes, criticalCodes, [{ code: 'SYM_APNEA', critical: true }]);
+  }
 }
 
 function mapCirculation(
@@ -100,12 +166,30 @@ function mapCirculation(
   observedCodes: Set<string>,
   criticalCodes: Set<string>
 ): void {
-  if (data.skinColor === 'pale') {
-    addCodes(observedCodes, criticalCodes, [{ code: 'SYM_PALLOR', critical: false }]);
-  } else if (data.skinColor === 'cyanotic') {
-    addCodes(observedCodes, criticalCodes, [{ code: 'SYM_PERIPHERAL_CYANOSIS', critical: true }]);
-  } else if (data.skinColor === 'mottled') {
-    addCodes(observedCodes, criticalCodes, [{ code: 'SYM_MOTTLING', critical: true }]);
+  // New multi-select skin color takes priority over legacy single-select
+  if (data.skinColorMulti && data.skinColorMulti.length > 0) {
+    const skinMap: Record<string, CodeMapping | null> = {
+      pale: { code: 'SYM_PALLOR', critical: false },
+      cyanotic: { code: 'SYM_PERIPHERAL_CYANOSIS', critical: true },
+      mottled: { code: 'SYM_MOTTLING', critical: true },
+      normal: null,
+      flushed: null,
+    };
+    for (const color of data.skinColorMulti) {
+      const mapping = skinMap[color];
+      if (mapping) {
+        addCodes(observedCodes, criticalCodes, [mapping]);
+      }
+    }
+  } else {
+    // Legacy single-select fallback
+    if (data.skinColor === 'pale') {
+      addCodes(observedCodes, criticalCodes, [{ code: 'SYM_PALLOR', critical: false }]);
+    } else if (data.skinColor === 'cyanotic') {
+      addCodes(observedCodes, criticalCodes, [{ code: 'SYM_PERIPHERAL_CYANOSIS', critical: true }]);
+    } else if (data.skinColor === 'mottled') {
+      addCodes(observedCodes, criticalCodes, [{ code: 'SYM_MOTTLING', critical: true }]);
+    }
   }
 
   if (data.peripheralPulses === 'weak') {
@@ -114,9 +198,37 @@ function mapCirculation(
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_ABSENT_PULSES', critical: true }]);
   }
 
-  if (data.bleeding) {
+  // New multi-select bleeding type takes priority over legacy boolean
+  if (data.bleedingType && data.bleedingType.length > 0) {
+    // Any bleeding selection always emits the generic bleeding code
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_ACTIVE_BLEEDING', critical: true }]);
+    const bleedingMap: Record<string, CodeMapping | null> = {
+      internal: { code: 'SYM_INTERNAL_BLEEDING', critical: true },
+      epistaxis: { code: 'SYM_EPISTAXIS', critical: false },
+      hemoptysis: { code: 'SYM_HEMOPTYSIS', critical: false },
+      hematemesis: { code: 'SYM_HEMATEMESIS', critical: true },
+      gingival: { code: 'SYM_GINGIVAL_BLEEDING', critical: false },
+      melena: { code: 'SYM_MELENA', critical: false },
+      hematuria: { code: 'SYM_HEMATURIA', critical: false },
+      otorrhagia: { code: 'SYM_OTORRHAGIA', critical: false },
+      rhinorrhagia: { code: 'SYM_RHINORRHAGIA', critical: false },
+      metrorrhagia: { code: 'SYM_METRORRHAGIA', critical: false },
+      ocular: { code: 'SYM_OCULAR_HEMORRHAGE', critical: false },
+      other: null,
+    };
+    for (const type of data.bleedingType) {
+      const mapping = bleedingMap[type];
+      if (mapping) {
+        addCodes(observedCodes, criticalCodes, [mapping]);
+      }
+    }
+  } else {
+    // Legacy boolean fallback
+    if (data.bleeding) {
+      addCodes(observedCodes, criticalCodes, [{ code: 'SYM_ACTIVE_BLEEDING', critical: true }]);
+    }
   }
+
   if (data.coldExtremities) {
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_COLD_EXTREMITIES', critical: false }]);
   }
@@ -125,6 +237,14 @@ function mapCirculation(
   }
   if (data.oliguria) {
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_OLIGURIA', critical: false }]);
+  }
+
+  // New circulation fields
+  if (data.diaphoresis) {
+    addCodes(observedCodes, criticalCodes, [{ code: 'SYM_DIAPHORESIS', critical: false }]);
+  }
+  if (data.cardiacAuscultation === 'murmur') {
+    addCodes(observedCodes, criticalCodes, [{ code: 'SYM_CARDIAC_MURMUR', critical: false }]);
   }
 }
 
@@ -137,6 +257,8 @@ function mapDisability(
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_ANISOCORIA', critical: true }]);
   } else if (data.pupils === 'dilated') {
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_MYDRIASIS', critical: false }]);
+  } else if (data.pupils === 'constricted') {
+    addCodes(observedCodes, criticalCodes, [{ code: 'SYM_MIOSIS', critical: false }]);
   } else if (data.pupils === 'fixed') {
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_FIXED_PUPILS', critical: true }]);
   }
@@ -158,6 +280,11 @@ function mapDisability(
   if (data.headache) {
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_HEADACHE', critical: false }]);
   }
+
+  // Pupil light reactivity (P2.2)
+  if (data.pupilReactivity === false) {
+    addCodes(observedCodes, criticalCodes, [{ code: 'SYM_PUPIL_NONREACTIVE', critical: true }]);
+  }
 }
 
 function mapExposure(
@@ -168,20 +295,70 @@ function mapExposure(
   if (data.burns) {
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_BURNS', critical: true }]);
   }
-  if (data.traumaSigns) {
+
+  // New multi-select trauma type takes priority over legacy boolean
+  if (data.traumaType && data.traumaType.length > 0) {
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_TRAUMA_SIGNS', critical: false }]);
+    const traumaMap: Record<string, CodeMapping> = {
+      cranial: { code: 'SYM_TRAUMA_CRANIAL', critical: true },
+      maxillofacial: { code: 'SYM_TRAUMA_MAXILLOFACIAL', critical: false },
+      thoracic: { code: 'SYM_TRAUMA_THORACIC', critical: true },
+      pelvic: { code: 'SYM_TRAUMA_PELVIC', critical: true },
+      limbs: { code: 'SYM_TRAUMA_LIMBS', critical: false },
+      spinal: { code: 'SYM_TRAUMA_SPINAL', critical: true },
+    };
+    for (const type of data.traumaType) {
+      const mapping = traumaMap[type];
+      if (mapping) {
+        addCodes(observedCodes, criticalCodes, [mapping]);
+      }
+    }
+  } else {
+    // Legacy boolean fallback
+    if (data.traumaSigns) {
+      addCodes(observedCodes, criticalCodes, [{ code: 'SYM_TRAUMA_SIGNS', critical: false }]);
+    }
   }
+
   if (data.wounds) {
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_WOUNDS', critical: false }]);
   }
-  if (data.edema) {
+
+  // New multi-select edema type takes priority over legacy boolean
+  if (data.edemaType && data.edemaType.length > 0) {
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_EDEMA', critical: false }]);
+    const edemaMap: Record<string, CodeMapping> = {
+      angioedema: { code: 'SYM_ANGIOEDEMA', critical: true },
+      lower_limbs: { code: 'SYM_PERIPHERAL_EDEMA', critical: false },
+      upper_limbs: { code: 'SYM_PERIPHERAL_EDEMA', critical: false },
+      ascites: { code: 'SYM_ASCITES', critical: false },
+    };
+    for (const type of data.edemaType) {
+      const mapping = edemaMap[type];
+      if (mapping) {
+        addCodes(observedCodes, criticalCodes, [mapping]);
+      }
+    }
+  } else {
+    // Legacy boolean fallback
+    if (data.edema) {
+      addCodes(observedCodes, criticalCodes, [{ code: 'SYM_EDEMA', critical: false }]);
+    }
   }
+
   if (data.rash) {
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_RASH', critical: false }]);
   }
   if (data.vomiting) {
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_VOMITING', critical: false }]);
+  }
+
+  // New exposure fields (P1.6)
+  if (data.electrocution) {
+    addCodes(observedCodes, criticalCodes, [{ code: 'SYM_ELECTROCUTION', critical: true }]);
+  }
+  if (data.intoxication) {
+    addCodes(observedCodes, criticalCodes, [{ code: 'SYM_INTOXICATION', critical: true }]);
   }
 }
 
