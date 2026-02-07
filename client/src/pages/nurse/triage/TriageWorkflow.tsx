@@ -4,10 +4,9 @@ import {
   ArrowLeft,
   AlertTriangle,
   Heart,
-  Brain,
   Thermometer,
   ClipboardList,
-  FileText,
+  Stethoscope,
   Save,
   Loader2,
 } from 'lucide-react';
@@ -15,21 +14,31 @@ import { DashboardLayout } from '../../../components/layout/DashboardLayout';
 import { Button } from '../../../components/ui/button';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { VitalsForm, VitalsData } from '../../../components/abcde/VitalsForm';
-import { AirwayForm } from '../../../components/abcde/AirwayForm';
-import { BreathingForm } from '../../../components/abcde/BreathingForm';
-import { CirculationForm } from '../../../components/abcde/CirculationForm';
-import { DisabilityForm } from '../../../components/abcde/DisabilityForm';
 import { ExposureForm } from '../../../components/abcde/ExposureForm';
 import { MedicalHistoryForm, MedicalHistoryData } from '../../../components/abcde/MedicalHistoryForm';
-import { TriageAccordion } from '../../../components/triage/TriageAccordion';
+import { SymptomsForm } from '../../../components/abcde/SymptomsForm';
+import { TriageAccordion, useTriageAccordion } from '../../../components/triage/TriageAccordion';
 import { TriageAccordionSection } from '../../../components/triage/TriageAccordionSection';
+import { TriageTabNav } from '../../../components/triage/TriageTabNav';
 import { ScoreBar } from '../../../components/triage/ScoreBar';
 import { DecisionPanel, OrientationSuggestion } from '../../../components/triage/DecisionPanel';
+import { splitSymptomsToABCDE, extractSymptomsFromABCDE } from '../../../utils/symptomsMapper';
 import { getApi } from '../../../services/api';
 import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, Orientation as OrientationType, OrientationSource, API_ROUTES } from '@ncdss/shared';
-import type { ClinicalAnalysisResult } from '@ncdss/shared';
+import type { ClinicalAnalysisResult, SymptomsFormData } from '@ncdss/shared';
 import { suggestESI } from '../../../utils/scoreUtils';
+
+// ---------------------------------------------------------------------------
+// Section metadata
+// ---------------------------------------------------------------------------
+
+const sectionsMeta = [
+  { id: 'signes-vitaux', label: 'Signes vitaux', icon: Heart },
+  { id: 'symptomes', label: 'Symptomes', icon: Stethoscope },
+  { id: 'etat-general', label: 'Etat general', icon: Thermometer },
+  { id: 'antecedents', label: 'Antecedents', icon: ClipboardList },
+];
 
 // ---------------------------------------------------------------------------
 // Critical findings helpers
@@ -45,21 +54,19 @@ function hasCriticalVitals(vitals: Record<string, any>): boolean {
   );
 }
 
-function hasCriticalABCDE(abcde: Record<string, any>, vitals: Record<string, any>): boolean {
-  const A = abcde.A || {};
-  const B = abcde.B || {};
-  const C = abcde.C || {};
-  const D = abcde.D || {};
+function hasCriticalABCDE(symptoms: Partial<SymptomsFormData>, abcde: Record<string, any>, vitals: Record<string, any>): boolean {
   const E = abcde.E || {};
-
   const gcs = (vitals.gcsEye || 0) + (vitals.gcsVerbal || 0) + (vitals.gcsMotor || 0);
 
   return !!(
-    A.obstructed || A.stridor ||
-    B.cyanosis || B.breathSounds === 'absent' || B.workOfBreathing === 'severe' ||
-    C.bleeding || C.skinColor === 'mottled' || C.skinColor === 'cyanotic' || C.peripheralPulses === 'absent' ||
-    D.seizures || D.pupils === 'unequal' || D.pupils === 'fixed' || D.motorResponse === 'paralysis' || D.motorResponse === 'lateralized' ||
+    symptoms.airwayStatus === 'obstrue' ||
+    symptoms.breathSoundsDetail?.includes('stridor') ||
+    symptoms.signesCutanes?.includes('cyanose') ||
+    symptoms.pauseRespiratoire ||
+    symptoms.bleedingInterne || symptoms.bleedingExteriorisee ||
+    symptoms.pupilSymmetry === 'asymetrique' ||
     (gcs > 0 && gcs <= 8) ||
+    symptoms.burns ||
     E.burns
   );
 }
@@ -72,22 +79,22 @@ function countFilledFields(data: Record<string, any>): number {
 
 function countTotalFields(sectionId: string): number {
   switch (sectionId) {
-    case 'signes-vitaux': return 11; // vitals fields
-    case 'voies-neuro': return 10; // A + D fields
-    case 'etat-general': return 8; // E fields
-    case 'antecedents': return 5; // history fields
-    case 'notes': return 1;
+    case 'signes-vitaux': return 11;
+    case 'symptomes': return 15;
+    case 'etat-general': return 8;
+    case 'antecedents': return 6;
     default: return 1;
   }
 }
 
 // ---------------------------------------------------------------------------
-// Main component
+// Inner component (has access to TriageAccordion context)
 // ---------------------------------------------------------------------------
 
-export default function TriageWorkflow(): React.ReactElement {
+function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: React.MutableRefObject<(id: string) => void> }): React.ReactElement {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { openSections, openSection } = useTriageAccordion();
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
@@ -101,11 +108,9 @@ export default function TriageWorkflow(): React.ReactElement {
   const [abcdeData, setAbcdeData] = useState<Record<string, any>>({
     A: {}, B: {}, C: {}, D: {}, E: {},
   });
+  const [symptomsData, setSymptomsData] = useState<Partial<SymptomsFormData>>({});
 
-  // Unified notes (stored in abcdeData.E.notes)
-  const [triageNotes, setTriageNotes] = useState('');
-
-  // Decision state (from TriageComplete)
+  // Decision state
   const [analysis, setAnalysis] = useState<ClinicalAnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [suggestedESI, setSuggestedESI] = useState<number | null>(null);
@@ -117,17 +122,47 @@ export default function TriageWorkflow(): React.ReactElement {
   // Per-section dirty tracking
   const dirtyRef = useRef<Record<string, boolean>>({
     'signes-vitaux': false,
-    'voies-neuro': false,
+    'symptomes': false,
     'etat-general': false,
     'antecedents': false,
-    'notes': false,
   });
+
+  // Section refs for scroll-to
+  const signesVitauxRef = useRef<HTMLDivElement>(null);
+  const symptomesRef = useRef<HTMLDivElement>(null);
+  const etatGeneralRef = useRef<HTMLDivElement>(null);
+  const antecedentsRef = useRef<HTMLDivElement>(null);
+  const sectionRefs: Record<string, React.RefObject<HTMLDivElement>> = {
+    'signes-vitaux': signesVitauxRef,
+    'symptomes': symptomesRef,
+    'etat-general': etatGeneralRef,
+    'antecedents': antecedentsRef,
+  };
 
   // Analysis debounce
   const analysisTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-save interval
   const autoSaveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // -----------------------------------------------------------------------
+  // Tab navigation
+  // -----------------------------------------------------------------------
+
+  const activeSection = (() => {
+    for (const s of sectionsMeta) {
+      if (openSections.has(s.id)) return s.id;
+    }
+    return null;
+  })();
+
+  const handleTabClick = useCallback((sectionId: string) => {
+    openSection(sectionId);
+    const ref = sectionRefs[sectionId];
+    setTimeout(() => {
+      ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }, [openSection]);
 
   // -----------------------------------------------------------------------
   // Patient loading
@@ -157,6 +192,7 @@ export default function TriageWorkflow(): React.ReactElement {
         allergies: p.allergies ?? undefined,
         chronicConditions: parsedChronicConditions,
         currentMedications: parsedCurrentMedications,
+        medicalHistoryNotes: p.medicalHistoryNotes ?? undefined,
       });
 
       // Initialise vitals from flat fields
@@ -184,8 +220,11 @@ export default function TriageWorkflow(): React.ReactElement {
       };
       setAbcdeData(parsedAbcde);
 
-      // Load unified notes from E.notes
-      setTriageNotes(parsedAbcde.E?.notes || '');
+      // Extract symptoms from ABCDE data
+      const symptoms = extractSymptomsFromABCDE(
+        parsedAbcde.A, parsedAbcde.B, parsedAbcde.C, parsedAbcde.D, parsedAbcde.E
+      );
+      setSymptomsData(symptoms);
 
       // Load ESI and orientation
       setSelectedESI(p.esiLevel ?? null);
@@ -239,14 +278,14 @@ export default function TriageWorkflow(): React.ReactElement {
   useEffect(() => {
     autoSaveIntervalRef.current = setInterval(() => {
       saveAllDirty();
-    }, 60000); // Every 60 seconds
+    }, 60000);
 
     return () => {
       if (autoSaveIntervalRef.current) {
         clearInterval(autoSaveIntervalRef.current);
       }
     };
-  }, [id, medicalHistoryData, vitalsData, abcdeData, triageNotes]);
+  }, [id, medicalHistoryData, vitalsData, abcdeData, symptomsData]);
 
   // -----------------------------------------------------------------------
   // Analysis
@@ -260,7 +299,6 @@ export default function TriageWorkflow(): React.ReactElement {
       const analysisResponse = await api.post(API_ROUTES.patients.analyzeFindings(id), { forceReanalyze: force });
       setAnalysis(analysisResponse.data);
 
-      // Update orientation suggestion from analysis
       if (analysisResponse.data.suggestedOrientation) {
         const newSuggestion: OrientationSuggestion = {
           suggestion: analysisResponse.data.suggestedOrientation as OrientationType,
@@ -286,7 +324,6 @@ export default function TriageWorkflow(): React.ReactElement {
     }, 2000);
   }, [runAnalysis]);
 
-  // Cleanup timers
   useEffect(() => {
     return () => {
       if (analysisTimerRef.current) clearTimeout(analysisTimerRef.current);
@@ -306,7 +343,6 @@ export default function TriageWorkflow(): React.ReactElement {
 
         switch (sectionId) {
           case 'signes-vitaux': {
-            // Save vitals + breathing observations + circulation observations in parallel
             const vitals: Record<string, number | undefined> = {};
             if (vitalsData.temperature != null) vitals.temperature = vitalsData.temperature;
             if (vitalsData.heartRate != null) vitals.heartRate = vitalsData.heartRate;
@@ -320,15 +356,10 @@ export default function TriageWorkflow(): React.ReactElement {
             if (vitalsData.gcsVerbal != null) vitals.gcsVerbal = vitalsData.gcsVerbal;
             if (vitalsData.gcsMotor != null) vitals.gcsMotor = vitalsData.gcsMotor;
 
-            const results = await Promise.all([
-              api.put(API_ROUTES.patients.vitals(id), vitals),
-              api.put(API_ROUTES.patients.abcde(id, 'B'), abcdeData.B),
-              api.put(API_ROUTES.patients.abcde(id, 'C'), abcdeData.C),
-            ]);
-            setPatient(results[0].data);
+            const result = await api.put(API_ROUTES.patients.vitals(id), vitals);
+            setPatient(result.data);
 
-            // Update ESI suggestion after vitals save
-            const updatedPatient = results[0].data;
+            const updatedPatient = result.data;
             const esi = suggestESI({
               newsScore: updatedPatient.newsScore ?? undefined,
               gcsScore: updatedPatient.gcsScore ?? undefined,
@@ -338,19 +369,33 @@ export default function TriageWorkflow(): React.ReactElement {
             setSuggestedESI(esi);
             break;
           }
-          case 'voies-neuro': {
+          case 'symptomes': {
+            const splitResult = splitSymptomsToABCDE(symptomsData);
+            const mergedA = { ...abcdeData.A, ...splitResult.A };
+            const mergedB = { ...abcdeData.B, ...splitResult.B };
+            const mergedC = { ...abcdeData.C, ...splitResult.C };
+            const mergedD = { ...abcdeData.D, ...splitResult.D };
+            const mergedE = { ...abcdeData.E, ...splitResult.E };
+
+            const abcde = API_ROUTES.patients.abcde;
             const results = await Promise.all([
-              api.put(API_ROUTES.patients.abcde(id, 'A'), abcdeData.A),
-              api.put(API_ROUTES.patients.abcde(id, 'D'), abcdeData.D),
+              api.put(abcde(id, 'A'), mergedA),
+              api.put(abcde(id, 'B'), mergedB),
+              api.put(abcde(id, 'C'), mergedC),
+              api.put(abcde(id, 'D'), mergedD),
+              api.put(abcde(id, 'E'), mergedE),
             ]);
             setPatient(results[0].data);
+            setAbcdeData({ A: mergedA, B: mergedB, C: mergedC, D: mergedD, E: mergedE });
             break;
           }
           case 'etat-general': {
-            // Save E data with notes merged in
-            const eDataWithNotes = { ...abcdeData.E, notes: triageNotes };
-            const response = await api.put(API_ROUTES.patients.abcde(id, 'E'), eDataWithNotes);
+            // Merge E data with symptoms-owned E fields, preserving E.notes
+            const splitResult = splitSymptomsToABCDE(symptomsData);
+            const mergedE = { ...abcdeData.E, ...splitResult.E, notes: abcdeData.E?.notes };
+            const response = await api.put(API_ROUTES.patients.abcde(id, 'E'), mergedE);
             setPatient(response.data);
+            setAbcdeData(prev => ({ ...prev, E: mergedE }));
             break;
           }
           case 'antecedents': {
@@ -360,14 +405,8 @@ export default function TriageWorkflow(): React.ReactElement {
               allergies: medicalHistoryData.allergies,
               chronicConditions: medicalHistoryData.chronicConditions,
               currentMedications: medicalHistoryData.currentMedications,
+              medicalHistoryNotes: medicalHistoryData.medicalHistoryNotes,
             });
-            setPatient(response.data);
-            break;
-          }
-          case 'notes': {
-            // Save notes in E data
-            const eDataWithNotes = { ...abcdeData.E, notes: triageNotes };
-            const response = await api.put(API_ROUTES.patients.abcde(id, 'E'), eDataWithNotes);
             setPatient(response.data);
             break;
           }
@@ -380,7 +419,7 @@ export default function TriageWorkflow(): React.ReactElement {
         return false;
       }
     },
-    [id, medicalHistoryData, vitalsData, abcdeData, triageNotes],
+    [id, medicalHistoryData, vitalsData, abcdeData, symptomsData],
   );
 
   const saveAllDirty = useCallback(async () => {
@@ -417,6 +456,9 @@ export default function TriageWorkflow(): React.ReactElement {
     }
   }, [saveSection, debouncedRunAnalysis]);
 
+  // Bridge the collapse handler to the outer component's ref
+  collapseHandlerRef.current = handleSectionCollapse;
+
   // -----------------------------------------------------------------------
   // Form change handlers (mark dirty)
   // -----------------------------------------------------------------------
@@ -434,21 +476,16 @@ export default function TriageWorkflow(): React.ReactElement {
   const handleAbcdeChange = useCallback(
     (category: string, data: any) => {
       setAbcdeData((prev) => ({ ...prev, [category]: data }));
-      // Map category to section
-      if (category === 'B' || category === 'C') {
-        dirtyRef.current['signes-vitaux'] = true;
-      } else if (category === 'A' || category === 'D') {
-        dirtyRef.current['voies-neuro'] = true;
-      } else if (category === 'E') {
+      if (category === 'E') {
         dirtyRef.current['etat-general'] = true;
       }
     },
     [],
   );
 
-  const handleNotesChange = useCallback((notes: string) => {
-    setTriageNotes(notes);
-    dirtyRef.current['notes'] = true;
+  const handleSymptomsChange = useCallback((data: Partial<SymptomsFormData>) => {
+    setSymptomsData(data);
+    dirtyRef.current['symptomes'] = true;
   }, []);
 
   // -----------------------------------------------------------------------
@@ -495,15 +532,12 @@ export default function TriageWorkflow(): React.ReactElement {
     setError(null);
 
     try {
-      // Save all dirty sections first
       await saveAllDirty();
 
       const api = await getApi();
 
-      // Set ESI
       await api.put(API_ROUTES.patients.esi(id), { esiLevel: selectedESI });
 
-      // Complete triage
       await api.post(API_ROUTES.patients.completeTriage(id), {
         esiLevel: selectedESI,
         suggestedOrientation: suggestion?.suggestion,
@@ -538,20 +572,31 @@ export default function TriageWorkflow(): React.ReactElement {
         if (filled > 0) return <span className="text-green-600 text-xs">✓ {filled}/{countTotalFields(sectionId)}</span>;
         return <span className="text-gray-400 text-xs">── vide ──</span>;
       }
-      case 'voies-neuro': {
-        const filledA = countFilledFields(abcdeData.A || {});
-        const filledD = countFilledFields(abcdeData.D || {});
-        const total = filledA + filledD;
-        const critA = !!(abcdeData.A?.obstructed || abcdeData.A?.stridor);
-        const gcs = (vitalsData.gcsEye || 0) + (vitalsData.gcsVerbal || 0) + (vitalsData.gcsMotor || 0);
-        const critD = !!(abcdeData.D?.seizures || abcdeData.D?.pupils === 'unequal' || abcdeData.D?.pupils === 'fixed' || (gcs > 0 && gcs <= 8));
-        if (critA || critD) return <span className="text-red-600 font-medium text-xs">⚠ Critiques</span>;
-        if (total > 0) return <span className="text-green-600 text-xs">✓ {total} renseigne{total > 1 ? 's' : ''}</span>;
+      case 'symptomes': {
+        const filled = countFilledFields(symptomsData);
+        const critical = !!(
+          symptomsData.airwayStatus === 'obstrue' ||
+          symptomsData.bleedingInterne ||
+          symptomsData.bleedingExteriorisee ||
+          symptomsData.burns
+        );
+        if (critical) return <span className="text-red-600 font-medium text-xs">⚠ Critiques</span>;
+        if (filled > 0) return <span className="text-green-600 text-xs">✓ {filled} renseigne{filled > 1 ? 's' : ''}</span>;
         return <span className="text-gray-400 text-xs">── vide ──</span>;
       }
       case 'etat-general': {
-        const filled = countFilledFields(abcdeData.E || {});
-        const crit = !!(abcdeData.E?.burns || (vitalsData.temperature != null && (vitalsData.temperature < 35 || vitalsData.temperature > 39)));
+        const E = abcdeData.E || {};
+        let filled = 0;
+        if (E.rash) filled++;
+        if (E.vomiting) filled++;
+        if (E.diarrhea) filled++;
+        if (E.lastMeal) filled++;
+        if (E.wounds) filled++;
+        if (E.edemaType?.length) filled += E.edemaType.length;
+        if (E.burns) filled++;
+        if (E.traumaSigns) filled++;
+        if (E.notes) filled++;
+        const crit = !!E.burns;
         if (crit) return <span className="text-red-600 font-medium text-xs">⚠ Critiques</span>;
         if (filled > 0) return <span className="text-green-600 text-xs">✓ {filled} renseigne{filled > 1 ? 's' : ''}</span>;
         return <span className="text-gray-400 text-xs">── vide ──</span>;
@@ -562,19 +607,16 @@ export default function TriageWorkflow(): React.ReactElement {
           medicalHistoryData.symptomOnset ||
           medicalHistoryData.allergies ||
           (medicalHistoryData.chronicConditions && medicalHistoryData.chronicConditions.length > 0) ||
-          (medicalHistoryData.currentMedications && medicalHistoryData.currentMedications.length > 0)
+          (medicalHistoryData.currentMedications && medicalHistoryData.currentMedications.length > 0) ||
+          medicalHistoryData.medicalHistoryNotes
         );
         if (hasData) return <span className="text-green-600 text-xs">✓ Renseigne</span>;
-        return <span className="text-gray-400 text-xs">── vide ──</span>;
-      }
-      case 'notes': {
-        if (triageNotes.trim()) return <span className="text-green-600 text-xs">✓ Renseigne</span>;
         return <span className="text-gray-400 text-xs">── vide ──</span>;
       }
       default:
         return null;
     }
-  }, [vitalsData, abcdeData, medicalHistoryData, triageNotes]);
+  }, [vitalsData, abcdeData, symptomsData, medicalHistoryData]);
 
   // -----------------------------------------------------------------------
   // Render
@@ -582,268 +624,213 @@ export default function TriageWorkflow(): React.ReactElement {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
     );
   }
 
   if (!patient) {
     return (
-      <DashboardLayout>
-        <div className="p-6">
-          <Alert variant="destructive">
-            <AlertDescription>Patient non trouve</AlertDescription>
-          </Alert>
-        </div>
-      </DashboardLayout>
+      <div className="p-6">
+        <Alert variant="destructive">
+          <AlertDescription>Patient non trouve</AlertDescription>
+        </Alert>
+      </div>
     );
   }
 
-  // GCS total for display
-  const gcsTotal = (vitalsData.gcsEye || 0) + (vitalsData.gcsVerbal || 0) + (vitalsData.gcsMotor || 0);
-  const getGCSColor = (gcs: number): string => {
-    if (gcs === 0) return 'bg-gray-200 text-gray-600';
-    if (gcs <= 8) return 'bg-red-500 text-white';
-    if (gcs < 12) return 'bg-orange-500 text-white';
-    if (gcs < 15) return 'bg-yellow-500 text-black';
-    return 'bg-green-500 text-white';
-  };
+  return (
+    <div className="flex flex-col h-full">
+      {/* ============================================================= */}
+      {/* Sticky header: patient info + ScoreBar + TabNav               */}
+      {/* ============================================================= */}
+      <div className="sticky top-0 z-20 bg-white border-b shadow-sm">
+        {/* Patient info bar */}
+        <div className="px-4 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              onClick={() => navigate(CLIENT_ROUTES.nurse.triage.queue)}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold truncate">
+                Triage: {patient.fullName}
+              </h1>
+              <p className="text-sm text-gray-500 truncate">
+                {patient.age} ans,{' '}
+                {patient.sex === 'MALE' ? 'Homme' : 'Femme'} &bull;{' '}
+                {patient.chiefComplaint || 'Motif non precise'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {saving && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleManualSave}
+              disabled={saving}
+            >
+              <Save className="h-4 w-4 mr-1" />
+              Sauvegarder
+            </Button>
+          </div>
+        </div>
+
+        {/* Critical alerts banner */}
+        {(hasCriticalVitals(vitalsData as Record<string, any>) || hasCriticalABCDE(symptomsData, abcdeData, vitalsData as Record<string, any>)) && (
+          <div className="px-4 pb-2">
+            <Alert className="bg-red-50 border-red-300 py-2">
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-800 font-medium">
+                Signes critiques detectes - Evaluation SAUV probable
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
+        {/* Score bar */}
+        <ScoreBar patient={patient} vitalsData={vitalsData} />
+
+        {/* Tab navigation */}
+        <TriageTabNav sections={sectionsMeta} activeId={activeSection} onTabClick={handleTabClick} />
+      </div>
+
+      {/* ============================================================= */}
+      {/* Messages                                                      */}
+      {/* ============================================================= */}
+      {error && (
+        <div className="px-4 pt-3 max-w-4xl mx-auto w-full">
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        </div>
+      )}
+      {successMsg && (
+        <div className="px-4 pt-3 max-w-4xl mx-auto w-full">
+          <Alert className="border-green-200 bg-green-50 text-green-800">
+            <AlertDescription>{successMsg}</AlertDescription>
+          </Alert>
+        </div>
+      )}
+
+      {/* ============================================================= */}
+      {/* Scrollable accordion content                                   */}
+      {/* ============================================================= */}
+      <div className="flex-1 overflow-y-auto pb-64 px-4 md:px-6 pt-4 max-w-4xl mx-auto w-full space-y-2">
+
+        {/* Section 1: Signes vitaux */}
+        <TriageAccordionSection
+          id="signes-vitaux"
+          title="Signes vitaux"
+          icon={Heart}
+          statusSummary={getSectionStatus('signes-vitaux')}
+          sectionRef={signesVitauxRef}
+        >
+          <VitalsForm data={vitalsData} onChange={handleVitalsChange} />
+        </TriageAccordionSection>
+
+        {/* Section 2: Symptomes */}
+        <TriageAccordionSection
+          id="symptomes"
+          title="Symptomes"
+          icon={Stethoscope}
+          statusSummary={getSectionStatus('symptomes')}
+          sectionRef={symptomesRef}
+        >
+          <SymptomsForm data={symptomsData} onChange={handleSymptomsChange} />
+        </TriageAccordionSection>
+
+        {/* Section 3: Etat general */}
+        <TriageAccordionSection
+          id="etat-general"
+          title="Etat general"
+          icon={Thermometer}
+          statusSummary={getSectionStatus('etat-general')}
+          sectionRef={etatGeneralRef}
+        >
+          <ExposureForm
+            data={abcdeData.E}
+            onChange={(d) => handleAbcdeChange('E', d)}
+            vitalsData={vitalsData}
+            hideVitalBadges
+          />
+        </TriageAccordionSection>
+
+        {/* Section 4: Antecedents */}
+        <TriageAccordionSection
+          id="antecedents"
+          title="Antecedents"
+          icon={ClipboardList}
+          statusSummary={getSectionStatus('antecedents')}
+          sectionRef={antecedentsRef}
+        >
+          <MedicalHistoryForm
+            data={medicalHistoryData}
+            onChange={handleHistoryChange}
+          />
+        </TriageAccordionSection>
+
+      </div>
+
+      {/* ============================================================= */}
+      {/* Sticky decision panel at bottom                                */}
+      {/* ============================================================= */}
+      <DecisionPanel
+        patient={patient}
+        analysis={analysis}
+        analyzing={analyzing}
+        suggestion={suggestion}
+        suggestedESI={suggestedESI}
+        selectedESI={selectedESI}
+        onESIChange={setSelectedESI}
+        selectedOrientation={selectedOrientation}
+        onOrientationChange={(orientation) => {
+          setSelectedOrientation(orientation);
+          if (orientation === suggestion?.suggestion) {
+            setOverrideReason('');
+          }
+          setError(null);
+        }}
+        overrideReason={overrideReason}
+        onOverrideReasonChange={(reason) => {
+          setOverrideReason(reason);
+          setError(null);
+        }}
+        onRunAnalysis={runAnalysis}
+        onConfirm={handleComplete}
+        saving={saving}
+        canConfirm={canConfirm}
+      />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main export — wraps TriageAccordion around the inner content
+// ---------------------------------------------------------------------------
+
+export default function TriageWorkflow(): React.ReactElement {
+  // We need a ref-based approach because TriageAccordion needs onSectionCollapse
+  // but the collapse handler lives in TriageWorkflowContent (inside the provider).
+  // The collapseHandlerRef bridges this gap.
+  const collapseHandlerRef = useRef<(id: string) => void>(() => {});
+
+  const handleSectionCollapse = useCallback((id: string) => {
+    collapseHandlerRef.current(id);
+  }, []);
 
   return (
     <DashboardLayout>
-      <div className="flex flex-col h-full">
-        {/* ============================================================= */}
-        {/* Sticky header: patient info + ScoreBar                        */}
-        {/* ============================================================= */}
-        <div className="sticky top-0 z-20 bg-white border-b shadow-sm">
-          {/* Patient info bar */}
-          <div className="px-4 py-3 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="shrink-0"
-                onClick={() => navigate(CLIENT_ROUTES.nurse.triage.queue)}
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <div className="min-w-0">
-                <h1 className="text-lg font-bold truncate">
-                  Triage: {patient.fullName}
-                </h1>
-                <p className="text-sm text-gray-500 truncate">
-                  {patient.age} ans,{' '}
-                  {patient.sex === 'MALE' ? 'Homme' : 'Femme'} &bull;{' '}
-                  {patient.chiefComplaint || 'Motif non precise'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              {saving && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleManualSave}
-                disabled={saving}
-              >
-                <Save className="h-4 w-4 mr-1" />
-                Sauvegarder
-              </Button>
-            </div>
-          </div>
-
-          {/* Critical alerts banner */}
-          {(hasCriticalVitals(vitalsData as Record<string, any>) || hasCriticalABCDE(abcdeData, vitalsData as Record<string, any>)) && (
-            <div className="px-4 pb-2">
-              <Alert className="bg-red-50 border-red-300 py-2">
-                <AlertTriangle className="h-4 w-4 text-red-600" />
-                <AlertDescription className="text-red-800 font-medium">
-                  Signes critiques detectes - Evaluation SAUV probable
-                </AlertDescription>
-              </Alert>
-            </div>
-          )}
-
-          {/* Score bar */}
-          <ScoreBar patient={patient} vitalsData={vitalsData} />
-        </div>
-
-        {/* ============================================================= */}
-        {/* Messages                                                      */}
-        {/* ============================================================= */}
-        {error && (
-          <div className="px-4 pt-3 max-w-4xl mx-auto w-full">
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          </div>
-        )}
-        {successMsg && (
-          <div className="px-4 pt-3 max-w-4xl mx-auto w-full">
-            <Alert className="border-green-200 bg-green-50 text-green-800">
-              <AlertDescription>{successMsg}</AlertDescription>
-            </Alert>
-          </div>
-        )}
-
-        {/* ============================================================= */}
-        {/* Scrollable accordion content                                   */}
-        {/* ============================================================= */}
-        <div className="flex-1 overflow-y-auto pb-64 px-4 md:px-6 pt-4 max-w-4xl mx-auto w-full">
-          <TriageAccordion onSectionCollapse={handleSectionCollapse} defaultOpen="signes-vitaux">
-
-            {/* Section 1: Signes vitaux */}
-            <TriageAccordionSection
-              id="signes-vitaux"
-              title="Signes vitaux"
-              icon={Heart}
-              statusSummary={getSectionStatus('signes-vitaux')}
-            >
-              <VitalsForm data={vitalsData} onChange={handleVitalsChange} />
-
-              <div className="mt-6 pt-4 border-t">
-                <h4 className="font-medium text-sm text-gray-700 mb-3">Observations respiratoires</h4>
-                <BreathingForm
-                  data={abcdeData.B}
-                  onChange={(d) => handleAbcdeChange('B', d)}
-                  vitalsData={vitalsData}
-                  hideVitalBadges
-                  hideNotes
-                />
-              </div>
-
-              <div className="mt-6 pt-4 border-t">
-                <h4 className="font-medium text-sm text-gray-700 mb-3">Observations circulatoires</h4>
-                <CirculationForm
-                  data={abcdeData.C}
-                  onChange={(d) => handleAbcdeChange('C', d)}
-                  vitalsData={vitalsData}
-                  hideVitalBadges
-                  hideNotes
-                />
-              </div>
-            </TriageAccordionSection>
-
-            {/* Section 2: Voies aériennes & Neurologie */}
-            <TriageAccordionSection
-              id="voies-neuro"
-              title="Voies aeriennes & Neurologie"
-              icon={Brain}
-              statusSummary={getSectionStatus('voies-neuro')}
-            >
-              <h4 className="font-medium text-sm text-gray-700 mb-3">Voies aeriennes</h4>
-              <AirwayForm
-                data={abcdeData.A}
-                onChange={(d) => handleAbcdeChange('A', d)}
-                vitalsData={vitalsData}
-                hideVitalBadges
-                hideNotes
-              />
-
-              <div className="mt-6 pt-4 border-t">
-                <h4 className="font-medium text-sm text-gray-700 mb-3">Neurologie</h4>
-                <DisabilityForm
-                  data={abcdeData.D}
-                  onChange={(d) => handleAbcdeChange('D', d)}
-                  vitalsData={vitalsData}
-                  hideVitalBadges
-                  hideNotes
-                  hideGCSDisplay
-                />
-              </div>
-
-              {/* Standalone GCS badge */}
-              {gcsTotal > 0 && (
-                <div className="mt-4 flex items-center gap-3">
-                  <span className="text-sm font-medium text-gray-600">GCS Total:</span>
-                  <div className={`px-4 py-2 rounded-full font-bold text-lg ${getGCSColor(gcsTotal)}`}>
-                    {gcsTotal}/15
-                  </div>
-                </div>
-              )}
-            </TriageAccordionSection>
-
-            {/* Section 3: Etat général */}
-            <TriageAccordionSection
-              id="etat-general"
-              title="Etat general"
-              icon={Thermometer}
-              statusSummary={getSectionStatus('etat-general')}
-            >
-              <ExposureForm
-                data={abcdeData.E}
-                onChange={(d) => handleAbcdeChange('E', d)}
-                vitalsData={vitalsData}
-                hideVitalBadges
-                hideNotes
-              />
-            </TriageAccordionSection>
-
-            {/* Section 4: Antécédents */}
-            <TriageAccordionSection
-              id="antecedents"
-              title="Antecedents"
-              icon={ClipboardList}
-              statusSummary={getSectionStatus('antecedents')}
-            >
-              <MedicalHistoryForm
-                data={medicalHistoryData}
-                onChange={handleHistoryChange}
-              />
-            </TriageAccordionSection>
-
-            {/* Section 5: Notes */}
-            <TriageAccordionSection
-              id="notes"
-              title="Notes"
-              icon={FileText}
-              statusSummary={getSectionStatus('notes')}
-            >
-              <textarea
-                className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                value={triageNotes}
-                onChange={(e) => handleNotesChange(e.target.value)}
-                placeholder="Notes generales de triage..."
-              />
-            </TriageAccordionSection>
-
-          </TriageAccordion>
-        </div>
-
-        {/* ============================================================= */}
-        {/* Sticky decision panel at bottom                                */}
-        {/* ============================================================= */}
-        <DecisionPanel
-          patient={patient}
-          analysis={analysis}
-          analyzing={analyzing}
-          suggestion={suggestion}
-          suggestedESI={suggestedESI}
-          selectedESI={selectedESI}
-          onESIChange={setSelectedESI}
-          selectedOrientation={selectedOrientation}
-          onOrientationChange={(orientation) => {
-            setSelectedOrientation(orientation);
-            if (orientation === suggestion?.suggestion) {
-              setOverrideReason('');
-            }
-            setError(null);
-          }}
-          overrideReason={overrideReason}
-          onOverrideReasonChange={(reason) => {
-            setOverrideReason(reason);
-            setError(null);
-          }}
-          onRunAnalysis={runAnalysis}
-          onConfirm={handleComplete}
-          saving={saving}
-          canConfirm={canConfirm}
-        />
-      </div>
+      <TriageAccordion onSectionCollapse={handleSectionCollapse} defaultOpen="signes-vitaux">
+        <TriageWorkflowContent collapseHandlerRef={collapseHandlerRef} />
+      </TriageAccordion>
     </DashboardLayout>
   );
 }

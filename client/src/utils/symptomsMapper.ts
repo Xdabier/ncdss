@@ -60,9 +60,11 @@ export function splitSymptomsToABCDE(data: Partial<SymptomsFormData>): SplitResu
     B.workOfBreathing = data.pauseRespiratoire ? 'severe' : 'increased';
     B.accessoryMuscles = data.signesLutte.includes('muscles accessoires');
     B.nasalFlaring = data.signesLutte.includes('battement des ailes du nez');
+    B.signesLutte = data.signesLutte;
   }
   if (data.pauseRespiratoire !== undefined) {
     B.apnea = data.pauseRespiratoire;
+    B.pauseRespiratoire = data.pauseRespiratoire;
     if (data.pauseRespiratoire) {
       B.workOfBreathing = 'severe';
     }
@@ -159,13 +161,19 @@ export function extractSymptomsFromABCDE(
     }
     if (B.apnea !== undefined) {
       result.pauseRespiratoire = B.apnea;
+    } else if (B.pauseRespiratoire !== undefined) {
+      result.pauseRespiratoire = B.pauseRespiratoire;
     }
-    // Reconstruct signesLutte from individual flags
-    const signesLutte: string[] = [];
-    if (B.accessoryMuscles) signesLutte.push('muscles accessoires');
-    if (B.nasalFlaring) signesLutte.push('battement des ailes du nez');
-    if (signesLutte.length > 0) {
-      result.signesLutte = signesLutte;
+    // Prefer stored signesLutte array; fall back to reconstructing from individual flags
+    if (B.signesLutte?.length) {
+      result.signesLutte = [...B.signesLutte];
+    } else {
+      const signesLutte: string[] = [];
+      if (B.accessoryMuscles) signesLutte.push('muscles accessoires');
+      if (B.nasalFlaring) signesLutte.push('battement des ailes du nez');
+      if (signesLutte.length > 0) {
+        result.signesLutte = signesLutte;
+      }
     }
   }
 

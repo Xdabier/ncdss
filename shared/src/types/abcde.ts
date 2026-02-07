@@ -31,6 +31,8 @@ export interface BreathingObservations {
   breathSoundsMulti?: ('normal' | 'stridor' | 'wheezing' | 'crackles' | 'snoring' | 'gurgling' | 'decreased' | 'absent' | 'gasping')[];  // P1.4 + P3.1
   nasalFlaring?: boolean;      // P2.4 — Battement des ailes du nez
   apnea?: boolean;             // P3.3 — Pause respiratoire
+  signesLutte?: string[];      // P6.1 — Raw "signes de lutte" array (tirage sous-costal, muscles accessoires, etc.)
+  pauseRespiratoire?: boolean; // P6.1 — Pause respiratoire (alias for apnea, kept for direct storage)
   notes?: string;
 }
 

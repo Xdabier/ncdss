@@ -99,9 +99,7 @@ export function TriageAccordion({ children, onSectionCollapse, defaultOpen }: Tr
 
   return (
     <TriageAccordionContext.Provider value={{ openSections, pinnedSections, handleClick, openSection }}>
-      <div className="space-y-2">
-        {children}
-      </div>
+      {children}
     </TriageAccordionContext.Provider>
   );
 }

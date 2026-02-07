@@ -159,6 +159,27 @@ function mapBreathing(
   if (data.apnea) {
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_APNEA', critical: true }]);
   }
+
+  // Raw signesLutte array (P6.1) — may contain items not captured by individual booleans
+  if (data.signesLutte && data.signesLutte.length > 0) {
+    const signesLutteMap: Record<string, CodeMapping> = {
+      'tirage sous-costal': { code: 'SYM_INCREASED_WOB', critical: false },
+      'muscles accessoires': { code: 'SYM_ACCESSORY_MUSCLES', critical: false },
+      'balancement thoraco-abdominal': { code: 'SYM_RESPIRATORY_DISTRESS', critical: true },
+      'battement des ailes du nez': { code: 'SYM_NASAL_FLARING', critical: false },
+    };
+    for (const item of data.signesLutte) {
+      const mapping = signesLutteMap[item];
+      if (mapping) {
+        addCodes(observedCodes, criticalCodes, [mapping]);
+      }
+    }
+  }
+
+  // pauseRespiratoire alias (P6.1) — maps to the same code as apnea
+  if (data.pauseRespiratoire) {
+    addCodes(observedCodes, criticalCodes, [{ code: 'SYM_APNEA', critical: true }]);
+  }
 }
 
 function mapCirculation(
@@ -351,6 +372,9 @@ function mapExposure(
   }
   if (data.vomiting) {
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_VOMITING', critical: false }]);
+  }
+  if (data.diarrhea) {
+    addCodes(observedCodes, criticalCodes, [{ code: 'SYM_DIARRHEA', critical: false }]);
   }
 
   // New exposure fields (P1.6)
