@@ -99,84 +99,31 @@ export function VitalsForm({ data, onChange, onSave, loading }: Props) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <h3 className="font-medium text-lg">Constantes Vitales</h3>
 
-      {/* Core Vitals */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className={`space-y-2 p-3 rounded-lg border-2 ${getTempColor(data.temperature)}`}>
-          <Label className="font-medium">Temperature (°C)</Label>
-          <Input
-            type="number"
-            step="0.1"
-            value={data.temperature ?? ''}
-            onChange={(e) => {
-              const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
-              updateField('temperature', val as number);
-            }}
-            placeholder="Ex: 37.0"
-            className="bg-white"
-          />
-          <div className="flex justify-between text-xs text-gray-500">
-            <span>Normal: 36.1-37.8°C</span>
-            <span className="text-red-500">&lt;35 ou &gt;39 = Critique</span>
-          </div>
+      {/* 1. Temperature */}
+      <div className={`space-y-2 p-3 rounded-lg border-2 ${getTempColor(data.temperature)}`}>
+        <Label className="font-medium">Temperature (°C)</Label>
+        <Input
+          type="number"
+          step="0.1"
+          value={data.temperature ?? ''}
+          onChange={(e) => {
+            const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
+            updateField('temperature', val as number);
+          }}
+          placeholder="Ex: 37.0"
+          className="bg-white"
+        />
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>Normal: 36.1-37.8°C</span>
+          <span className="text-red-500">&lt;35 ou &gt;39 = Critique</span>
         </div>
+      </div>
 
-        <div className={`space-y-2 p-3 rounded-lg border-2 ${getHRColor(data.heartRate)}`}>
-          <Label className="font-medium">Frequence Cardiaque (bpm)</Label>
-          <Input
-            type="number"
-            value={data.heartRate ?? ''}
-            onChange={(e) => {
-              const val = e.target.value === '' ? undefined : parseInt(e.target.value);
-              updateField('heartRate', val as number);
-            }}
-            placeholder="Ex: 80"
-            className="bg-white"
-          />
-          <div className="flex justify-between text-xs text-gray-500">
-            <span>Normal: 60-100 bpm</span>
-            <span className="text-red-500">&lt;50 ou &gt;120 = Critique</span>
-          </div>
-        </div>
-
-        <div className={`space-y-2 p-3 rounded-lg border-2 ${getRRColor(data.respiratoryRate)}`}>
-          <Label className="font-medium">Frequence Respiratoire (/min)</Label>
-          <Input
-            type="number"
-            value={data.respiratoryRate ?? ''}
-            onChange={(e) => {
-              const val = e.target.value === '' ? undefined : parseInt(e.target.value);
-              updateField('respiratoryRate', val as number);
-            }}
-            placeholder="Ex: 16"
-            className="bg-white"
-          />
-          <div className="flex justify-between text-xs text-gray-500">
-            <span>Normal: 12-20/min</span>
-            <span className="text-red-500">&lt;8 ou &gt;30 = Critique</span>
-          </div>
-        </div>
-
-        <div className={`space-y-2 p-3 rounded-lg border-2 ${getSpO2Color(data.oxygenSaturation)}`}>
-          <Label className="font-medium">Saturation O2 (%)</Label>
-          <Input
-            type="number"
-            value={data.oxygenSaturation ?? ''}
-            onChange={(e) => {
-              const val = e.target.value === '' ? undefined : Math.min(100, Math.max(0, parseInt(e.target.value)));
-              updateField('oxygenSaturation', val as number);
-            }}
-            placeholder="Ex: 98"
-            className="bg-white"
-          />
-          <div className="flex justify-between text-xs text-gray-500">
-            <span>Normal: &ge;95%</span>
-            <span className="text-red-500">&lt;90% = Critique</span>
-          </div>
-        </div>
-
+      {/* 2. TAS / TAD grouped in a single row */}
+      <div className="grid grid-cols-2 gap-4">
         <div className={`space-y-2 p-3 rounded-lg border-2 ${getSystolicColor(data.systolicBP)}`}>
           <Label className="font-medium">PAS (mmHg)</Label>
           <Input
@@ -208,51 +155,107 @@ export function VitalsForm({ data, onChange, onSave, loading }: Props) {
         </div>
       </div>
 
-      {/* Pain and Glucose */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className={`space-y-2 p-3 rounded-lg border-2 ${getPainColor(data.painLevel)}`}>
-          <Label className="font-medium">Niveau de Douleur (EVA)</Label>
-          <div className="flex items-center gap-3">
-            <Input
-              type="number"
-              min="0"
-              max="10"
-              value={data.painLevel ?? ''}
-              onChange={(e) => {
-                const val = e.target.value === '' ? undefined : Math.min(10, Math.max(0, parseInt(e.target.value)));
-                updateField('painLevel', val as number);
-              }}
-              className="w-20 text-center text-lg font-bold bg-white"
-              placeholder="0-10"
-            />
-            <span className="text-2xl font-bold text-gray-600">/10</span>
-          </div>
-          <div className="flex justify-between text-xs text-gray-500">
-            <span>0 = Pas de douleur</span>
-            <span>10 = Douleur maximale</span>
-          </div>
-        </div>
-
-        <div className={`space-y-2 p-3 rounded-lg border-2 ${getGlucoseColor(data.glucoseLevel)}`}>
-          <Label className="font-medium">Glycemie Capillaire (mg/dL)</Label>
-          <Input
-            type="number"
-            value={data.glucoseLevel ?? ''}
-            onChange={(e) => {
-              const val = e.target.value === '' ? undefined : parseInt(e.target.value);
-              updateField('glucoseLevel', val as number);
-            }}
-            placeholder="Ex: 100"
-            className="bg-white"
-          />
-          <div className="flex justify-between text-xs text-gray-500">
-            <span>Normal: 70-180 mg/dL</span>
-            <span className="text-red-500">&lt;60 ou &gt;300 = Critique</span>
-          </div>
+      {/* 3. Frequence Cardiaque */}
+      <div className={`space-y-2 p-3 rounded-lg border-2 ${getHRColor(data.heartRate)}`}>
+        <Label className="font-medium">Frequence Cardiaque (bpm)</Label>
+        <Input
+          type="number"
+          value={data.heartRate ?? ''}
+          onChange={(e) => {
+            const val = e.target.value === '' ? undefined : parseInt(e.target.value);
+            updateField('heartRate', val as number);
+          }}
+          placeholder="Ex: 80"
+          className="bg-white"
+        />
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>Normal: 60-100 bpm</span>
+          <span className="text-red-500">&lt;50 ou &gt;120 = Critique</span>
         </div>
       </div>
 
-      {/* Glasgow Coma Scale */}
+      {/* 4. Saturation O2 */}
+      <div className={`space-y-2 p-3 rounded-lg border-2 ${getSpO2Color(data.oxygenSaturation)}`}>
+        <Label className="font-medium">Saturation O2 (%)</Label>
+        <Input
+          type="number"
+          value={data.oxygenSaturation ?? ''}
+          onChange={(e) => {
+            const val = e.target.value === '' ? undefined : Math.min(100, Math.max(0, parseInt(e.target.value)));
+            updateField('oxygenSaturation', val as number);
+          }}
+          placeholder="Ex: 98"
+          className="bg-white"
+        />
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>Normal: &ge;95%</span>
+          <span className="text-red-500">&lt;90% = Critique</span>
+        </div>
+      </div>
+
+      {/* 5. Frequence Respiratoire */}
+      <div className={`space-y-2 p-3 rounded-lg border-2 ${getRRColor(data.respiratoryRate)}`}>
+        <Label className="font-medium">Frequence Respiratoire (/min)</Label>
+        <Input
+          type="number"
+          value={data.respiratoryRate ?? ''}
+          onChange={(e) => {
+            const val = e.target.value === '' ? undefined : parseInt(e.target.value);
+            updateField('respiratoryRate', val as number);
+          }}
+          placeholder="Ex: 16"
+          className="bg-white"
+        />
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>Normal: 12-20/min</span>
+          <span className="text-red-500">&lt;8 ou &gt;30 = Critique</span>
+        </div>
+      </div>
+
+      {/* 6. Glycemie capillaire / GAD */}
+      <div className={`space-y-2 p-3 rounded-lg border-2 ${getGlucoseColor(data.glucoseLevel)}`}>
+        <Label className="font-medium">Glycemie capillaire / GAD (mg/dL)</Label>
+        <Input
+          type="number"
+          value={data.glucoseLevel ?? ''}
+          onChange={(e) => {
+            const val = e.target.value === '' ? undefined : parseInt(e.target.value);
+            updateField('glucoseLevel', val as number);
+          }}
+          placeholder="Ex: 100"
+          className="bg-white"
+        />
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>Normal: 70-180 mg/dL</span>
+          <span className="text-red-500">&lt;60 ou &gt;300 = Critique</span>
+        </div>
+      </div>
+
+      {/* 7. EVA / Niveau de Douleur */}
+      <div className={`space-y-2 p-3 rounded-lg border-2 ${getPainColor(data.painLevel)}`}>
+        <Label className="font-medium">EVA / Niveau de Douleur (0-10)</Label>
+        <div className="flex items-center gap-3">
+          <Input
+            type="number"
+            min="0"
+            max="10"
+            value={data.painLevel ?? ''}
+            onChange={(e) => {
+              const val = e.target.value === '' ? undefined : Math.min(10, Math.max(0, parseInt(e.target.value)));
+              updateField('painLevel', val as number);
+            }}
+            className="w-20 text-center text-lg font-bold bg-white"
+            placeholder="0-10"
+          />
+          <span className="text-2xl font-bold text-gray-600">/10</span>
+        </div>
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>0 = Pas de douleur</span>
+          <span>10 = Douleur maximale</span>
+        </div>
+      </div>
+
+      {/* 8. Glasgow Coma Scale */}
       <div className="space-y-4 border p-4 rounded-md">
         <div className="flex justify-between items-center">
           <h4 className="font-medium text-sm">Score de Glasgow (GCS)</h4>

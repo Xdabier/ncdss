@@ -1,16 +1,25 @@
 import React from 'react';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
+import { MultiSelectCombobox } from '../ui/MultiSelectCombobox';
 import { ReadOnlyVitalBadge } from './ReadOnlyVitalBadge';
 import type { VitalsData } from './VitalsForm';
 
-interface ExposureData {
-  hypothermia: boolean;
-  hyperthermia: boolean;
+export interface ExposureData {
   rash: boolean;
   vomiting?: boolean;
+  diarrhea?: boolean;
+  lastMeal?: string;
   wounds: boolean;
   edema: boolean;
+  edemaType?: string[];
   burns: boolean;
   traumaSigns: boolean;
   findings?: string[];
@@ -24,10 +33,26 @@ interface Props {
   loading?: boolean;
   vitalsData?: Partial<VitalsData>;
   hideVitalBadges?: boolean;
+  /** @deprecated Notes are now always shown in this form. Kept for backward compatibility. */
   hideNotes?: boolean;
 }
 
-export function ExposureForm({ data, onChange, onSave, loading, vitalsData, hideVitalBadges, hideNotes }: Props) {
+const edemaOptions = [
+  { value: 'angioedeme', label: 'Angioedeme' },
+  { value: 'membres_inferieurs_superieurs', label: 'Membres inferieurs ou superieurs' },
+  { value: 'abdomen_ascite', label: 'Abdomen (ascite)' },
+];
+
+const lastMealOptions = [
+  'Il y a 1h',
+  'Il y a 2h',
+  'Il y a 6h',
+  'Il y a 12h',
+  'Il y a 24h',
+  'Il y a 2 jours+',
+];
+
+export function ExposureForm({ data, onChange, onSave, loading, vitalsData, hideVitalBadges }: Props) {
   const updateField = <K extends keyof ExposureData>(field: K, value: ExposureData[K]) => {
     onChange({ ...data, [field]: value });
   };
@@ -38,22 +63,6 @@ export function ExposureForm({ data, onChange, onSave, loading, vitalsData, hide
     return 'bg-green-100 text-green-800 border-green-300';
   };
 
-  // Auto-detect hypothermia/hyperthermia based on vitalsData temperature
-  React.useEffect(() => {
-    if (vitalsData?.temperature !== undefined) {
-      if (vitalsData.temperature < 36 && !data.hypothermia) {
-        updateField('hypothermia', true);
-      } else if (vitalsData.temperature >= 36 && data.hypothermia) {
-        updateField('hypothermia', false);
-      }
-      if (vitalsData.temperature > 38 && !data.hyperthermia) {
-        updateField('hyperthermia', true);
-      } else if (vitalsData.temperature <= 38 && data.hyperthermia) {
-        updateField('hyperthermia', false);
-      }
-    }
-  }, [vitalsData?.temperature]);
-
   // Warning indicators using vitalsData for temperature thresholds
   const hasCritical =
     data.burns ||
@@ -63,8 +72,6 @@ export function ExposureForm({ data, onChange, onSave, loading, vitalsData, hide
     hasCritical ||
     data.wounds ||
     data.traumaSigns ||
-    data.hypothermia ||
-    data.hyperthermia ||
     (vitalsData?.temperature !== undefined && (vitalsData.temperature! < 36 || vitalsData.temperature! > 38));
 
   return (
@@ -87,33 +94,6 @@ export function ExposureForm({ data, onChange, onSave, loading, vitalsData, hide
           <ReadOnlyVitalBadge label="T" value={vitalsData.temperature} unit="°C" getColor={getTempColor} />
         </div>
       )}
-
-      {/* Temperature-related checkboxes */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <label className={`flex items-center space-x-3 border p-3 rounded-md cursor-pointer transition-colors ${
-          data.hypothermia ? 'bg-blue-50 border-blue-300' : 'hover:bg-gray-50 border-blue-200'
-        }`}>
-          <input
-            type="checkbox"
-            className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            checked={data.hypothermia || false}
-            onChange={(e) => updateField('hypothermia', e.target.checked)}
-          />
-          <span className="font-medium text-sm text-blue-600">Hypothermie (&lt;36°C)</span>
-        </label>
-
-        <label className={`flex items-center space-x-3 border p-3 rounded-md cursor-pointer transition-colors ${
-          data.hyperthermia ? 'bg-red-50 border-red-300' : 'hover:bg-gray-50 border-red-200'
-        }`}>
-          <input
-            type="checkbox"
-            className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-500"
-            checked={data.hyperthermia || false}
-            onChange={(e) => updateField('hyperthermia', e.target.checked)}
-          />
-          <span className="font-medium text-sm text-red-600">Hyperthermie / Fievre (&gt;38°C)</span>
-        </label>
-      </div>
 
       {/* Physical Examination Findings */}
       <div className="space-y-3">
@@ -157,18 +137,6 @@ export function ExposureForm({ data, onChange, onSave, loading, vitalsData, hide
           </label>
 
           <label className={`flex items-center space-x-3 border p-3 rounded-md cursor-pointer transition-colors ${
-            data.edema ? 'bg-yellow-50 border-yellow-300' : 'hover:bg-gray-50'
-          }`}>
-            <input
-              type="checkbox"
-              className="h-5 w-5 rounded border-gray-300 text-yellow-600 focus:ring-yellow-500"
-              checked={data.edema || false}
-              onChange={(e) => updateField('edema', e.target.checked)}
-            />
-            <span className="font-medium text-sm">Oedeme</span>
-          </label>
-
-          <label className={`flex items-center space-x-3 border p-3 rounded-md cursor-pointer transition-colors ${
             data.rash ? 'bg-yellow-50 border-yellow-300' : 'hover:bg-gray-50'
           }`}>
             <input
@@ -191,7 +159,57 @@ export function ExposureForm({ data, onChange, onSave, loading, vitalsData, hide
             />
             <span className="font-medium text-sm text-orange-600">Vomissements</span>
           </label>
+
+          <label className={`flex items-center space-x-3 border p-3 rounded-md cursor-pointer transition-colors ${
+            data.diarrhea ? 'bg-orange-50 border-orange-300' : 'hover:bg-gray-50 border-orange-200'
+          }`}>
+            <input
+              type="checkbox"
+              className="h-5 w-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+              checked={data.diarrhea || false}
+              onChange={(e) => updateField('diarrhea', e.target.checked)}
+            />
+            <span className="font-medium text-sm text-orange-600">Diarrhee</span>
+          </label>
         </div>
+      </div>
+
+      {/* Oedeme - MultiSelect */}
+      <div className="space-y-2">
+        <Label className="font-medium text-sm">Oedeme</Label>
+        <MultiSelectCombobox
+          options={edemaOptions}
+          selected={data.edemaType || []}
+          onChange={(selected) => {
+            onChange({
+              ...data,
+              edemaType: selected,
+              edema: selected.length > 0,
+            });
+          }}
+          placeholder="Selectionner le type d'oedeme..."
+          searchable={false}
+        />
+      </div>
+
+      {/* Dernier repas */}
+      <div className="space-y-2">
+        <Label className="font-medium text-sm">Dernier repas</Label>
+        <Select
+          value={data.lastMeal || ''}
+          onValueChange={(val) => updateField('lastMeal', val)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Selectionner..." />
+          </SelectTrigger>
+          <SelectContent>
+            {lastMealOptions.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Status summary */}
@@ -213,20 +231,18 @@ export function ExposureForm({ data, onChange, onSave, loading, vitalsData, hide
         </p>
       </div>
 
-      {/* Notes */}
-      {!hideNotes && (
-        <div className="space-y-2">
-          <Label>Notes & Observations</Label>
-          <textarea
-            className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            value={data.notes || ''}
-            onChange={(e) => updateField('notes', e.target.value)}
-            placeholder="Description detaillee des lesions, localisation, etendue, contexte de survenue..."
-          />
-        </div>
-      )}
+      {/* Notes - always shown */}
+      <div className="space-y-2">
+        <Label>Notes</Label>
+        <textarea
+          className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          value={data.notes || ''}
+          onChange={(e) => updateField('notes', e.target.value)}
+          placeholder="Notes sur l'etat general du patient..."
+        />
+      </div>
 
-      {!hideNotes && onSave && (
+      {onSave && (
         <Button onClick={onSave} disabled={loading} className="w-full" size="lg">
           {loading ? 'Enregistrement...' : 'Terminer Evaluation ABCDE'}
         </Button>
