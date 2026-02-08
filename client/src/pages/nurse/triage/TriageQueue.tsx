@@ -29,9 +29,21 @@ export default function TriageQueue() {
       const api = await getApi();
       // Fetch both waiting patients and those currently being triaged
       const response = await api.get(API_ROUTES.patients.list, {
-        params: { status: [PatientStatus.REGISTERED, PatientStatus.IN_TRIAGE] }
+        params: { status: [PatientStatus.REGISTERED, PatientStatus.IN_TRIAGE, PatientStatus.TRIAGED] }
       });
-      setPatients(response.data);
+      // Sort: re-triage requested first, then IN_TRIAGE, REGISTERED, TRIAGED
+      const sorted = (response.data as Patient[]).sort((a, b) => {
+        const priority = (p: Patient): number => {
+          if (p.retriageRequested) return 0;
+          if (p.status === PatientStatus.IN_TRIAGE) return 1;
+          if (p.status === PatientStatus.REGISTERED) return 2;
+          return 3; // TRIAGED
+        };
+        const diff = priority(a) - priority(b);
+        if (diff !== 0) return diff;
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      });
+      setPatients(sorted);
     } catch (error) {
       console.error('Error loading patients:', error);
     } finally {
@@ -66,6 +78,9 @@ export default function TriageQueue() {
         <div>
           <div className="font-medium">{p.fullName}</div>
           <div className="text-sm text-gray-500">{p.age} ans, {p.sex === 'MALE' ? 'H' : 'F'}</div>
+          {p.retriageReason && (
+            <div className="text-xs text-orange-600 mt-0.5">Raison : {p.retriageReason}</div>
+          )}
         </div>
       )
     },
@@ -80,13 +95,24 @@ export default function TriageQueue() {
       header: 'Statut',
       width: '15%',
       render: (p) => (
-        p.status === PatientStatus.IN_TRIAGE ? (
-          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-            En cours
-          </Badge>
-        ) : (
-          <Badge variant="outline">En attente</Badge>
-        )
+        <div className="flex flex-col gap-1">
+          {p.status === PatientStatus.IN_TRIAGE ? (
+            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+              En cours
+            </Badge>
+          ) : p.status === PatientStatus.TRIAGED ? (
+            <Badge variant="secondary" className="bg-green-100 text-green-800">
+              Trié
+            </Badge>
+          ) : (
+            <Badge variant="outline">En attente</Badge>
+          )}
+          {p.retriageRequested && (
+            <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+              Re-triage demandé
+            </Badge>
+          )}
+        </div>
       )
     },
     {
@@ -99,19 +125,36 @@ export default function TriageQueue() {
       key: 'actions',
       header: 'Actions',
       width: '15%',
-      render: (p) => (
-        p.status === PatientStatus.IN_TRIAGE ? (
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleResumeTriage(p.id);
-            }}
-          >
-            Reprendre
-          </Button>
-        ) : (
+      render: (p) => {
+        if (p.status === PatientStatus.IN_TRIAGE) {
+          return (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleResumeTriage(p.id);
+              }}
+            >
+              Reprendre
+            </Button>
+          );
+        }
+        if (p.status === PatientStatus.TRIAGED) {
+          return (
+            <Button
+              size="sm"
+              className={p.retriageRequested ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleStartTriage(p.id);
+              }}
+            >
+              {p.retriageRequested ? 'Re-trier (urgent)' : 'Re-trier'}
+            </Button>
+          );
+        }
+        return (
           <Button
             size="sm"
             onClick={(e) => {
@@ -121,8 +164,8 @@ export default function TriageQueue() {
           >
             Commencer
           </Button>
-        )
-      )
+        );
+      }
     }
   ];
 
@@ -137,6 +180,9 @@ export default function TriageQueue() {
             </Badge>
             <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 text-sm px-3 py-1">
               {patients.filter(p => p.status === PatientStatus.IN_TRIAGE).length} en cours
+            </Badge>
+            <Badge variant="secondary" className="bg-green-100 text-green-800 text-sm px-3 py-1">
+              {patients.filter(p => p.status === PatientStatus.TRIAGED).length} triés
             </Badge>
           </div>
         </div>

@@ -534,15 +534,18 @@ router.post('/:id/start-triage', async (req, res) => {
       return res.status(404).json({ error: 'Patient non trouvé' });
     }
     
-    if (patient.status !== PatientStatus.REGISTERED) {
+    if (patient.status !== PatientStatus.REGISTERED && patient.status !== PatientStatus.TRIAGED) {
       return res.status(400).json({ error: 'Patient non disponible pour triage' });
     }
-    
+
+    const now = new Date().toISOString();
+
     await db.update(patients).set({
       status: PatientStatus.IN_TRIAGE,
       triageNurseId: userId,
-      triageStartedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      triageStartedAt: now,
+      triageCompletedAt: null,
+      updatedAt: now
     }).where(eq(patients.id, id));
     
     const updated = await fetchPatientWithIdentity(db, id);
@@ -1246,12 +1249,14 @@ router.post('/:id/notes', async (req, res) => {
 // Request re-triage
 router.post('/:id/request-retriage', async (req, res) => {
   try {
-    const { userId } = (req as any).user;
+    const { userId, role } = (req as any).user;
     const { id } = req.params;
     const { reason } = req.body;
 
-    if (!reason || !reason.trim()) {
-      return res.status(400).json({ error: 'Raison requise pour la demande de re-triage' });
+    // Doctors must provide a reason; nurses and super admins can omit it
+    const isDoctorRole = role === 'DOCTOR';
+    if (isDoctorRole && (!reason || !reason.trim())) {
+      return res.status(400).json({ error: 'Justification requise pour les médecins demandant un re-triage' });
     }
 
     const db = getDb();
@@ -1265,12 +1270,14 @@ router.post('/:id/request-retriage', async (req, res) => {
       return res.status(400).json({ error: 'Patient doit être en traitement pour demander un re-triage' });
     }
 
+    const trimmedReason = reason && reason.trim() ? reason.trim() : null;
+
     // Add re-triage request to notes
     const existingNotes = patient.treatmentNotes ? JSON.parse(patient.treatmentNotes) : [];
     existingNotes.push({
       id: Date.now().toString(),
       type: 'retriage_request',
-      content: reason.trim(),
+      content: trimmedReason || 'Re-triage demandé',
       authorId: userId,
       createdAt: new Date().toISOString()
     });
@@ -1278,7 +1285,7 @@ router.post('/:id/request-retriage', async (req, res) => {
     await db.update(patients).set({
       status: PatientStatus.REGISTERED, // Back to triage queue
       retriageRequested: true,
-      retriageReason: reason.trim(),
+      retriageReason: trimmedReason,
       treatmentNotes: JSON.stringify(existingNotes),
       // Clear triage data for re-assessment
       triageStartedAt: null,
