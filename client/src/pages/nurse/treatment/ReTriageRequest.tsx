@@ -83,14 +83,14 @@ export default function ReTriageRequest() {
   };
 
   const handleSubmit = async (): Promise<void> => {
-    if (!reason.trim() || !id) return;
+    if (!id) return;
 
     try {
       setSubmitting(true);
       setError(null);
       const api = await getApi();
       await api.post(API_ROUTES.patients.requestRetriage(id!), {
-        reason: reason.trim(),
+        reason: reason.trim() || undefined,
         urgency,
       });
       setSubmitted(true);
@@ -352,7 +352,7 @@ export default function ReTriageRequest() {
               {/* Reason textarea */}
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">
-                  Motif de la demande de re-triage <span className="text-red-500">*</span>
+                  Motif de la demande (optionnel)
                 </label>
                 <textarea
                   value={reason}
@@ -404,7 +404,7 @@ export default function ReTriageRequest() {
                 <Button
                   className="flex-1 bg-orange-500 hover:bg-orange-600"
                   onClick={handleSubmit}
-                  disabled={!reason.trim() || submitting}
+                  disabled={submitting}
                 >
                   {submitting ? (
                     <>

@@ -32,9 +32,11 @@ const orientationLabels: Record<string, string> = {
 
 // Status labels and colors
 const statusConfig: Record<string, { label: string; color: string }> = {
-  TRIAGED: { label: 'En attente', color: 'bg-yellow-100 text-yellow-800' },
-  IN_TREATMENT: { label: 'En soins', color: 'bg-purple-100 text-purple-800' },
-  WITH_DOCTOR: { label: 'Avec médecin', color: 'bg-blue-100 text-blue-800' },
+  REGISTERED: { label: 'Inscrit', color: 'bg-gray-100 text-gray-800' },
+  IN_TRIAGE: { label: 'En triage', color: 'bg-yellow-100 text-yellow-800' },
+  TRIAGED: { label: 'Trié', color: 'bg-green-100 text-green-800' },
+  IN_TREATMENT: { label: 'En soins', color: 'bg-blue-100 text-blue-800' },
+  WITH_DOCTOR: { label: 'Avec médecin', color: 'bg-purple-100 text-purple-800' },
 };
 
 export default function TreatmentQueue() {
@@ -72,8 +74,14 @@ export default function TreatmentQueue() {
     try {
       const api = await getApi();
 
-      // Always load all relevant statuses for accurate stats
-      const statusParams = [PatientStatus.TRIAGED, PatientStatus.IN_TREATMENT, PatientStatus.WITH_DOCTOR];
+      // Fetch all active statuses so the nurse sees every patient in the department
+      const statusParams = [
+        PatientStatus.REGISTERED,
+        PatientStatus.IN_TRIAGE,
+        PatientStatus.TRIAGED,
+        PatientStatus.IN_TREATMENT,
+        PatientStatus.WITH_DOCTOR,
+      ];
 
       const response = await api.get(API_ROUTES.patients.list, {
         params: { status: statusParams },
@@ -105,9 +113,9 @@ export default function TreatmentQueue() {
   // Filter by status tab and search term
   const filteredPatients = patients.filter((p) => {
     // Apply status filter based on selected tab
-    if (filter === 'waiting' && p.status !== PatientStatus.TRIAGED) return false;
-    if (filter === 'inTreatment' && p.status !== PatientStatus.IN_TREATMENT) return false;
-    // 'all' shows all statuses
+    if (filter === 'waiting' && p.status !== PatientStatus.REGISTERED && p.status !== PatientStatus.IN_TRIAGE && p.status !== PatientStatus.TRIAGED) return false;
+    if (filter === 'inTreatment' && p.status !== PatientStatus.IN_TREATMENT && p.status !== PatientStatus.WITH_DOCTOR) return false;
+    // 'all' shows all statuses (critical ESI 1-2)
 
     // Apply search filter
     if (!search) return true;
@@ -120,7 +128,9 @@ export default function TreatmentQueue() {
   });
 
   // Calculate stats
-  const waitingCount = patients.filter((p) => p.status === PatientStatus.TRIAGED).length;
+  const waitingCount = patients.filter(
+    (p) => p.status === PatientStatus.REGISTERED || p.status === PatientStatus.IN_TRIAGE || p.status === PatientStatus.TRIAGED
+  ).length;
   const inTreatmentCount = patients.filter(
     (p) => p.status === PatientStatus.IN_TREATMENT || p.status === PatientStatus.WITH_DOCTOR
   ).length;

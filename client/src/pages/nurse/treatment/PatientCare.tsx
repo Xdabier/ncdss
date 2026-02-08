@@ -217,12 +217,12 @@ export default function PatientCare() {
   };
 
   const handleRequestReTriage = async (reason: string): Promise<void> => {
-    if (!id || !reason.trim()) return;
+    if (!id) return;
 
     try {
       setActionLoading(true);
       const api = await getApi();
-      await api.post(API_ROUTES.patients.requestRetriage(id!), { reason: reason.trim() });
+      await api.post(API_ROUTES.patients.requestRetriage(id!), { reason: reason.trim() || undefined });
       setShowReTriageModal(false);
       navigate(CLIENT_ROUTES.nurse.treatment.queue);
     } catch (error) {
@@ -1144,7 +1144,7 @@ function ReTriageModal({ onConfirm, onCancel, loading }: ReTriageModalProps) {
             est irréversible.
           </p>
           <label className="block text-sm font-medium mb-2">
-            Raison de la demande <span className="text-red-500">*</span>
+            Raison (optionnel)
           </label>
           <textarea
             value={reason}
@@ -1161,7 +1161,7 @@ function ReTriageModal({ onConfirm, onCancel, loading }: ReTriageModalProps) {
           <Button
             className="flex-1 bg-orange-500 hover:bg-orange-600"
             onClick={() => onConfirm(reason)}
-            disabled={!reason.trim() || loading}
+            disabled={loading}
           >
             {loading ? 'En cours...' : 'Confirmer'}
           </Button>
