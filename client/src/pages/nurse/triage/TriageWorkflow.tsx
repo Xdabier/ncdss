@@ -734,7 +734,8 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <>
+    <div className="pb-14">
       {/* ============================================================= */}
       {/* Sticky header: patient info + ScoreBar + TabNav               */}
       {/* ============================================================= */}
@@ -816,7 +817,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
       {/* ============================================================= */}
       {/* Scrollable accordion content                                   */}
       {/* ============================================================= */}
-      <div className="flex-1 overflow-y-auto pb-64 px-4 md:px-6 pt-4 max-w-4xl mx-auto w-full space-y-2">
+      <div className="px-4 md:px-6 pt-4 max-w-4xl mx-auto w-full space-y-2">
 
         {/* Section 1: Signes vitaux */}
         <TriageAccordionSection
@@ -881,37 +882,38 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
         </TriageAccordionSection>
 
       </div>
-
-      {/* ============================================================= */}
-      {/* Sticky decision panel at bottom                                */}
-      {/* ============================================================= */}
-      <DecisionPanel
-        patient={patient}
-        analysis={analysis}
-        analyzing={analyzing}
-        suggestion={suggestion}
-        suggestedESI={suggestedESI}
-        selectedESI={selectedESI}
-        onESIChange={setSelectedESI}
-        selectedOrientation={selectedOrientation}
-        onOrientationChange={(orientation) => {
-          setSelectedOrientation(orientation);
-          if (orientation === suggestion?.suggestion) {
-            setOverrideReason('');
-          }
-          setError(null);
-        }}
-        overrideReason={overrideReason}
-        onOverrideReasonChange={(reason) => {
-          setOverrideReason(reason);
-          setError(null);
-        }}
-        onRunAnalysis={runAnalysis}
-        onConfirm={handleComplete}
-        saving={saving}
-        canConfirm={canConfirm}
-      />
     </div>
+
+    {/* ============================================================= */}
+    {/* Decision panel — fixed layer, independent of workflow scroll   */}
+    {/* ============================================================= */}
+    <DecisionPanel
+      patient={patient}
+      analysis={analysis}
+      analyzing={analyzing}
+      suggestion={suggestion}
+      suggestedESI={suggestedESI}
+      selectedESI={selectedESI}
+      onESIChange={setSelectedESI}
+      selectedOrientation={selectedOrientation}
+      onOrientationChange={(orientation) => {
+        setSelectedOrientation(orientation);
+        if (orientation === suggestion?.suggestion) {
+          setOverrideReason('');
+        }
+        setError(null);
+      }}
+      overrideReason={overrideReason}
+      onOverrideReasonChange={(reason) => {
+        setOverrideReason(reason);
+        setError(null);
+      }}
+      onRunAnalysis={runAnalysis}
+      onConfirm={handleComplete}
+      saving={saving}
+      canConfirm={canConfirm}
+    />
+    </>
   );
 }
 

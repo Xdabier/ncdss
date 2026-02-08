@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   CheckCircle2,
-  Lightbulb,
   AlertCircle,
   RefreshCw,
   ChevronDown,
@@ -115,7 +114,7 @@ export function DecisionPanel({
   analyzing,
   suggestion,
   suggestedESI,
-  selectedESI,
+  selectedESI,  
   onESIChange,
   selectedOrientation,
   onOrientationChange,
@@ -126,7 +125,7 @@ export function DecisionPanel({
   saving,
   canConfirm,
 }: DecisionPanelProps): React.ReactElement {
-  const [showDetails, setShowDetails] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   const isOrientationOverride =
     selectedOrientation !== null &&
@@ -138,13 +137,119 @@ export function DecisionPanel({
     return true;
   });
 
-  const topPathology = analysis?.topMatches?.[0];
-
   return (
     <>
-      {/* Expandable detail overlay */}
-      {showDetails && (
-        <div className="border-t bg-white shadow-lg max-h-[50vh] overflow-y-auto">
+      {/* ================================================================= */}
+      {/* Expanding overlay — fixed, rises from behind the bar              */}
+      {/* z-40 so the bar (z-50) stays visually on top during animation     */}
+      {/* ================================================================= */}
+      <div
+        className={`fixed inset-0 lg:left-64 z-40 bg-white flex flex-col
+          transition-transform duration-300 ease-in-out
+          ${isOpen ? 'translate-y-0' : 'translate-y-full pointer-events-none'}`}
+      >
+        {/* Header with close button */}
+        <div className="flex items-center justify-between px-4 py-3 border-b bg-white shrink-0">
+          <h2 className="text-lg font-semibold text-gray-800">Decision clinique</h2>
+          <button
+            onClick={() => setIsOpen(false)}
+            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
+          >
+            <ChevronDown className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto pb-14">
+          {/* Controls section */}
+          <div className="border-b bg-gray-50">
+            <div className="px-4 py-4 max-w-4xl mx-auto space-y-4">
+              {/* Recommendation line */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <MapPin className="h-4 w-4 text-blue-600 shrink-0" />
+                  <span className="text-sm text-gray-600 shrink-0">Recommandation:</span>
+                  {analysis?.suggestedOrientation ? (
+                    <Badge className={`text-xs ${orientationColors[analysis.suggestedOrientation] || 'bg-gray-500 text-white'}`}>
+                      {orientationLabels[analysis.suggestedOrientation] || analysis.suggestedOrientation}
+                    </Badge>
+                  ) : (
+                    <span className="text-sm text-gray-400">--</span>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onRunAnalysis(true)}
+                  disabled={analyzing}
+                  className="shrink-0"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 mr-1 ${analyzing ? 'animate-spin' : ''}`} />
+                  Re-analyser
+                </Button>
+              </div>
+
+              {/* ESI + Orientation row */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                {/* ESI buttons */}
+                <div className="flex items-center gap-1.5">
+                  <Shield className="h-4 w-4 text-gray-500 shrink-0" />
+                  <span className="text-xs text-gray-500 shrink-0">ESI:</span>
+                  <div className="flex gap-1">
+                    {ESI_LEVELS.map((esi) => (
+                      <button
+                        key={esi.level}
+                        onClick={() => onESIChange(esi.level)}
+                        className={`w-8 h-8 rounded-md border-2 font-bold text-sm transition-all ${
+                          selectedESI === esi.level
+                            ? `${esi.selectedBg} ${esi.borderColor} shadow-md`
+                            : `${esi.bgColor} ${esi.borderColor} ${esi.textColor} hover:opacity-80`
+                        } ${suggestedESI === esi.level && selectedESI !== esi.level ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
+                      >
+                        {esi.level}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Orientation buttons */}
+                <div className="flex items-center gap-1.5 flex-1">
+                  <MapPin className="h-4 w-4 text-gray-500 shrink-0" />
+                  <span className="text-xs text-gray-500 shrink-0">Orient.:</span>
+                  <div className="flex gap-1 flex-wrap">
+                    {availableOrientations.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => onOrientationChange(opt.value)}
+                        className={`px-2.5 py-1 rounded-md border-2 text-xs font-semibold transition-all ${
+                          selectedOrientation === opt.value
+                            ? `${opt.selectedBg} ${opt.borderColor} shadow-md`
+                            : `${opt.bgColor} ${opt.borderColor} ${opt.color} hover:opacity-80`
+                        } ${suggestion?.suggestion === opt.value && selectedOrientation !== opt.value ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Override reason */}
+              {isOrientationOverride && (
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-orange-500 shrink-0" />
+                  <input
+                    type="text"
+                    className="flex-1 px-3 py-1.5 border border-orange-300 rounded-md text-sm bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    placeholder="Raison du changement d'orientation..."
+                    value={overrideReason}
+                    onChange={(e) => onOverrideReasonChange(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Suggestions detail */}
           <SuggestionsDetail
             analysis={analysis}
             analyzing={analyzing}
@@ -152,133 +257,50 @@ export function DecisionPanel({
             onRunAnalysis={onRunAnalysis}
           />
         </div>
-      )}
+      </div>
 
-      {/* Sticky decision panel */}
-      <div className="sticky bottom-0 z-20 bg-white border-t-2 border-blue-200 shadow-lg">
-        <div className="px-4 py-3 max-w-4xl mx-auto w-full space-y-3">
-          {/* Suggestion line */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <MapPin className="h-4 w-4 text-blue-600 shrink-0" />
-              <span className="text-sm text-gray-600 shrink-0">Recommandation:</span>
-              {analysis?.suggestedOrientation ? (
-                <Badge className={`text-xs ${orientationColors[analysis.suggestedOrientation] || 'bg-gray-500 text-white'}`}>
-                  {orientationLabels[analysis.suggestedOrientation] || analysis.suggestedOrientation}
-                </Badge>
-              ) : (
-                <span className="text-sm text-gray-400">--</span>
-              )}
-              {topPathology && (
-                <span className="text-xs text-gray-500 truncate hidden md:inline">
-                  ({topPathology.pathologyName} - {topPathology.confidence}%)
-                </span>
-              )}
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onRunAnalysis(true)}
-              disabled={analyzing}
-              className="shrink-0"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${analyzing ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
+      {/* ================================================================= */}
+      {/* Bar — fixed at viewport bottom, always on top (z-50 > z-40)       */}
+      {/* ================================================================= */}
+      <div className="fixed bottom-0 left-0 right-0 lg:left-64 z-50 bg-white border-t-2 border-blue-200 shadow-[0_-2px_8px_rgba(0,0,0,0.08)]">
+        <div className="px-4 py-2.5 flex items-center justify-between max-w-4xl mx-auto w-full">
+          {/* Left: toggle + summary badges */}
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors"
+          >
+            {isOpen ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronUp className="h-4 w-4" />
+            )}
+            <span className="text-sm font-medium">Decision</span>
+            {selectedESI !== null && (
+              <Badge variant="outline" className="text-xs">
+                ESI {selectedESI}
+              </Badge>
+            )}
+            {selectedOrientation !== null && (
+              <Badge className={`text-xs ${orientationColors[selectedOrientation] || 'bg-gray-500 text-white'}`}>
+                {orientationLabels[selectedOrientation] || selectedOrientation}
+              </Badge>
+            )}
+          </button>
 
-          {/* ESI + Orientation row */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            {/* ESI buttons */}
-            <div className="flex items-center gap-1.5">
-              <Shield className="h-4 w-4 text-gray-500 shrink-0" />
-              <span className="text-xs text-gray-500 shrink-0">ESI:</span>
-              <div className="flex gap-1">
-                {ESI_LEVELS.map((esi) => (
-                  <button
-                    key={esi.level}
-                    onClick={() => onESIChange(esi.level)}
-                    className={`w-8 h-8 rounded-md border-2 font-bold text-sm transition-all ${
-                      selectedESI === esi.level
-                        ? `${esi.selectedBg} ${esi.borderColor} shadow-md`
-                        : `${esi.bgColor} ${esi.borderColor} ${esi.textColor} hover:opacity-80`
-                    } ${suggestedESI === esi.level && selectedESI !== esi.level ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
-                  >
-                    {esi.level}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Orientation buttons */}
-            <div className="flex items-center gap-1.5 flex-1">
-              <MapPin className="h-4 w-4 text-gray-500 shrink-0" />
-              <span className="text-xs text-gray-500 shrink-0">Orient.:</span>
-              <div className="flex gap-1 flex-wrap">
-                {availableOrientations.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => onOrientationChange(opt.value)}
-                    className={`px-2.5 py-1 rounded-md border-2 text-xs font-semibold transition-all ${
-                      selectedOrientation === opt.value
-                        ? `${opt.selectedBg} ${opt.borderColor} shadow-md`
-                        : `${opt.bgColor} ${opt.borderColor} ${opt.color} hover:opacity-80`
-                    } ${suggestion?.suggestion === opt.value && selectedOrientation !== opt.value ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Override reason */}
-          {isOrientationOverride && (
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-orange-500 shrink-0" />
-              <input
-                type="text"
-                className="flex-1 px-3 py-1.5 border border-orange-300 rounded-md text-sm bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                placeholder="Raison du changement d'orientation..."
-                value={overrideReason}
-                onChange={(e) => onOverrideReasonChange(e.target.value)}
-              />
-            </div>
-          )}
-
-          {/* Actions row */}
-          <div className="flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowDetails(!showDetails)}
-              className="text-blue-600"
-            >
-              {showDetails ? (
-                <>
-                  <ChevronDown className="h-4 w-4 mr-1" />
-                  Masquer les details
-                </>
-              ) : (
-                <>
-                  <ChevronUp className="h-4 w-4 mr-1" />
-                  Voir les details
-                </>
-              )}
-            </Button>
-
-            <Button
-              onClick={onConfirm}
-              disabled={!canConfirm || saving}
-              className="min-w-[200px] bg-green-600 hover:bg-green-700"
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-              )}
-              {saving ? 'Enregistrement...' : 'Confirmer et terminer'}
-            </Button>
-          </div>
+          {/* Right: confirm button */}
+          <Button
+            onClick={onConfirm}
+            disabled={!canConfirm || saving}
+            size="sm"
+            className="bg-green-600 hover:bg-green-700"
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+            )}
+            {saving ? 'Enregistrement...' : 'Confirmer'}
+          </Button>
         </div>
       </div>
     </>
