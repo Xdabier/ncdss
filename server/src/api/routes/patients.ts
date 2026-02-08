@@ -94,7 +94,8 @@ router.get('/', async (req, res) => {
       createdAt: patients.createdAt,
       triageCompletedAt: patients.triageCompletedAt,
       treatmentStartedAt: patients.treatmentStartedAt,
-      doctorAssignedAt: patients.doctorAssignedAt
+      doctorAssignedAt: patients.doctorAssignedAt,
+      absentCallHistory: patients.absentCallHistory
     })
     .from(patients)
     .leftJoin(patientIdentities, eq(patients.patientIdentityId, patientIdentities.id));
@@ -514,6 +515,99 @@ router.put('/:id/medical-history', async (req, res) => {
     res.json(updated);
   } catch (error) {
     console.error('Update medical history error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// ============================================================================
+// ABSENT CALL TRACKING
+// ============================================================================
+
+// Mark patient as absent (called but did not respond)
+router.post('/:id/absent-call', async (req, res) => {
+  try {
+    const { userId } = (req as any).user;
+    const { id } = req.params;
+    const db = getDb();
+
+    const [patient] = await db.select().from(patients).where(eq(patients.id, id));
+    if (!patient) {
+      return res.status(404).json({ error: 'Patient non trouvé' });
+    }
+
+    if (patient.status !== PatientStatus.REGISTERED) {
+      return res.status(400).json({ error: 'Seuls les patients enregistrés peuvent être marqués absents' });
+    }
+
+    const history: Array<{ timestamp: string; calledBy: string; type: string }> = patient.absentCallHistory
+      ? JSON.parse(patient.absentCallHistory)
+      : [];
+
+    history.push({
+      timestamp: new Date().toISOString(),
+      calledBy: userId,
+      type: 'call'
+    });
+
+    const now = new Date().toISOString();
+    await db.update(patients).set({
+      absentCallHistory: JSON.stringify(history),
+      updatedAt: now
+    }).where(eq(patients.id, id));
+
+    const updated = await fetchPatientWithIdentity(db, id);
+    res.json(updated);
+  } catch (error) {
+    console.error('Absent call error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Recall an absent patient back to the active queue
+router.post('/:id/recall', async (req, res) => {
+  try {
+    const { userId } = (req as any).user;
+    const { id } = req.params;
+    const db = getDb();
+
+    const [patient] = await db.select().from(patients).where(eq(patients.id, id));
+    if (!patient) {
+      return res.status(404).json({ error: 'Patient non trouvé' });
+    }
+
+    if (patient.status !== PatientStatus.REGISTERED) {
+      return res.status(400).json({ error: 'Seuls les patients enregistrés peuvent être rappelés' });
+    }
+
+    const history: Array<{ timestamp: string; calledBy: string; type: string }> = patient.absentCallHistory
+      ? JSON.parse(patient.absentCallHistory)
+      : [];
+
+    if (history.length === 0) {
+      return res.status(400).json({ error: 'Ce patient n\'a pas été marqué absent' });
+    }
+
+    const lastEntry = history[history.length - 1];
+    if (lastEntry.type === 'recall') {
+      return res.status(400).json({ error: 'Ce patient a déjà été rappelé' });
+    }
+
+    history.push({
+      timestamp: new Date().toISOString(),
+      calledBy: userId,
+      type: 'recall'
+    });
+
+    const now = new Date().toISOString();
+    await db.update(patients).set({
+      absentCallHistory: JSON.stringify(history),
+      updatedAt: now
+    }).where(eq(patients.id, id));
+
+    const updated = await fetchPatientWithIdentity(db, id);
+    res.json(updated);
+  } catch (error) {
+    console.error('Recall patient error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
