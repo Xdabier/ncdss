@@ -5,7 +5,8 @@ const config: CapacitorConfig = {
   appName: 'NCDSS Client',
   webDir: 'dist',
   server: {
-    androidScheme: 'https',
+    androidScheme: 'http',
+    cleartext: true,
   },
   plugins: {
     CapacitorSQLite: {

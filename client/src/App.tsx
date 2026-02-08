@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/auth.store';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { RoleGuard } from './components/guards/RoleGuard';
@@ -70,7 +70,7 @@ export default function App() {
   }, [loadAuth]);
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         {/* Public routes */}
         <Route path={CLIENT_ROUTES.login} element={<Login />} />
@@ -594,6 +594,6 @@ export default function App() {
         {/* Default redirect */}
         <Route path={CLIENT_ROUTES.home} element={<Navigate to={CLIENT_ROUTES.dashboard} replace />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }

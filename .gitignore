@@ -11,6 +11,8 @@ build/
 dist/
 dist-electron/
 out/
+android/
+release/
 
 # Misc
 .DS_Store

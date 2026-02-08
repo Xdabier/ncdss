@@ -25,7 +25,6 @@ export class LlamaCppProvider implements LLMProvider {
   private initPromise: Promise<void> | null = null;
 
   constructor() {
-    // Models directory relative to server root
     this.modelsDir = process.env.LLAMA_MODELS_DIR || path.join(process.cwd(), 'models');
     this.modelPath = process.env.LLAMA_MODEL_PATH || '';
     this.enableThinking = process.env.LLAMA_ENABLE_THINKING !== 'false';
@@ -61,15 +60,25 @@ export class LlamaCppProvider implements LLMProvider {
       // Resolve model path
       let resolvedPath = this.modelPath;
       if (!resolvedPath) {
-        // Try to find any .gguf file in models directory
-        try {
-          const files = await fs.readdir(this.modelsDir);
-          const ggufFile = files.find((f: string) => f.endsWith('.gguf'));
-          if (ggufFile) {
-            resolvedPath = path.join(this.modelsDir, ggufFile);
+        // Search directories in priority order:
+        // 1. Env-configured or cwd-based modelsDir
+        // 2. Electron packaged app extraResources (process.resourcesPath/models)
+        const searchDirs = [this.modelsDir];
+        if (process.resourcesPath) {
+          searchDirs.push(path.join(process.resourcesPath, 'models'));
+        }
+
+        for (const dir of searchDirs) {
+          try {
+            const files = await fs.readdir(dir);
+            const ggufFile = files.find((f: string) => f.endsWith('.gguf'));
+            if (ggufFile) {
+              resolvedPath = path.join(dir, ggufFile);
+              break;
+            }
+          } catch {
+            // Directory doesn't exist, try next
           }
-        } catch {
-          // Directory doesn't exist
         }
       }
 

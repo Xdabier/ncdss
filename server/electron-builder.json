@@ -6,8 +6,11 @@
     "output": "release"
   },
   "files": ["dist-electron/**/*", "package.json"],
+  "extraResources": [
+    { "from": "models", "to": "models", "filter": ["*.gguf"] }
+  ],
   "win": {
-    "target": ["nsis"]
+    "target": ["zip"]
   },
   "linux": {
     "target": ["AppImage"]
