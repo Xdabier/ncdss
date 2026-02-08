@@ -9,9 +9,13 @@ import {
   Stethoscope,
   Save,
   Loader2,
+  CheckCircle,
+  Eye,
 } from 'lucide-react';
 import { DashboardLayout } from '../../../components/layout/DashboardLayout';
 import { Button } from '../../../components/ui/button';
+import { Badge } from '../../../components/ui/badge';
+import { Card, CardContent } from '../../../components/ui/card';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { VitalsForm, VitalsData } from '../../../components/abcde/VitalsForm';
 import { ExposureForm } from '../../../components/abcde/ExposureForm';
@@ -100,6 +104,17 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Triage result (shown after confirmation instead of navigating away)
+  const [triageResult, setTriageResult] = useState<{
+    patient: any;
+    autoAssignment: {
+      assigned: boolean;
+      boxName?: string;
+      doctorName?: string;
+      reason?: string;
+    };
+  } | null>(null);
 
   // Form data
   const [medicalHistoryData, setMedicalHistoryData] = useState<Partial<MedicalHistoryData>>({});
@@ -629,7 +644,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
 
       await api.put(API_ROUTES.patients.esi(id), { esiLevel: selectedESI });
 
-      await api.post(API_ROUTES.patients.completeTriage(id), {
+      const response = await api.post(API_ROUTES.patients.completeTriage(id), {
         esiLevel: selectedESI,
         suggestedOrientation: suggestion?.suggestion,
         orientationSource: suggestion?.source,
@@ -637,8 +652,9 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
         overrideReason: isOrientationOverride ? overrideReason : null,
       });
 
-      navigate(CLIENT_ROUTES.nurse.triage.queue, {
-        state: { message: `Triage termine avec succes pour ${patient?.fullName}` },
+      setTriageResult({
+        patient: response.data,
+        autoAssignment: response.data.autoAssignment || { assigned: false, reason: 'Affectation non disponible' },
       });
     } catch (e: any) {
       setError(e.response?.data?.error || 'Erreur lors de la finalisation du triage');
@@ -887,32 +903,129 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
     {/* ============================================================= */}
     {/* Decision panel — fixed layer, independent of workflow scroll   */}
     {/* ============================================================= */}
-    <DecisionPanel
-      patient={patient}
-      analysis={analysis}
-      analyzing={analyzing}
-      suggestion={suggestion}
-      suggestedESI={suggestedESI}
-      selectedESI={selectedESI}
-      onESIChange={setSelectedESI}
-      selectedOrientation={selectedOrientation}
-      onOrientationChange={(orientation) => {
-        setSelectedOrientation(orientation);
-        if (orientation === suggestion?.suggestion) {
-          setOverrideReason('');
-        }
-        setError(null);
-      }}
-      overrideReason={overrideReason}
-      onOverrideReasonChange={(reason) => {
-        setOverrideReason(reason);
-        setError(null);
-      }}
-      onRunAnalysis={runAnalysis}
-      onConfirm={handleComplete}
-      saving={saving}
-      canConfirm={canConfirm}
-    />
+    {!triageResult && (
+      <DecisionPanel
+        patient={patient}
+        analysis={analysis}
+        analyzing={analyzing}
+        suggestion={suggestion}
+        suggestedESI={suggestedESI}
+        selectedESI={selectedESI}
+        onESIChange={setSelectedESI}
+        selectedOrientation={selectedOrientation}
+        onOrientationChange={(orientation) => {
+          setSelectedOrientation(orientation);
+          if (orientation === suggestion?.suggestion) {
+            setOverrideReason('');
+          }
+          setError(null);
+        }}
+        overrideReason={overrideReason}
+        onOverrideReasonChange={(reason) => {
+          setOverrideReason(reason);
+          setError(null);
+        }}
+        onRunAnalysis={runAnalysis}
+        onConfirm={handleComplete}
+        saving={saving}
+        canConfirm={canConfirm}
+      />
+    )}
+
+    {/* ============================================================= */}
+    {/* Triage result overlay                                          */}
+    {/* ============================================================= */}
+    {triageResult && (
+      <div className="fixed inset-0 z-50 bg-white flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6 space-y-6">
+            {/* Success header */}
+            <div className="text-center space-y-2">
+              <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
+              <h2 className="text-xl font-bold">Triage termine</h2>
+            </div>
+
+            {/* Patient info */}
+            <div className="text-center space-y-2">
+              <p className="text-lg font-semibold">{triageResult.patient.fullName}</p>
+              <div className="flex items-center justify-center gap-2">
+                <Badge className={
+                  selectedESI === 1 ? 'bg-red-600 text-white' :
+                  selectedESI === 2 ? 'bg-orange-500 text-white' :
+                  selectedESI === 3 ? 'bg-yellow-500 text-white' :
+                  selectedESI === 4 ? 'bg-green-500 text-white' :
+                  'bg-blue-500 text-white'
+                }>
+                  ESI {selectedESI}
+                </Badge>
+                <Badge variant="outline">
+                  {selectedOrientation === 'SAUV' ? 'SAUV' :
+                   selectedOrientation === 'MEDICAL' ? 'Medical' :
+                   selectedOrientation === 'SURGICAL' ? 'Chirurgical' :
+                   selectedOrientation === 'TRAUMA' ? 'Traumato' :
+                   selectedOrientation}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Assignment section */}
+            <div className="border-t pt-4 space-y-3">
+              <h3 className="font-semibold text-sm text-gray-500 uppercase tracking-wide">Affectation</h3>
+              {triageResult.autoAssignment.assigned ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+                    <span className="text-sm">Box : <strong>{triageResult.autoAssignment.boxName}</strong></span>
+                  </div>
+                  {triageResult.autoAssignment.doctorName ? (
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+                      <span className="text-sm">Medecin : <strong>{triageResult.autoAssignment.doctorName}</strong></span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0" />
+                      <span className="text-sm text-orange-700">Aucun medecin disponible</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0" />
+                    <span className="text-sm text-orange-700">
+                      En attente — {triageResult.autoAssignment.reason}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Le patient sera visible dans la file de traitement
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-col gap-2 pt-2">
+              <Button
+                onClick={() => navigate(CLIENT_ROUTES.nurse.triage.queue)}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Retour a la file de triage
+              </Button>
+              {triageResult.autoAssignment.assigned && id && (
+                <Button
+                  variant="outline"
+                  onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.patientCare(id))}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Voir le patient
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )}
     </>
   );
 }
