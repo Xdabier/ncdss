@@ -1682,6 +1682,119 @@ router.post('/:id/reassign-box', async (req, res) => {
   }
 });
 
+// ============================================================================
+// HOLD / RESUME HOLD / CONSULTATION NOTES
+// ============================================================================
+
+// Put patient on hold
+router.post('/:id/hold', async (req, res) => {
+  try {
+    const { userId, role } = (req as any).user;
+    const { id } = req.params;
+    const { holdStatus, holdReason } = req.body;
+
+    if (role !== 'DOCTOR' && role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Seuls les médecins peuvent mettre un patient en attente' });
+    }
+
+    const validStatuses = ['waiting_for_treatment', 'waiting_for_exams', 'waiting_for_specialist', 'patient_absent'];
+    if (!holdStatus || !validStatuses.includes(holdStatus)) {
+      return res.status(400).json({ error: 'Statut de mise en attente invalide' });
+    }
+
+    const db = getDb();
+    const [patient] = await db.select().from(patients).where(eq(patients.id, id));
+    if (!patient) {
+      return res.status(404).json({ error: 'Patient non trouvé' });
+    }
+
+    if (patient.status !== PatientStatus.WITH_DOCTOR && patient.status !== PatientStatus.IN_TREATMENT) {
+      return res.status(400).json({ error: 'Le patient doit être en consultation ou en traitement' });
+    }
+
+    const now = new Date().toISOString();
+    await db.update(patients).set({
+      holdStatus,
+      holdReason: holdReason || null,
+      holdAt: now,
+      holdBy: userId,
+      updatedAt: now,
+    }).where(eq(patients.id, id));
+
+    const updated = await fetchPatientWithIdentity(db, id);
+    res.json(updated);
+  } catch (error) {
+    console.error('Hold patient error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Resume from hold
+router.post('/:id/resume-hold', async (req, res) => {
+  try {
+    const { role } = (req as any).user;
+    const { id } = req.params;
+
+    if (role !== 'DOCTOR' && role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Seuls les médecins peuvent reprendre la consultation' });
+    }
+
+    const db = getDb();
+    const [patient] = await db.select().from(patients).where(eq(patients.id, id));
+    if (!patient) {
+      return res.status(404).json({ error: 'Patient non trouvé' });
+    }
+
+    if (!patient.holdStatus) {
+      return res.status(400).json({ error: 'Le patient n\'est pas en attente' });
+    }
+
+    const now = new Date().toISOString();
+    await db.update(patients).set({
+      holdStatus: null,
+      holdReason: null,
+      holdAt: null,
+      holdBy: null,
+      updatedAt: now,
+    }).where(eq(patients.id, id));
+
+    const updated = await fetchPatientWithIdentity(db, id);
+    res.json(updated);
+  } catch (error) {
+    console.error('Resume hold error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Auto-save consultation notes
+router.put('/:id/consultation-notes', async (req, res) => {
+  try {
+    const { role } = (req as any).user;
+    const { id } = req.params;
+    const { notes } = req.body;
+
+    if (role !== 'DOCTOR' && role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Seuls les médecins peuvent modifier les notes de consultation' });
+    }
+
+    const db = getDb();
+    const [patient] = await db.select().from(patients).where(eq(patients.id, id));
+    if (!patient) {
+      return res.status(404).json({ error: 'Patient non trouvé' });
+    }
+
+    await db.update(patients).set({
+      consultationNotes: notes ?? null,
+      updatedAt: new Date().toISOString(),
+    }).where(eq(patients.id, id));
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Update consultation notes error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 // Discharge patient
 router.post('/:id/discharge', async (req, res) => {
   try {

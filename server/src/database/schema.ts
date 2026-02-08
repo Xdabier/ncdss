@@ -224,6 +224,15 @@ export const patients = sqliteTable('patients', {
   dischargeNotes: text('discharge_notes'),
   dischargeType: text('discharge_type'),                   // home, admission, transfer, left_ama, deceased
 
+  // Hold (doctor puts patient on hold awaiting results/specialist/treatment)
+  holdStatus: text('hold_status'),         // waiting_for_treatment, waiting_for_exams, waiting_for_specialist, patient_absent
+  holdReason: text('hold_reason'),         // Free-text reason
+  holdAt: text('hold_at'),                 // ISO timestamp
+  holdBy: text('hold_by').references(() => users.id),
+
+  // Consultation notes (doctor's in-progress notes, auto-saved)
+  consultationNotes: text('consultation_notes'),
+
   // Re-triage
   retriageRequested: integer('retriage_requested', { mode: 'boolean' }).default(false),
   retriageReason: text('retriage_reason'),
@@ -373,6 +382,7 @@ export const prescriptions = sqliteTable('prescriptions', {
   cancelledBy: text('cancelled_by').references(() => users.id),
   cancelledAt: text('cancelled_at'),
   cancelReason: text('cancel_reason'),
+  administeredInBox: integer('administered_in_box').default(0),
   createdAt: text('created_at')
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),

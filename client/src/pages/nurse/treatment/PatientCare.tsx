@@ -26,6 +26,7 @@ import {
   PlayCircle,
   CheckSquare,
   ArrowRightLeft,
+  Syringe,
 } from 'lucide-react';
 import { DashboardLayout } from '../../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -703,28 +704,42 @@ export default function PatientCare() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {prescriptions.map((prescription) => {
+                    {[...prescriptions].sort((a, b) => {
+                      // Sort administeredInBox prescriptions to the top
+                      if (a.administeredInBox && !b.administeredInBox) return -1;
+                      if (!a.administeredInBox && b.administeredInBox) return 1;
+                      return 0;
+                    }).map((prescription) => {
                       const lastAdminTime = getLastAdministration(prescription);
                       const statusConfig = prescriptionStatusConfig[prescription.status as PrescriptionStatus] ||
                         prescriptionStatusConfig[PrescriptionStatus.ACTIVE];
                       const isLoading = prescriptionActionLoading === prescription.id;
                       const isActive = prescription.status === PrescriptionStatus.ACTIVE;
                       const isOnHold = prescription.status === PrescriptionStatus.ON_HOLD;
+                      const isBoxDesSoins = prescription.administeredInBox;
 
                       return (
                         <div
                           key={prescription.id}
                           className={`p-4 border rounded-lg ${
-                            isOnHold ? 'bg-amber-50 border-amber-200' : 'bg-gray-50'
+                            isBoxDesSoins
+                              ? 'bg-indigo-50 border-l-4 border-l-indigo-500 border-indigo-200'
+                              : isOnHold ? 'bg-amber-50 border-amber-200' : 'bg-gray-50'
                           }`}
                         >
                           {/* Prescription header */}
                           <div className="flex justify-between items-start mb-3">
                             <div>
-                              <div className="flex items-center gap-2 mb-1">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
                                 <h4 className="font-semibold text-gray-900">
                                   {prescription.medicationName}
                                 </h4>
+                                {isBoxDesSoins && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-100 text-indigo-800">
+                                    <Syringe className="h-3 w-3" />
+                                    À réaliser ici
+                                  </span>
+                                )}
                                 <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusConfig.bgColor} ${statusConfig.textColor}`}>
                                   {statusConfig.label}
                                 </span>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Pill, Loader2 } from 'lucide-react';
+import { X, Pill, Loader2, Syringe } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -40,6 +40,7 @@ interface FormData {
   frequency: string;
   duration: string;
   instructions: string;
+  administeredInBox: boolean;
 }
 
 interface FormErrors {
@@ -68,6 +69,7 @@ export function PrescriptionModal({
         frequency: editPrescription.frequency || '',
         duration: editPrescription.duration || '',
         instructions: editPrescription.instructions || '',
+        administeredInBox: editPrescription.administeredInBox || false,
       };
     }
     return {
@@ -77,6 +79,7 @@ export function PrescriptionModal({
       frequency: '',
       duration: '',
       instructions: '',
+      administeredInBox: false,
     };
   };
 
@@ -134,6 +137,7 @@ export function PrescriptionModal({
           frequency: formData.frequency.trim() || undefined,
           duration: formData.duration.trim() || null,
           instructions: formData.instructions.trim() || null,
+          administeredInBox: formData.administeredInBox,
         });
       } else {
         await api.post(API_ROUTES.prescriptions.create, {
@@ -144,6 +148,7 @@ export function PrescriptionModal({
           frequency: formData.frequency.trim(),
           duration: formData.duration.trim() || null,
           instructions: formData.instructions.trim() || null,
+          administeredInBox: formData.administeredInBox,
         });
       }
 
@@ -155,6 +160,7 @@ export function PrescriptionModal({
         frequency: '',
         duration: '',
         instructions: '',
+        administeredInBox: false,
       });
 
       onSuccess();
@@ -181,6 +187,7 @@ export function PrescriptionModal({
         frequency: '',
         duration: '',
         instructions: '',
+        administeredInBox: false,
       });
       setErrors({});
       onClose();
@@ -222,6 +229,36 @@ export function PrescriptionModal({
               {errors.general}
             </div>
           )}
+
+          {/* Administered in box checkbox */}
+          <label
+            className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+              formData.administeredInBox
+                ? 'border-indigo-500 bg-indigo-50'
+                : 'border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={formData.administeredInBox}
+              onChange={(e) =>
+                setFormData({ ...formData, administeredInBox: e.target.checked })
+              }
+              disabled={isSubmitting}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <Syringe className={`h-4 w-4 ${formData.administeredInBox ? 'text-indigo-600' : 'text-gray-400'}`} />
+                <span className={`font-medium text-sm ${formData.administeredInBox ? 'text-indigo-900' : 'text-gray-700'}`}>
+                  À réaliser au box des soins
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Cette prescription sera administrée par l'infirmier(e) au box des soins
+              </p>
+            </div>
+          </label>
 
           {/* Medication Name (required) */}
           <div className="space-y-2">

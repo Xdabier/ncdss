@@ -32,6 +32,8 @@ export enum IdType {
   PASSPORT = 'PASSPORT'
 }
 
+export type HoldStatus = 'waiting_for_treatment' | 'waiting_for_exams' | 'waiting_for_specialist' | 'patient_absent';
+
 export interface PatientIdentity {
   id: string;
   fullName: string;
@@ -132,6 +134,15 @@ export interface Patient {
   dischargedBy?: string;
   dischargeNotes?: string;
   dischargeType?: string;          // home, admission, transfer, left_ama, deceased
+
+  // Hold
+  holdStatus?: string;
+  holdReason?: string;
+  holdAt?: string;
+  holdBy?: string;
+
+  // Consultation notes
+  consultationNotes?: string;
 
   // Re-triage
   retriageRequested?: boolean;

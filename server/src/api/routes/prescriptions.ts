@@ -90,6 +90,7 @@ router.get('/patient/:patientId', async (req, res) => {
       cancelledBy: prescriptions.cancelledBy,
       cancelledAt: prescriptions.cancelledAt,
       cancelReason: prescriptions.cancelReason,
+      administeredInBox: prescriptions.administeredInBox,
       createdAt: prescriptions.createdAt,
       prescriberName: users.fullName
     })
@@ -101,7 +102,8 @@ router.get('/patient/:patientId', async (req, res) => {
     // Parse administrations JSON
     const prescriptionsWithParsed = result.map((p: typeof result[number]) => ({
       ...p,
-      administrations: parseAdministrations(p.administrations)
+      administrations: parseAdministrations(p.administrations),
+      administeredInBox: !!p.administeredInBox
     }));
 
     res.json(prescriptionsWithParsed);
@@ -139,6 +141,7 @@ router.get('/:id', async (req, res) => {
       cancelledBy: prescriptions.cancelledBy,
       cancelledAt: prescriptions.cancelledAt,
       cancelReason: prescriptions.cancelReason,
+      administeredInBox: prescriptions.administeredInBox,
       createdAt: prescriptions.createdAt,
       updatedAt: prescriptions.updatedAt,
       prescriberName: users.fullName
@@ -153,7 +156,8 @@ router.get('/:id', async (req, res) => {
 
     res.json({
       ...prescription,
-      administrations: parseAdministrations(prescription.administrations)
+      administrations: parseAdministrations(prescription.administrations),
+      administeredInBox: !!prescription.administeredInBox
     });
   } catch (error) {
     console.error('Get prescription error:', error);
@@ -263,6 +267,7 @@ router.put('/:id', async (req, res) => {
       cancelledBy: prescriptions.cancelledBy,
       cancelledAt: prescriptions.cancelledAt,
       cancelReason: prescriptions.cancelReason,
+      administeredInBox: prescriptions.administeredInBox,
       createdAt: prescriptions.createdAt,
       updatedAt: prescriptions.updatedAt,
       prescriberName: users.fullName
@@ -273,7 +278,8 @@ router.put('/:id', async (req, res) => {
 
     res.json({
       ...updated,
-      administrations: parseAdministrations(updated.administrations)
+      administrations: parseAdministrations(updated.administrations),
+      administeredInBox: !!updated.administeredInBox
     });
   } catch (error) {
     console.error('Update prescription error:', error);
@@ -303,7 +309,8 @@ router.post('/', async (req, res) => {
       frequency,
       duration,
       instructions,
-      startTime
+      startTime,
+      administeredInBox
     } = req.body;
 
     // Validation
@@ -343,6 +350,7 @@ router.post('/', async (req, res) => {
       duration: duration?.trim() || null,
       instructions: instructions?.trim() || null,
       startTime: startTime || now,
+      administeredInBox: administeredInBox ? 1 : 0,
       status: 'ACTIVE',
       administrations: '[]',
       prescribedBy: userId,
@@ -367,6 +375,7 @@ router.post('/', async (req, res) => {
       administrations: prescriptions.administrations,
       prescribedBy: prescriptions.prescribedBy,
       prescribedAt: prescriptions.prescribedAt,
+      administeredInBox: prescriptions.administeredInBox,
       createdAt: prescriptions.createdAt,
       prescriberName: users.fullName
     })
@@ -376,7 +385,8 @@ router.post('/', async (req, res) => {
 
     res.status(201).json({
       ...created,
-      administrations: []
+      administrations: [],
+      administeredInBox: !!created.administeredInBox
     });
   } catch (error) {
     console.error('Create prescription error:', error);

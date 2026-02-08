@@ -69,6 +69,7 @@ export interface CreatePrescriptionRequest {
   frequency?: string;
   duration?: string;
   instructions?: string;
+  administeredInBox?: boolean;
   startTime?: string;
   endTime?: string;
 }

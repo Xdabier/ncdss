@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -18,6 +18,7 @@ import { ABCDEReviewComponent } from '../../components/doctor/ABCDEReview';
 import { DiagnosisModal } from '../../components/doctor/DiagnosisModal';
 import { PrescriptionModal } from '../../components/doctor/PrescriptionModal';
 import { DoctorDischargeModal } from '../../components/doctor/DoctorDischargeModal';
+import { HoldPatientModal } from '../../components/doctor/HoldPatientModal';
 import { AIPreDiagnosisPanel } from '../../components/shared/AIPreDiagnosisPanel';
 import { getApi } from '../../services/api';
 import { getScoreColor, getScoreLabel } from '../../utils/scoreUtils';
@@ -26,6 +27,7 @@ import {
   Patient,
   PatientStatus,
   Sex,
+  HoldStatus,
   Prescription,
   Diagnosis,
   DiagnosisType,
@@ -60,6 +62,10 @@ import {
   UserPlus,
   Stethoscope,
   History,
+  Syringe,
+  Pause,
+  Play,
+  Save,
 } from 'lucide-react';
 
 // French labels
@@ -107,6 +113,13 @@ const dischargeTypeLabels: Record<string, string> = {
   'transfer': 'Transfert',
   'left_ama': 'Sortie contre avis médical',
   'deceased': 'Décès',
+};
+
+const holdStatusLabels: Record<string, string> = {
+  waiting_for_treatment: 'En attente de soins au box',
+  waiting_for_exams: "En attente d'examens compl\u00e9mentaires",
+  waiting_for_specialist: "En attente d'un sp\u00e9cialiste",
+  patient_absent: "Patient absent \u00e0 l'appel",
 };
 
 // ESI colors
@@ -512,9 +525,16 @@ export default function PatientDetail() {
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [showDischargeModal, setShowDischargeModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showHoldModal, setShowHoldModal] = useState(false);
   const [editingPrescription, setEditingPrescription] = useState<Prescription | null>(null);
   const [prescriptionToCancel, setPrescriptionToCancel] = useState<Prescription | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Consultation notes auto-save
+  const [consultationNotes, setConsultationNotes] = useState('');
+  const [notesSaveStatus, setNotesSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const notesInitialized = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [aiDiagnosisInitialData, setAiDiagnosisInitialData] = useState<{
     diagnosisCode?: string;
     diagnosisName?: string;
@@ -570,6 +590,59 @@ export default function PatientDetail() {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  // Initialize consultation notes from patient data
+  useEffect(() => {
+    if (patient && !notesInitialized.current) {
+      setConsultationNotes(patient.consultationNotes || '');
+      notesInitialized.current = true;
+    }
+  }, [patient]);
+
+  // Auto-save consultation notes with 30s debounce
+  const saveConsultationNotes = useCallback(async (notes: string) => {
+    if (!id) return;
+    setNotesSaveStatus('saving');
+    try {
+      const api = await getApi();
+      await api.put(API_ROUTES.patients.consultationNotes(id), { notes });
+      setNotesSaveStatus('saved');
+      setTimeout(() => setNotesSaveStatus('idle'), 3000);
+    } catch {
+      setNotesSaveStatus('idle');
+    }
+  }, [id]);
+
+  const handleConsultationNotesChange = useCallback((value: string) => {
+    setConsultationNotes(value);
+    setNotesSaveStatus('idle');
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveConsultationNotes(value);
+    }, 30000);
+  }, [saveConsultationNotes]);
+
+  // Cleanup timer on unmount & flush pending save
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
+
+  // Resume hold handler
+  const handleResumeHold = async () => {
+    if (!id) return;
+    setActionLoading('resume-hold');
+    try {
+      const api = await getApi();
+      await api.post(API_ROUTES.patients.resumeHold(id));
+      await loadPatient();
+    } catch (err: any) {
+      console.error('Error resuming hold:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   // Check if patient has at least one PRIMARY diagnosis that is ACTIVE or CONFIRMED
   const hasPrimaryDiagnosis = diagnoses.some(
@@ -800,9 +873,18 @@ export default function PatientDetail() {
           <Button
             size="sm"
             variant="outline"
+            onClick={() => setShowHoldModal(true)}
+            disabled={patient.status === PatientStatus.DISCHARGED || !!patient.holdStatus}
+            className="ml-auto"
+          >
+            <Pause className="h-4 w-4 mr-2" />
+            Mettre en attente
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
             onClick={() => setShowDischargeModal(true)}
             disabled={patient.status === PatientStatus.DISCHARGED}
-            className="ml-auto"
           >
             <LogOut className="h-4 w-4 mr-2" />
             Sortie
@@ -832,6 +914,38 @@ export default function PatientDetail() {
               {patient.retriageReason || 'Raison non spécifiée'}
             </AlertDescription>
           </Alert>
+        )}
+
+        {/* Hold Banner */}
+        {patient.holdStatus && (
+          <div className="mb-6 p-4 bg-amber-50 border-2 border-amber-300 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Pause className="h-5 w-5 text-amber-600" />
+                <div>
+                  <p className="font-semibold text-amber-800">
+                    Patient en attente — {holdStatusLabels[patient.holdStatus] || patient.holdStatus}
+                  </p>
+                  {patient.holdReason && (
+                    <p className="text-sm text-amber-700 mt-0.5">{patient.holdReason}</p>
+                  )}
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={handleResumeHold}
+                disabled={actionLoading === 'resume-hold'}
+                className="bg-amber-600 hover:bg-amber-700"
+              >
+                {actionLoading === 'resume-hold' ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4 mr-2" />
+                )}
+                Reprendre la consultation
+              </Button>
+            </div>
+          </div>
         )}
 
         {/* Main Content - 2 columns on desktop */}
@@ -1266,7 +1380,15 @@ export default function PatientDetail() {
                               </p>
                             </div>
                           </div>
-                          {getPrescriptionStatusBadge(prescription.status)}
+                          <div className="flex items-center gap-1.5">
+                            {prescription.administeredInBox && (
+                              <Badge className="bg-indigo-100 text-indigo-800 hover:bg-indigo-100 text-xs">
+                                <Syringe className="h-3 w-3 mr-1" />
+                                Box des soins
+                              </Badge>
+                            )}
+                            {getPrescriptionStatusBadge(prescription.status)}
+                          </div>
                         </div>
                         <div className="mt-2 text-sm text-gray-600">
                           <p>{prescription.frequency}</p>
@@ -1317,6 +1439,43 @@ export default function PatientDetail() {
                     ))}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Consultation Notes (auto-save) */}
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Edit3 className="h-5 w-5 text-gray-500" />
+                    Notes de consultation
+                  </CardTitle>
+                  <div className="text-xs text-gray-500">
+                    {notesSaveStatus === 'saving' && (
+                      <span className="flex items-center gap-1 text-blue-600">
+                        <RefreshCw className="h-3 w-3 animate-spin" />
+                        Sauvegarde en cours...
+                      </span>
+                    )}
+                    {notesSaveStatus === 'saved' && (
+                      <span className="flex items-center gap-1 text-green-600">
+                        <Save className="h-3 w-3" />
+                        Sauvegard\u00e9
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <textarea
+                  value={consultationNotes}
+                  onChange={(e) => handleConsultationNotesChange(e.target.value)}
+                  placeholder="Notes du m\u00e9decin (sauvegarde automatique)..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-sm"
+                  rows={5}
+                  disabled={patient.status === PatientStatus.DISCHARGED}
+                />
+                <p className="text-xs text-gray-400 mt-1">Sauvegarde automatique apr\u00e8s 30 secondes d'inactivit\u00e9</p>
               </CardContent>
             </Card>
 
@@ -1459,6 +1618,16 @@ export default function PatientDetail() {
           setShowDischargeModal(false);
           loadPatient();
           navigate(CLIENT_ROUTES.doctor.patients);
+        }}
+      />
+
+      <HoldPatientModal
+        isOpen={showHoldModal}
+        patient={patient}
+        onClose={() => setShowHoldModal(false)}
+        onSuccess={() => {
+          setShowHoldModal(false);
+          loadPatient();
         }}
       />
 

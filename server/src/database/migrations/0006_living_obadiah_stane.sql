@@ -1,0 +1,1 @@
+ALTER TABLE `prescriptions` ADD `administered_in_box` integer DEFAULT 0;

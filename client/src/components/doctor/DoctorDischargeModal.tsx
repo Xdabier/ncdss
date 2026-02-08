@@ -6,7 +6,9 @@ import { Badge } from '../ui/badge';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
@@ -41,12 +43,24 @@ interface DoctorDischargeModalProps {
 
 // French labels
 const dischargeTypeLabels: Record<string, string> = {
-  'home': 'Retour à domicile',
+  'home': 'Retour \u00e0 domicile',
+  'transfer': 'Transfert vers un autre service',
+  'left_ama': 'Sorti contre avis m\u00e9dical',
+  'deceased': 'D\u00e9c\u00e8s',
   'admission': 'Hospitalisation',
-  'transfer': 'Transfert',
-  'left_ama': 'Sorti contre avis médical',
-  'deceased': 'Décès',
 };
+
+// Grouped discharge types for the select
+const dischargeGroups = [
+  {
+    label: 'Sortie d\u00e9finitive',
+    types: ['home', 'transfer', 'left_ama', 'deceased'] as const,
+  },
+  {
+    label: 'Hospitalisation',
+    types: ['admission'] as const,
+  },
+];
 
 const diagnosisTypeLabels: Record<DiagnosisType, string> = {
   [DiagnosisType.PRIMARY]: 'Principal',
@@ -112,8 +126,11 @@ export function DoctorDischargeModal({
     }
   };
 
+  // For admission, we don't require a PRIMARY diagnosis
+  const requiresPrimaryDiagnosis = dischargeType !== 'admission';
+
   const handleDischarge = async () => {
-    if (!hasPrimaryDiagnosis) {
+    if (requiresPrimaryDiagnosis && !hasPrimaryDiagnosis) {
       setError('Un diagnostic principal est requis');
       return;
     }
@@ -173,11 +190,18 @@ export function DoctorDischargeModal({
           )}
 
           {/* Validation Warning */}
-          {!hasPrimaryDiagnosis && (
+          {!hasPrimaryDiagnosis && requiresPrimaryDiagnosis && (
             <Alert variant="warning" className="bg-yellow-50 border-yellow-200">
               <AlertTriangle className="h-4 w-4 text-yellow-600" />
               <AlertDescription className="text-yellow-800">
                 Un diagnostic principal est requis avant la sortie du patient.
+              </AlertDescription>
+            </Alert>
+          )}
+          {dischargeType === 'admission' && !hasPrimaryDiagnosis && (
+            <Alert className="bg-blue-50 border-blue-200">
+              <AlertDescription className="text-blue-800">
+                Le patient sera admis pour bilan compl\u00e9mentaire.
               </AlertDescription>
             </Alert>
           )}
@@ -232,10 +256,15 @@ export function DoctorDischargeModal({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(dischargeTypeLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
+                {dischargeGroups.map((group) => (
+                  <SelectGroup key={group.label}>
+                    <SelectLabel>{group.label}</SelectLabel>
+                    {group.types.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {dischargeTypeLabels[type]}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 ))}
               </SelectContent>
             </Select>
@@ -268,9 +297,9 @@ export function DoctorDischargeModal({
             </Button>
             <Button
               onClick={handleDischarge}
-              disabled={loading || !hasPrimaryDiagnosis}
+              disabled={loading || (requiresPrimaryDiagnosis && !hasPrimaryDiagnosis)}
               className={`flex-1 ${
-                hasPrimaryDiagnosis
+                (!requiresPrimaryDiagnosis || hasPrimaryDiagnosis)
                   ? 'bg-green-600 hover:bg-green-700'
                   : 'bg-gray-400'
               }`}
