@@ -3,7 +3,7 @@ import { eq, and, like, desc, gte, inArray, ne, sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
 import { patients, patientIdentities, users, boxes, weeklySchedule } from '../../database/schema';
-import { PatientStatus, Orientation, OrientationSource, calculateAge } from '@ncdss/shared';
+import { PatientStatus, Orientation, OrientationSource, BoxType, calculateAge } from '@ncdss/shared';
 import { calculateNEWS, calculateGCS, calculateQSOFA } from '../../utils/scores';
 import { matchFindingsToPathologies } from '../../services/pathologyMatcher';
 import { getLLMProvider, PreDiagnosisContext } from '../../services/llm';
@@ -1075,7 +1075,23 @@ router.post('/:id/complete-triage', async (req, res) => {
       console.error('Failed to send triage complete notification:', notifError);
     }
 
-    res.json(updated);
+    // Auto-assign box after triage completion
+    let assignmentResult: Awaited<ReturnType<typeof autoAssignBox>> = { assigned: false };
+    try {
+      assignmentResult = await autoAssignBox(finalOrientation, id, userId);
+    } catch (autoAssignError) {
+      console.error('Auto-assign box error:', autoAssignError);
+    }
+
+    // Re-fetch patient after potential auto-assignment to get latest state
+    const finalPatient = assignmentResult.assigned
+      ? await fetchPatientWithIdentity(db, id)
+      : updated;
+
+    res.json({
+      ...finalPatient,
+      autoAssignment: assignmentResult,
+    });
   } catch (error) {
     console.error('Complete triage error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -1089,6 +1105,129 @@ function getWeekStart(date: Date): string {
   const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
   d.setDate(diff);
   return d.toISOString().split('T')[0]; // YYYY-MM-DD
+}
+
+// Auto-assign patient to the least crowded matching box after triage
+async function autoAssignBox(
+  finalOrientation: string,
+  patientId: string,
+  triageNurseId: string
+): Promise<{
+  assigned: boolean;
+  boxId?: string;
+  boxName?: string;
+  boxType?: string;
+  doctorId?: string;
+  doctorName?: string;
+  reason?: string;
+}> {
+  const db = getDb();
+
+  // 1. Map orientation to BoxType
+  const orientationToBoxType: Record<string, string> = {
+    SAUV: BoxType.SAUV,
+    MEDICAL: BoxType.MEDICAL,
+    SURGICAL: BoxType.SURGICAL,
+    TRAUMA: BoxType.TRAUMA,
+    PEDIATRIC: BoxType.MEDICAL,
+  };
+
+  const targetBoxType = orientationToBoxType[finalOrientation] || BoxType.MEDICAL;
+
+  // 2. Query all active boxes of matching type
+  let candidateBoxes = await db
+    .select()
+    .from(boxes)
+    .where(and(eq(boxes.isActive, true), eq(boxes.boxType, targetBoxType)));
+
+  // 3. Fallback to MEDICAL if no boxes of matching type
+  if (candidateBoxes.length === 0 && targetBoxType !== BoxType.MEDICAL) {
+    candidateBoxes = await db
+      .select()
+      .from(boxes)
+      .where(and(eq(boxes.isActive, true), eq(boxes.boxType, BoxType.MEDICAL)));
+  }
+
+  // 4. If still no boxes, return failure
+  if (candidateBoxes.length === 0) {
+    return { assigned: false, reason: 'Aucun box disponible' };
+  }
+
+  // 5. For each candidate, count current patients and check for doctor
+  const candidates: Array<{
+    box: typeof candidateBoxes[number];
+    patientCount: number;
+    doctor: { doctorId: string; doctorName: string } | null;
+  }> = [];
+
+  for (const box of candidateBoxes) {
+    // Count patients currently in this box (IN_TREATMENT or WITH_DOCTOR)
+    const countResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(patients)
+      .where(
+        and(
+          eq(patients.assignedBoxId, box.id),
+          inArray(patients.status, [PatientStatus.IN_TREATMENT, PatientStatus.WITH_DOCTOR])
+        )
+      );
+
+    const patientCount = countResult[0]?.count ?? 0;
+
+    // Check if a doctor is currently on shift for this box
+    const doctor = await getCurrentDoctorForBox(box.id);
+
+    candidates.push({ box, patientCount, doctor });
+  }
+
+  // 6. Sort: boxes WITH a doctor first, then by ascending patient count, then alphabetically
+  candidates.sort((a, b) => {
+    const aHasDoctor = a.doctor ? 0 : 1;
+    const bHasDoctor = b.doctor ? 0 : 1;
+    if (aHasDoctor !== bHasDoctor) return aHasDoctor - bHasDoctor;
+    if (a.patientCount !== b.patientCount) return a.patientCount - b.patientCount;
+    return a.box.name.localeCompare(b.box.name);
+  });
+
+  // 7. Pick the first (best) candidate
+  const chosen = candidates[0];
+  const now = new Date().toISOString();
+
+  // 8. Update the patient record
+  await db.update(patients).set({
+    assignedBoxId: chosen.box.id,
+    assignedDoctorId: chosen.doctor?.doctorId || null,
+    doctorAssignedAt: chosen.doctor ? now : null,
+    treatmentStartedAt: now,
+    treatmentNurseId: triageNurseId,
+    status: chosen.doctor ? PatientStatus.WITH_DOCTOR : PatientStatus.IN_TREATMENT,
+    updatedAt: now,
+  }).where(eq(patients.id, patientId));
+
+  // 9. Notify the assigned doctor (fire-and-forget)
+  if (chosen.doctor) {
+    const [pat] = await db.select({ fullName: patients.fullName, esiLevel: patients.esiLevel })
+      .from(patients)
+      .where(eq(patients.id, patientId));
+
+    notifyDoctorPatientAssigned(
+      chosen.doctor.doctorId,
+      patientId,
+      pat?.fullName || '',
+      chosen.box.name,
+      pat?.esiLevel
+    ).catch((err) => console.error('Notification error (auto-assign doctor):', err));
+  }
+
+  // 10. Return result
+  return {
+    assigned: true,
+    boxId: chosen.box.id,
+    boxName: chosen.box.name,
+    boxType: chosen.box.boxType,
+    doctorId: chosen.doctor?.doctorId,
+    doctorName: chosen.doctor?.doctorName,
+  };
 }
 
 // ============================================================================
@@ -1143,8 +1282,8 @@ router.post('/:id/start-treatment', async (req, res) => {
       return res.status(404).json({ error: 'Patient non trouvé' });
     }
 
-    if (patient.status !== PatientStatus.TRIAGED) {
-      return res.status(400).json({ error: 'Patient doit être triagé pour commencer le traitement' });
+    if (patient.status !== PatientStatus.TRIAGED && patient.status !== PatientStatus.IN_TREATMENT) {
+      return res.status(400).json({ error: 'Patient doit être triagé ou en traitement pour cette action' });
     }
 
     // Validate box exists and is active
