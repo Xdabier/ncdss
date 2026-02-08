@@ -227,6 +227,7 @@ export const patients = sqliteTable('patients', {
   // Re-triage
   retriageRequested: integer('retriage_requested', { mode: 'boolean' }).default(false),
   retriageReason: text('retriage_reason'),
+  absentCallHistory: text('absent_call_history'),
 
   // Status & Tracking
   status: text('status').notNull().default('REGISTERED'), // REGISTERED, IN_TRIAGE, TRIAGED, IN_TREATMENT, WITH_DOCTOR, DISCHARGED

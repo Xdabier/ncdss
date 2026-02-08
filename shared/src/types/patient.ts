@@ -136,6 +136,7 @@ export interface Patient {
   // Re-triage
   retriageRequested?: boolean;
   retriageReason?: string;
+  absentCallHistory?: string; // JSON: Array<{ timestamp: string, calledBy: string, type?: 'call' | 'recall' }>
 
   // Status & Tracking
   status: PatientStatus;
