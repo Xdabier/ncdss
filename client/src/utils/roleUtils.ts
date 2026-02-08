@@ -1,4 +1,4 @@
-import { UserRole, NurseAssignment, BoxType, AssignmentPreset } from '@ncdss/shared';
+import { UserRole, NurseAssignment, BoxType, AssignmentPreset, NurseShiftPreset, NURSE_SHIFT_PRESETS } from '@ncdss/shared';
 
 export const roleLabels: Record<UserRole, string> = {
   [UserRole.NURSE]: 'Infirmier(ère)',
@@ -60,4 +60,15 @@ export const presetDurations: Record<AssignmentPreset, number> = {
   [AssignmentPreset.NUIT_12H]: 12,
   [AssignmentPreset.MATIN_ETE]: 6,
   [AssignmentPreset.CUSTOM]: 0,
+};
+
+export const nurseShiftPresetLabels: Record<NurseShiftPreset, string> = {
+  [NurseShiftPreset.MATIN_8H]: NURSE_SHIFT_PRESETS[NurseShiftPreset.MATIN_8H].labelFr,
+  [NurseShiftPreset.APRES_MIDI_8H]: NURSE_SHIFT_PRESETS[NurseShiftPreset.APRES_MIDI_8H].labelFr,
+  [NurseShiftPreset.NUIT_8H]: NURSE_SHIFT_PRESETS[NurseShiftPreset.NUIT_8H].labelFr,
+  [NurseShiftPreset.GARDE_24H]: NURSE_SHIFT_PRESETS[NurseShiftPreset.GARDE_24H].labelFr,
+  [NurseShiftPreset.JOUR_12H]: NURSE_SHIFT_PRESETS[NurseShiftPreset.JOUR_12H].labelFr,
+  [NurseShiftPreset.NUIT_12H]: NURSE_SHIFT_PRESETS[NurseShiftPreset.NUIT_12H].labelFr,
+  [NurseShiftPreset.MATIN_ETE]: NURSE_SHIFT_PRESETS[NurseShiftPreset.MATIN_ETE].labelFr,
+  [NurseShiftPreset.CUSTOM]: NURSE_SHIFT_PRESETS[NurseShiftPreset.CUSTOM].labelFr,
 };
