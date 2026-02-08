@@ -46,6 +46,7 @@ export interface Prescription {
   frequency: string;      // e.g., "3x/jour", "toutes les 8h"
   duration?: string;      // e.g., "5 jours"
   instructions?: string;  // Special instructions
+  administeredInBox?: boolean; // Whether medication is administered in-box
   startTime?: string;     // When to start
   endTime?: string;       // When to end
   status: PrescriptionStatus;
@@ -70,6 +71,16 @@ export interface CreatePrescriptionRequest {
   instructions?: string;
   startTime?: string;
   endTime?: string;
+}
+
+export interface UpdatePrescriptionRequest {
+  medicationName?: string;
+  dosage?: string;
+  route?: MedicationRoute;
+  frequency?: string;
+  duration?: string;
+  instructions?: string;
+  administeredInBox?: boolean;
 }
 
 export interface AdministerPrescriptionRequest {

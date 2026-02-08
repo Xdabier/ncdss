@@ -11,13 +11,14 @@ import {
   SelectValue,
 } from '../ui/select';
 import { getApi } from '../../services/api';
-import { MedicationRoute, API_ROUTES } from '@ncdss/shared';
+import { MedicationRoute, API_ROUTES, Prescription } from '@ncdss/shared';
 
 interface PrescriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
   patientId: string;
   onSuccess: () => void;
+  editPrescription?: Prescription;
 }
 
 // Medication routes with French labels
@@ -54,17 +55,42 @@ export function PrescriptionModal({
   onClose,
   patientId,
   onSuccess,
+  editPrescription,
 }: PrescriptionModalProps): React.ReactElement | null {
-  const [formData, setFormData] = useState<FormData>({
-    medicationName: '',
-    dosage: '',
-    route: '',
-    frequency: '',
-    duration: '',
-    instructions: '',
-  });
+  const isEditMode = !!editPrescription;
+
+  const getInitialFormData = (): FormData => {
+    if (editPrescription) {
+      return {
+        medicationName: editPrescription.medicationName || '',
+        dosage: editPrescription.dosage || '',
+        route: editPrescription.route || '',
+        frequency: editPrescription.frequency || '',
+        duration: editPrescription.duration || '',
+        instructions: editPrescription.instructions || '',
+      };
+    }
+    return {
+      medicationName: '',
+      dosage: '',
+      route: '',
+      frequency: '',
+      duration: '',
+      instructions: '',
+    };
+  };
+
+  const [formData, setFormData] = useState<FormData>(getInitialFormData);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Reset form when editPrescription changes
+  React.useEffect(() => {
+    if (isOpen) {
+      setFormData(getInitialFormData());
+      setErrors({});
+    }
+  }, [editPrescription, isOpen]);
 
   if (!isOpen) return null;
 
@@ -99,15 +125,27 @@ export function PrescriptionModal({
 
     try {
       const api = await getApi();
-      await api.post(API_ROUTES.prescriptions.create, {
-        patientId,
-        medicationName: formData.medicationName.trim(),
-        dosage: formData.dosage.trim(),
-        route: formData.route,
-        frequency: formData.frequency.trim(),
-        duration: formData.duration.trim() || null,
-        instructions: formData.instructions.trim() || null,
-      });
+
+      if (isEditMode && editPrescription) {
+        await api.put(API_ROUTES.prescriptions.update(editPrescription.id), {
+          medicationName: formData.medicationName.trim(),
+          dosage: formData.dosage.trim(),
+          route: formData.route,
+          frequency: formData.frequency.trim() || undefined,
+          duration: formData.duration.trim() || null,
+          instructions: formData.instructions.trim() || null,
+        });
+      } else {
+        await api.post(API_ROUTES.prescriptions.create, {
+          patientId,
+          medicationName: formData.medicationName.trim(),
+          dosage: formData.dosage.trim(),
+          route: formData.route,
+          frequency: formData.frequency.trim(),
+          duration: formData.duration.trim() || null,
+          instructions: formData.instructions.trim() || null,
+        });
+      }
 
       // Reset form
       setFormData({
@@ -122,12 +160,12 @@ export function PrescriptionModal({
       onSuccess();
       onClose();
     } catch (error: unknown) {
-      console.error('Error creating prescription:', error);
+      console.error(`Error ${isEditMode ? 'updating' : 'creating'} prescription:`, error);
       const axiosError = error as { response?: { data?: { error?: string } } };
       setErrors({
         general:
           axiosError.response?.data?.error ||
-          'Erreur lors de la création de la prescription',
+          `Erreur lors de ${isEditMode ? 'la modification' : 'la création'} de la prescription`,
       });
     } finally {
       setIsSubmitting(false);
@@ -165,7 +203,7 @@ export function PrescriptionModal({
             <div className="p-2 rounded-lg bg-purple-100">
               <Pill className="h-5 w-5 text-purple-600" />
             </div>
-            <h2 className="text-lg font-semibold">Nouvelle prescription</h2>
+            <h2 className="text-lg font-semibold">{isEditMode ? 'Modifier la prescription' : 'Nouvelle prescription'}</h2>
           </div>
           <button
             onClick={handleClose}
@@ -343,7 +381,7 @@ export function PrescriptionModal({
                   Enregistrement...
                 </>
               ) : (
-                'Prescrire'
+                isEditMode ? 'Mettre à jour' : 'Prescrire'
               )}
             </Button>
           </div>

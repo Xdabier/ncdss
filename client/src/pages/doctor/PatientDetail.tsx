@@ -16,6 +16,7 @@ import {
 } from '../../components/ui/select';
 import { ABCDEReviewComponent } from '../../components/doctor/ABCDEReview';
 import { DiagnosisModal } from '../../components/doctor/DiagnosisModal';
+import { PrescriptionModal } from '../../components/doctor/PrescriptionModal';
 import { DoctorDischargeModal } from '../../components/doctor/DoctorDischargeModal';
 import { AIPreDiagnosisPanel } from '../../components/shared/AIPreDiagnosisPanel';
 import { getApi } from '../../services/api';
@@ -147,7 +148,7 @@ function PrescriptionEntryModal({ patientId, onClose, onSuccess }: PrescriptionE
       setError('La posologie est requise');
       return;
     }
-    if (!form.frequency.trim()) {
+    if (!form.frequency?.trim()) {
       setError('La fréquence est requise');
       return;
     }
@@ -511,6 +512,7 @@ export default function PatientDetail() {
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [showDischargeModal, setShowDischargeModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [editingPrescription, setEditingPrescription] = useState<Prescription | null>(null);
   const [prescriptionToCancel, setPrescriptionToCancel] = useState<Prescription | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [aiDiagnosisInitialData, setAiDiagnosisInitialData] = useState<{
@@ -1288,10 +1290,18 @@ export default function PatientDetail() {
                           </div>
                         )}
 
-                        {/* Cancel button for active prescriptions */}
+                        {/* Action buttons for active/on-hold prescriptions */}
                         {(prescription.status === PrescriptionStatus.ACTIVE ||
                           prescription.status === PrescriptionStatus.ON_HOLD) && (
-                          <div className="mt-3 pt-3 border-t border-gray-200">
+                          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-200">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditingPrescription(prescription)}
+                            >
+                              <Edit3 className="h-3 w-3 mr-1" />
+                              Modifier
+                            </Button>
                             <Button
                               size="sm"
                               variant="outline"
@@ -1459,6 +1469,19 @@ export default function PatientDetail() {
           onSuccess={() => {
             setShowTransferModal(false);
             loadPatient();
+          }}
+        />
+      )}
+
+      {editingPrescription && (
+        <PrescriptionModal
+          isOpen={!!editingPrescription}
+          patientId={patient.id}
+          editPrescription={editingPrescription}
+          onClose={() => setEditingPrescription(null)}
+          onSuccess={() => {
+            setEditingPrescription(null);
+            loadPrescriptions();
           }}
         />
       )}

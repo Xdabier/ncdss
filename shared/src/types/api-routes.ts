@@ -69,6 +69,7 @@ export const API_ROUTES = {
   prescriptions: {
     create: '/prescriptions',
     byId: (id: number | string) => `/prescriptions/${id}`,
+    update: (id: number | string) => `/prescriptions/${id}`,
     byPatient: (patientId: number | string) => `/prescriptions/patient/${patientId}`,
     administer: (id: number | string) => `/prescriptions/${id}/administer`,
     cancel: (id: number | string) => `/prescriptions/${id}/cancel`,

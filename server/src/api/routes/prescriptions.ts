@@ -162,6 +162,126 @@ router.get('/:id', async (req, res) => {
 });
 
 // ============================================================================
+// PUT /prescriptions/:id
+// Update prescription (Doctor only)
+// ============================================================================
+
+router.put('/:id', async (req, res) => {
+  try {
+    const { role } = (req as any).user;
+
+    if (!isDoctorOrAdmin(role)) {
+      return res.status(403).json({ error: 'Seuls les médecins peuvent modifier une prescription' });
+    }
+
+    const { id } = req.params;
+    const { medicationName, dosage, route, frequency, duration, instructions, administeredInBox } = req.body;
+
+    const db = getDb();
+
+    // Get existing prescription
+    const [prescription] = await db.select()
+      .from(prescriptions)
+      .where(eq(prescriptions.id, id));
+
+    if (!prescription) {
+      return res.status(404).json({ error: 'Prescription non trouvée' });
+    }
+
+    // Only ACTIVE or ON_HOLD prescriptions can be edited
+    if (prescription.status !== 'ACTIVE' && prescription.status !== 'ON_HOLD') {
+      return res.status(400).json({
+        error: `Impossible de modifier. Statut actuel: ${prescription.status}`
+      });
+    }
+
+    // Build update object with only provided fields
+    const updates: Record<string, unknown> = {};
+
+    if (medicationName !== undefined) {
+      if (!medicationName || !medicationName.trim()) {
+        return res.status(400).json({ error: 'Le nom du médicament ne peut pas être vide' });
+      }
+      updates.medicationName = medicationName.trim();
+    }
+
+    if (dosage !== undefined) {
+      if (!dosage || !dosage.trim()) {
+        return res.status(400).json({ error: 'Le dosage ne peut pas être vide' });
+      }
+      updates.dosage = dosage.trim();
+    }
+
+    if (route !== undefined) {
+      if (!route || !route.trim()) {
+        return res.status(400).json({ error: 'La voie d\'administration ne peut pas être vide' });
+      }
+      updates.route = route.trim().toUpperCase();
+    }
+
+    if (frequency !== undefined) {
+      updates.frequency = frequency?.trim() || null;
+    }
+
+    if (duration !== undefined) {
+      updates.duration = duration?.trim() || null;
+    }
+
+    if (instructions !== undefined) {
+      updates.instructions = instructions?.trim() || null;
+    }
+
+    if (administeredInBox !== undefined) {
+      updates.administeredInBox = administeredInBox ? 1 : 0;
+    }
+
+    // At least one field must be provided
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'Au moins un champ à modifier est requis' });
+    }
+
+    updates.updatedAt = new Date().toISOString();
+
+    await db.update(prescriptions).set(updates).where(eq(prescriptions.id, id));
+
+    // Return updated prescription with prescriber info
+    const [updated] = await db.select({
+      id: prescriptions.id,
+      patientId: prescriptions.patientId,
+      medicationName: prescriptions.medicationName,
+      dosage: prescriptions.dosage,
+      route: prescriptions.route,
+      frequency: prescriptions.frequency,
+      duration: prescriptions.duration,
+      instructions: prescriptions.instructions,
+      startTime: prescriptions.startTime,
+      endTime: prescriptions.endTime,
+      status: prescriptions.status,
+      administrations: prescriptions.administrations,
+      prescribedBy: prescriptions.prescribedBy,
+      prescribedAt: prescriptions.prescribedAt,
+      cancelledBy: prescriptions.cancelledBy,
+      cancelledAt: prescriptions.cancelledAt,
+      cancelReason: prescriptions.cancelReason,
+      createdAt: prescriptions.createdAt,
+      updatedAt: prescriptions.updatedAt,
+      prescriberName: users.fullName
+    })
+    .from(prescriptions)
+    .leftJoin(users, eq(prescriptions.prescribedBy, users.id))
+    .where(eq(prescriptions.id, id));
+
+    res.json({
+      ...updated,
+      administrations: parseAdministrations(updated.administrations)
+    });
+  } catch (error) {
+    console.error('Update prescription error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// ============================================================================
 // POST /prescriptions
 // Create new prescription (Doctor only)
 // ============================================================================
