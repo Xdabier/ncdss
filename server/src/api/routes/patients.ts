@@ -1468,9 +1468,10 @@ router.post('/:id/ai-prediagnosis', async (req, res) => {
     const llm = getLLMProvider();
 
     // Build context from patient data
+    const patientAge = patient.dateOfBirth ? calculateAge(patient.dateOfBirth) : patient.age;
     const context: PreDiagnosisContext = {
       chiefComplaint: patient.chiefComplaint || '',
-      age: patient.age,
+      age: patientAge,
       sex: patient.sex,
       vitals: {
         temperature: patient.temperature ?? undefined,
@@ -1548,9 +1549,10 @@ router.get('/:id/ai-prediagnosis-stream', async (req, res) => {
     const llm = getLLMProvider();
 
     // Build context from patient data
+    const streamPatientAge = patient.dateOfBirth ? calculateAge(patient.dateOfBirth) : patient.age;
     const context: PreDiagnosisContext = {
       chiefComplaint: patient.chiefComplaint || '',
-      age: patient.age,
+      age: streamPatientAge,
       sex: patient.sex,
       vitals: {
         temperature: patient.temperature ?? undefined,

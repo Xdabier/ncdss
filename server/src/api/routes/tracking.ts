@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { eq, and, ne, gte, sql, inArray } from 'drizzle-orm';
 import { getDb } from '../../database';
-import { patients, users, boxes } from '../../database/schema';
+import { patients, patientIdentities, users, boxes } from '../../database/schema';
+import { calculateAge } from '@ncdss/shared';
 
 const router = Router();
 
@@ -17,10 +18,13 @@ router.get('/board', async (req, res) => {
     const trackingData = await db
       .select({
         id: patients.id,
-        fullName: patients.fullName,
+        fullName: sql<string>`COALESCE(${patientIdentities.fullName}, ${patients.fullName})`.as('full_name'),
+        dateOfBirth: sql<string | null>`COALESCE(${patientIdentities.dateOfBirth}, ${patients.dateOfBirth})`.as('date_of_birth'),
         age: patients.age,
-        sex: patients.sex,
-        nationalId: patients.nationalId,
+        sex: sql<string>`COALESCE(${patientIdentities.sex}, ${patients.sex})`.as('sex'),
+        nationalId: sql<string | null>`COALESCE(${patientIdentities.idNumber}, ${patients.nationalId})`.as('national_id'),
+        nationality: sql<string | null>`COALESCE(${patientIdentities.nationality}, ${patients.nationality})`.as('nationality'),
+        patientIdentityId: patients.patientIdentityId,
         chiefComplaint: patients.chiefComplaint,
         status: patients.status,
         esiLevel: patients.esiLevel,
@@ -39,6 +43,7 @@ router.get('/board', async (req, res) => {
         doctorName: users.fullName,
       })
       .from(patients)
+      .leftJoin(patientIdentities, eq(patients.patientIdentityId, patientIdentities.id))
       .leftJoin(boxes, eq(patients.assignedBoxId, boxes.id))
       .leftJoin(users, eq(patients.assignedDoctorId, users.id))
       .where(
@@ -58,7 +63,7 @@ router.get('/board', async (req, res) => {
         patients.createdAt
       );
 
-    // Calculate time in department for each patient
+    // Calculate time in department and compute age from dateOfBirth
     const now = new Date();
     type TrackingPatient = typeof trackingData[number];
     const enrichedData = trackingData.map((p: TrackingPatient) => {
@@ -67,8 +72,11 @@ router.get('/board', async (req, res) => {
         (now.getTime() - arrivalTime.getTime()) / 60000
       );
 
+      const computedAge = p.dateOfBirth ? calculateAge(p.dateOfBirth) : p.age;
+
       return {
         ...p,
+        age: computedAge,
         timeInDeptMinutes,
         timeInDeptFormatted: formatDuration(timeInDeptMinutes),
         isOverdue: timeInDeptMinutes > 240,

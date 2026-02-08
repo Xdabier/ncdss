@@ -8,6 +8,7 @@ import { randomUUID } from 'crypto';
 import { getDb } from '../database';
 import { aiPrediagnosis, patients } from '../database/schema';
 import { getLLMProvider, PreDiagnosisContext, PreDiagnosisSuggestion } from './llm';
+import { calculateAge } from '@ncdss/shared';
 
 export type AIPreDiagnosisStatus = 'pending' | 'generating' | 'completed' | 'failed';
 export type AITriggerSource = 'manual_nurse' | 'manual_doctor' | 'auto_triage_complete';
@@ -157,9 +158,10 @@ export async function updateStatus(
  * Build PreDiagnosisContext from patient data
  */
 function buildContext(patient: any): PreDiagnosisContext {
+  const age = patient.dateOfBirth ? calculateAge(patient.dateOfBirth) : patient.age;
   return {
     chiefComplaint: patient.chiefComplaint || '',
-    age: patient.age,
+    age,
     sex: patient.sex,
     vitals: {
       temperature: patient.temperature ?? undefined,

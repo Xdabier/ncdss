@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { eq, and, gte, lte, sql, desc, asc } from 'drizzle-orm';
 import { getDb } from '../../database';
-import { patients, users, boxes } from '../../database/schema';
+import { patients, patientIdentities, users, boxes } from '../../database/schema';
+import { calculateAge } from '@ncdss/shared';
 
 const router = Router();
 
@@ -242,13 +243,14 @@ router.get('/queues', async (req, res) => {
   try {
     const db = getDb();
 
-    // Get all non-discharged patients with details
+    // Get all non-discharged patients with details (JOIN identity for demographics)
     const allPatients = await db
       .select({
         id: patients.id,
-        fullName: patients.fullName,
+        fullName: sql<string>`COALESCE(${patientIdentities.fullName}, ${patients.fullName})`.as('full_name'),
+        dateOfBirth: sql<string | null>`COALESCE(${patientIdentities.dateOfBirth}, ${patients.dateOfBirth})`.as('date_of_birth'),
         age: patients.age,
-        sex: patients.sex,
+        sex: sql<string>`COALESCE(${patientIdentities.sex}, ${patients.sex})`.as('sex'),
         status: patients.status,
         esiLevel: patients.esiLevel,
         newsScore: patients.newsScore,
@@ -263,6 +265,7 @@ router.get('/queues', async (req, res) => {
         retriageRequested: patients.retriageRequested
       })
       .from(patients)
+      .leftJoin(patientIdentities, eq(patients.patientIdentityId, patientIdentities.id))
       .where(sql`${patients.status} != 'DISCHARGED'`)
       .orderBy(asc(patients.createdAt));
 
@@ -273,7 +276,7 @@ router.get('/queues', async (req, res) => {
       retriageRequested: boolean;
     };
 
-    // Calculate wait time for each patient
+    // Calculate wait time and compute age from dateOfBirth for each patient
     const now = new Date();
     type BasePatient = typeof allPatients[number];
     const patientsWithWaitTime: QueuePatient[] = allPatients.map((p: BasePatient) => {
@@ -302,8 +305,11 @@ router.get('/queues', async (req, res) => {
       const waitMinutes = Math.round((now.getTime() - waitStartTime.getTime()) / 60000);
       const isCritical = (p.esiLevel && p.esiLevel <= 2) || (p.newsScore && p.newsScore >= 7);
 
+      const computedAge = p.dateOfBirth ? calculateAge(p.dateOfBirth) : p.age;
+
       return {
         ...p,
+        age: computedAge,
         waitMinutes,
         isCritical: !!isCritical,
         retriageRequested: p.retriageRequested || false
@@ -391,9 +397,11 @@ router.get('/export', async (req, res) => {
     const allPatients = await db
       .select({
         id: patients.id,
-        fullName: patients.fullName,
+        fullName: sql<string>`COALESCE(${patientIdentities.fullName}, ${patients.fullName})`.as('full_name'),
+        dateOfBirth: sql<string | null>`COALESCE(${patientIdentities.dateOfBirth}, ${patients.dateOfBirth})`.as('date_of_birth'),
         age: patients.age,
-        sex: patients.sex,
+        sex: sql<string>`COALESCE(${patientIdentities.sex}, ${patients.sex})`.as('sex'),
+        nationalId: sql<string | null>`COALESCE(${patientIdentities.idNumber}, ${patients.nationalId})`.as('national_id'),
         status: patients.status,
         esiLevel: patients.esiLevel,
         newsScore: patients.newsScore,
@@ -409,10 +417,11 @@ router.get('/export', async (req, res) => {
         dischargeType: patients.dischargeType
       })
       .from(patients)
+      .leftJoin(patientIdentities, eq(patients.patientIdentityId, patientIdentities.id))
       .where(and(gte(patients.createdAt, startIso), lte(patients.createdAt, endIso)))
       .orderBy(desc(patients.createdAt));
 
-    // Calculate passage times
+    // Calculate passage times and compute age from dateOfBirth
     type ExportPatient = typeof allPatients[number];
     const exportData = allPatients.map((p: ExportPatient) => {
       const triageWait = p.triageStartedAt
@@ -425,8 +434,11 @@ router.get('/export', async (req, res) => {
         ? Math.round((new Date(p.dischargedAt).getTime() - new Date(p.createdAt).getTime()) / 60000)
         : null;
 
+      const computedAge = p.dateOfBirth ? calculateAge(p.dateOfBirth) : p.age;
+
       return {
         ...p,
+        age: computedAge,
         triageWaitMinutes: triageWait,
         triageDurationMinutes: triageDuration,
         totalPassageMinutes: totalPassage
