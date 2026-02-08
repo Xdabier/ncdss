@@ -45,6 +45,9 @@ export const weeklySchedule = sqliteTable('weekly_schedule', {
   weekStart: text('week_start').notNull(), // Monday date (YYYY-MM-DD)
   dayOfWeek: integer('day_of_week').notNull(), // 0=Mon, 6=Sun
   assignedRole: text('assigned_role').notNull(), // INSCRIPTION, TRIAGE, TREATMENT, OFF
+  shiftPreset: text('shift_preset'),   // NurseShiftPreset: MATIN_8H, JOUR_12H, CUSTOM, etc.
+  shiftStart: text('shift_start'),     // HH:MM format (e.g., '06:00')
+  shiftEnd: text('shift_end'),         // HH:MM format (e.g., '14:00')
   createdBy: text('created_by')
     .notNull()
     .references(() => users.id),

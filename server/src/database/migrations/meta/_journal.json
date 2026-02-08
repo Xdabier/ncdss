@@ -29,6 +29,13 @@
       "when": 1770547771217,
       "tag": "0003_broad_ironclad",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1770552744100,
+      "tag": "0004_simple_silver_samurai",
+      "breakpoints": true
     }
   ]
 }
