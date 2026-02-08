@@ -28,14 +28,19 @@ router.get('/:weekStart', async (req, res) => {
       .from(weeklySchedule)
       .where(eq(weeklySchedule.weekStart, weekStart));
 
-    // Build response: nurse -> day -> assignment
+    // Build response: nurse -> day -> assignment object
     const result = nurses.map((nurse: { id: string; fullName: string }) => {
       const nurseSchedules = schedules.filter((s: typeof schedules[number]) => s.nurseId === nurse.id);
-      const days: Record<number, string> = {};
+      const days: Record<number, { role: string; shiftPreset: string | null; shiftStart: string | null; shiftEnd: string | null }> = {};
 
       for (let i = 0; i < 7; i++) {
         const daySchedule = nurseSchedules.find((s: typeof schedules[number]) => s.dayOfWeek === i);
-        days[i] = daySchedule?.assignedRole || NurseAssignment.OFF;
+        days[i] = {
+          role: daySchedule?.assignedRole || NurseAssignment.OFF,
+          shiftPreset: daySchedule?.shiftPreset ?? null,
+          shiftStart: daySchedule?.shiftStart ?? null,
+          shiftEnd: daySchedule?.shiftEnd ?? null,
+        };
       }
 
       return {
@@ -63,7 +68,7 @@ router.post('/:weekStart', async (req, res) => {
 
     const { weekStart } = req.params;
     const { schedules } = req.body;
-    // schedules: [{ nurseId, days: { 0: 'INSCRIPTION', 1: 'TRIAGE', ... } }]
+    // schedules: [{ nurseId, days: { 0: { role, shiftPreset?, shiftStart?, shiftEnd? }, ... } }]
 
     const db = getDb();
 
@@ -74,14 +79,18 @@ router.post('/:weekStart', async (req, res) => {
     const entries = [];
     for (const nurseSchedule of schedules) {
       for (let day = 0; day < 7; day++) {
-        const assignment = nurseSchedule.days[day];
-        if (assignment && assignment !== NurseAssignment.OFF) {
+        const dayData = nurseSchedule.days[day];
+        const role = typeof dayData === 'string' ? dayData : dayData?.role;
+        if (role && role !== NurseAssignment.OFF) {
           entries.push({
             id: randomUUID(),
             nurseId: nurseSchedule.nurseId,
             weekStart,
             dayOfWeek: day,
-            assignedRole: assignment,
+            assignedRole: role,
+            shiftPreset: (typeof dayData === 'object' ? dayData?.shiftPreset : null) ?? null,
+            shiftStart: (typeof dayData === 'object' ? dayData?.shiftStart : null) ?? null,
+            shiftEnd: (typeof dayData === 'object' ? dayData?.shiftEnd : null) ?? null,
             createdBy: userId,
             createdAt: new Date().toISOString(),
           });
@@ -112,7 +121,7 @@ router.put('/my-assignment', async (req, res) => {
       });
     }
 
-    const { newAssignment } = req.body;
+    const { newAssignment, shiftPreset, shiftStart, shiftEnd } = req.body;
     const validAssignments = ['INSCRIPTION', 'TRIAGE', 'TREATMENT'];
 
     if (!newAssignment || !validAssignments.includes(newAssignment)) {
@@ -148,7 +157,12 @@ router.put('/my-assignment', async (req, res) => {
       // Update existing
       await db
         .update(weeklySchedule)
-        .set({ assignedRole: newAssignment })
+        .set({
+          assignedRole: newAssignment,
+          shiftPreset: shiftPreset ?? null,
+          shiftStart: shiftStart ?? null,
+          shiftEnd: shiftEnd ?? null,
+        })
         .where(eq(weeklySchedule.id, existing[0].id));
     } else {
       // Insert new (self-assigned)
@@ -158,6 +172,9 @@ router.put('/my-assignment', async (req, res) => {
         weekStart,
         dayOfWeek,
         assignedRole: newAssignment,
+        shiftPreset: shiftPreset ?? null,
+        shiftStart: shiftStart ?? null,
+        shiftEnd: shiftEnd ?? null,
         createdBy: userId,
         createdAt: new Date().toISOString(),
       });
@@ -183,11 +200,14 @@ router.post('/:weekStart/validate', async (req, res) => {
     const dayNames = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
     for (let day = 0; day < 7; day++) {
-      const dayAssignments = schedules.map((s: any) => s.days[day]);
+      const dayRoles = schedules.map((s: any) => {
+        const dayData = s.days[day];
+        return typeof dayData === 'string' ? dayData : dayData?.role;
+      });
 
-      const hasInscription = dayAssignments.includes(NurseAssignment.INSCRIPTION);
-      const hasTriage = dayAssignments.includes(NurseAssignment.TRIAGE);
-      const hasTreatment = dayAssignments.includes(NurseAssignment.TREATMENT);
+      const hasInscription = dayRoles.includes(NurseAssignment.INSCRIPTION);
+      const hasTriage = dayRoles.includes(NurseAssignment.TRIAGE);
+      const hasTreatment = dayRoles.includes(NurseAssignment.TREATMENT);
 
       if (!hasInscription) {
         errors.push(`${dayNames[day]}: Aucun infirmier assigné à l'inscription`);
