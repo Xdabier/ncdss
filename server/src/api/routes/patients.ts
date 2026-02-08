@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { eq, and, like, desc, gte, inArray } from 'drizzle-orm';
+import { eq, and, like, desc, gte, inArray, ne, sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
-import { patients, users, boxes, weeklySchedule } from '../../database/schema';
-import { PatientStatus, Orientation, OrientationSource } from '@ncdss/shared';
+import { patients, patientIdentities, users, boxes, weeklySchedule } from '../../database/schema';
+import { PatientStatus, Orientation, OrientationSource, calculateAge } from '@ncdss/shared';
 import { calculateNEWS, calculateGCS, calculateQSOFA } from '../../utils/scores';
 import { matchFindingsToPathologies } from '../../services/pathologyMatcher';
 import { getLLMProvider, PreDiagnosisContext } from '../../services/llm';
@@ -16,22 +16,70 @@ import {
 
 const router = Router();
 
-// ============================================================================ 
+// ============================================================================
+// IDENTITY JOIN HELPERS
+// ============================================================================
+
+type PatientRow = typeof patients.$inferSelect;
+type IdentityRow = typeof patientIdentities.$inferSelect;
+
+/** Build a patient query with identity LEFT JOIN (select all columns from both tables). */
+function patientWithIdentityQuery(db: ReturnType<typeof getDb>) {
+  return db.select()
+    .from(patients)
+    .leftJoin(patientIdentities, eq(patients.patientIdentityId, patientIdentities.id));
+}
+
+/** Merge a joined patient+identity row into a flat patient object for API responses. */
+function mergePatientIdentity(row: { patients: PatientRow; patient_identities: IdentityRow | null }): Record<string, any> {
+  const p = row.patients;
+  const identity = row.patient_identities;
+
+  const dateOfBirth = identity?.dateOfBirth || p.dateOfBirth || null;
+  const age = dateOfBirth ? calculateAge(dateOfBirth) : p.age;
+
+  return {
+    ...p,
+    fullName: identity?.fullName ?? p.fullName,
+    dateOfBirth,
+    sex: identity?.sex ?? p.sex,
+    nationalId: identity?.idNumber ?? p.nationalId,
+    idType: identity?.idType ?? p.idType,
+    nationality: identity?.nationality ?? p.nationality,
+    phone: identity?.phone ?? p.phone,
+    address: identity?.address ?? p.address,
+    age,
+    patientIdentityId: p.patientIdentityId,
+  };
+}
+
+/** Fetch a single patient by visit ID with identity data merged. */
+async function fetchPatientWithIdentity(db: ReturnType<typeof getDb>, patientId: string): Promise<Record<string, any> | null> {
+  const rows = await patientWithIdentityQuery(db).where(eq(patients.id, patientId));
+  if (rows.length === 0) return null;
+  return mergePatientIdentity(rows[0]);
+}
+
+// ============================================================================
 // LIST & SEARCH
-// ============================================================================ 
+// ============================================================================
 
 // List patients with filters
 router.get('/', async (req, res) => {
   try {
     const { status, search, today, limit = 50 } = req.query;
     const db = getDb();
-    
+
     const queryBase = db.select({
       id: patients.id,
-      fullName: patients.fullName,
+      patientIdentityId: patients.patientIdentityId,
+      fullName: sql<string>`COALESCE(${patientIdentities.fullName}, ${patients.fullName})`.as('full_name'),
       age: patients.age,
-      sex: patients.sex,
-      nationalId: patients.nationalId,
+      dateOfBirth: sql<string>`COALESCE(${patientIdentities.dateOfBirth}, ${patients.dateOfBirth})`.as('date_of_birth'),
+      sex: sql<string>`COALESCE(${patientIdentities.sex}, ${patients.sex})`.as('sex'),
+      nationalId: sql<string>`COALESCE(${patientIdentities.idNumber}, ${patients.nationalId})`.as('national_id'),
+      idType: sql<string>`COALESCE(${patientIdentities.idType}, ${patients.idType})`.as('id_type'),
+      nationality: sql<string>`COALESCE(${patientIdentities.nationality}, ${patients.nationality})`.as('nationality'),
       chiefComplaint: patients.chiefComplaint,
       allergies: patients.allergies,
       status: patients.status,
@@ -48,42 +96,101 @@ router.get('/', async (req, res) => {
       treatmentStartedAt: patients.treatmentStartedAt,
       doctorAssignedAt: patients.doctorAssignedAt
     })
-    .from(patients);
-    
+    .from(patients)
+    .leftJoin(patientIdentities, eq(patients.patientIdentityId, patientIdentities.id));
+
     const conditions = [];
 
     // Handle status filter - supports single value or array
     if (status) {
       if (Array.isArray(status)) {
-        // Multiple statuses: ?status=TRIAGED&status=IN_TREATMENT
         conditions.push(inArray(patients.status, status as string[]));
       } else {
-        // Single status: ?status=TRIAGED
         conditions.push(eq(patients.status, status as string));
       }
     }
 
     if (search) {
-      conditions.push(like(patients.fullName, `%${search}%`));
+      // Search on identity fullName with fallback to patient fullName
+      conditions.push(
+        sql`COALESCE(${patientIdentities.fullName}, ${patients.fullName}) LIKE ${'%' + search + '%'}`
+      );
     }
-    
+
     if (today === 'true') {
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       conditions.push(gte(patients.createdAt, todayStart.toISOString()));
     }
-    
-    const queryWithWhere = conditions.length > 0 
+
+    const queryWithWhere = conditions.length > 0
       ? queryBase.where(and(...conditions))
       : queryBase;
-    
+
     const result = await queryWithWhere
       .orderBy(desc(patients.createdAt))
       .limit(Number(limit));
 
-    res.json(result);
+    // Compute age from dateOfBirth for each result
+    const enriched = result.map((r: typeof result[number]) => ({
+      ...r,
+      age: r.dateOfBirth ? calculateAge(r.dateOfBirth) : r.age
+    }));
+
+    res.json(enriched);
   } catch (error) {
     console.error('List patients error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Lookup patient identity by ID number (must be BEFORE /:id to avoid capture)
+router.get('/lookup', async (req, res) => {
+  try {
+    const { idNumber, idType } = req.query;
+
+    if (!idNumber || typeof idNumber !== 'string' || !idNumber.trim()) {
+      return res.status(400).json({ error: 'Identifiant requis' });
+    }
+
+    const db = getDb();
+    const conditions = [eq(patientIdentities.idNumber, idNumber.trim())];
+    if (idType && typeof idType === 'string') {
+      conditions.push(eq(patientIdentities.idType, idType));
+    }
+
+    const [identity] = await db.select()
+      .from(patientIdentities)
+      .where(and(...conditions));
+
+    if (!identity) {
+      return res.json({ found: false });
+    }
+
+    res.json({
+      found: true,
+      identity: {
+        id: identity.id,
+        fullName: identity.fullName,
+        dateOfBirth: identity.dateOfBirth,
+        sex: identity.sex,
+        idNumber: identity.idNumber,
+        idType: identity.idType,
+        nationality: identity.nationality,
+        phone: identity.phone,
+        address: identity.address,
+        allergies: identity.allergies,
+        chronicConditions: identity.chronicConditions,
+        currentMedications: identity.currentMedications,
+        medicalHistory: identity.medicalHistory,
+        surgicalHistory: identity.surgicalHistory,
+        obstetricHistory: identity.obstetricHistory,
+        createdAt: identity.createdAt,
+        updatedAt: identity.updatedAt,
+      }
+    });
+  } catch (error) {
+    console.error('Lookup patient error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -92,14 +199,12 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const db = getDb();
-    const [patient] = await db.select()
-      .from(patients)
-      .where(eq(patients.id, req.params.id));
-    
+    const patient = await fetchPatientWithIdentity(db, req.params.id);
+
     if (!patient) {
       return res.status(404).json({ error: 'Patient non trouvé' });
     }
-    
+
     res.json(patient);
   } catch (error) {
     console.error('Get patient error:', error);
@@ -117,42 +222,150 @@ router.post('/', async (req, res) => {
     const { userId } = (req as any).user;
     const {
       fullName,
-      age,
+      dateOfBirth,
       sex,
       nationalId,
+      idType,
+      nationality,
+      patientIdentityId: providedIdentityId,
       phone,
       address,
       allergies,
       chronicConditions,
       currentMedications,
       chiefComplaint,
-      symptomOnset
+      symptomOnset,
+      medicalHistory,
+      surgicalHistory,
+      obstetricHistory
     } = req.body;
-    
+
     // Validation
-    if (!fullName || !age || !sex) {
-      return res.status(400).json({ error: 'Nom, âge et sexe sont requis' });
+    if (!fullName || !dateOfBirth || !sex) {
+      return res.status(400).json({ error: 'Nom, date de naissance et sexe sont requis' });
     }
-    
+
+    const age = calculateAge(dateOfBirth);
     if (age < 0 || age > 150) {
-      return res.status(400).json({ error: 'Âge invalide' });
+      return res.status(400).json({ error: 'Date de naissance invalide' });
     }
-    
+
     const db = getDb();
-    const id = randomUUID();
     const now = new Date().toISOString();
-    
+    let identityId: string;
+
+    if (providedIdentityId) {
+      // (a) Verify provided identity exists
+      const [existing] = await db.select()
+        .from(patientIdentities)
+        .where(eq(patientIdentities.id, providedIdentityId));
+      if (!existing) {
+        return res.status(404).json({ error: 'Identité patient non trouvée' });
+      }
+      identityId = providedIdentityId;
+
+      // Check nationalId uniqueness against other identities
+      if (nationalId) {
+        const [conflicting] = await db.select({ id: patientIdentities.id })
+          .from(patientIdentities)
+          .where(and(
+            eq(patientIdentities.idNumber, nationalId),
+            ne(patientIdentities.id, identityId)
+          ));
+        if (conflicting) {
+          return res.status(409).json({ error: 'Un patient avec cet identifiant existe deja' });
+        }
+      }
+    } else if (nationalId) {
+      // (b) Check for existing identity by nationalId
+      const [existing] = await db.select()
+        .from(patientIdentities)
+        .where(eq(patientIdentities.idNumber, nationalId));
+
+      if (existing) {
+        // Reuse existing identity (returning patient)
+        identityId = existing.id;
+      } else {
+        // Create new identity
+        identityId = randomUUID();
+        await db.insert(patientIdentities).values({
+          id: identityId,
+          fullName,
+          dateOfBirth,
+          sex,
+          idNumber: nationalId,
+          idType: idType || null,
+          nationality: nationality || null,
+          phone: phone || null,
+          address: address || null,
+          allergies: allergies || null,
+          chronicConditions: chronicConditions ? JSON.stringify(chronicConditions) : null,
+          currentMedications: currentMedications ? JSON.stringify(currentMedications) : null,
+          medicalHistory: medicalHistory || null,
+          surgicalHistory: surgicalHistory || null,
+          obstetricHistory: obstetricHistory || null,
+          createdAt: now,
+          updatedAt: now
+        });
+      }
+    } else {
+      // (c) No nationalId provided
+      let idNumber: string | null = null;
+      let effectiveIdType: string | null = idType || null;
+
+      // Tunisian minor auto-ID
+      if (nationality === 'TN' && age < 18) {
+        idNumber = `TN-MINEUR-${Date.now()}`;
+        effectiveIdType = effectiveIdType || 'CIN';
+      }
+
+      identityId = randomUUID();
+      await db.insert(patientIdentities).values({
+        id: identityId,
+        fullName,
+        dateOfBirth,
+        sex,
+        idNumber,
+        idType: effectiveIdType,
+        nationality: nationality || null,
+        phone: phone || null,
+        address: address || null,
+        allergies: allergies || null,
+        chronicConditions: chronicConditions ? JSON.stringify(chronicConditions) : null,
+        currentMedications: currentMedications ? JSON.stringify(currentMedications) : null,
+        medicalHistory: medicalHistory || null,
+        surgicalHistory: surgicalHistory || null,
+        obstetricHistory: obstetricHistory || null,
+        createdAt: now,
+        updatedAt: now
+      });
+    }
+
+    // Fetch the identity to snapshot into visit row
+    const [identity] = await db.select()
+      .from(patientIdentities)
+      .where(eq(patientIdentities.id, identityId));
+
+    // Create the visit row
+    const visitId = randomUUID();
     await db.insert(patients).values({
-      id,
-      fullName,
+      id: visitId,
+      patientIdentityId: identityId,
+      fullName: identity.fullName,
       age,
-      sex,
-      nationalId,
-      phone,
-      address,
-      allergies,
-      chronicConditions: chronicConditions ? JSON.stringify(chronicConditions) : null,
-      currentMedications: currentMedications ? JSON.stringify(currentMedications) : null,
+      dateOfBirth: identity.dateOfBirth,
+      sex: identity.sex,
+      nationalId: identity.idNumber,
+      idType: identity.idType,
+      nationality: identity.nationality,
+      phone: identity.phone,
+      address: identity.address,
+      allergies: identity.allergies,
+      chronicConditions: identity.chronicConditions,
+      currentMedications: identity.currentMedications,
+      medicalHistory: identity.medicalHistory,
+      surgicalHistory: identity.surgicalHistory,
+      obstetricHistory: identity.obstetricHistory,
       chiefComplaint,
       symptomOnset,
       status: PatientStatus.REGISTERED,
@@ -160,9 +373,9 @@ router.post('/', async (req, res) => {
       createdAt: now,
       updatedAt: now
     });
-    
-    const [newPatient] = await db.select().from(patients).where(eq(patients.id, id));
-    res.status(201).json(newPatient);
+
+    const result = await fetchPatientWithIdentity(db, visitId);
+    res.status(201).json(result);
   } catch (error) {
     console.error('Create patient error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -174,28 +387,64 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const db = getDb();
-    
+
     const [existing] = await db.select().from(patients).where(eq(patients.id, id));
     if (!existing) {
       return res.status(404).json({ error: 'Patient non trouvé' });
     }
-    
+
     // Only allow editing if still REGISTERED
     if (existing.status !== PatientStatus.REGISTERED) {
       return res.status(400).json({ error: 'Patient déjà en cours de triage' });
     }
-    
+
     const {
-      fullName, age, sex, nationalId, phone, address,
-      allergies, chronicConditions, currentMedications,
+      fullName, dateOfBirth, sex, nationalId, idType, nationality,
+      phone, address, allergies, chronicConditions, currentMedications,
       chiefComplaint, symptomOnset
     } = req.body;
-    
+
+    const now = new Date().toISOString();
+    const age = dateOfBirth ? calculateAge(dateOfBirth) : existing.age;
+
+    // Enforce nationalId uniqueness (excluding current identity)
+    if (nationalId && existing.patientIdentityId) {
+      const [conflicting] = await db.select({ id: patientIdentities.id })
+        .from(patientIdentities)
+        .where(and(
+          eq(patientIdentities.idNumber, nationalId),
+          ne(patientIdentities.id, existing.patientIdentityId)
+        ));
+      if (conflicting) {
+        return res.status(409).json({ error: 'Un patient avec cet identifiant existe deja' });
+      }
+    }
+
+    // Update identity fields on patient_identities row
+    if (existing.patientIdentityId) {
+      const identityUpdate: Record<string, any> = { updatedAt: now };
+      if (fullName !== undefined) identityUpdate.fullName = fullName;
+      if (dateOfBirth !== undefined) identityUpdate.dateOfBirth = dateOfBirth;
+      if (sex !== undefined) identityUpdate.sex = sex;
+      if (nationalId !== undefined) identityUpdate.idNumber = nationalId;
+      if (idType !== undefined) identityUpdate.idType = idType;
+      if (nationality !== undefined) identityUpdate.nationality = nationality;
+      if (phone !== undefined) identityUpdate.phone = phone;
+      if (address !== undefined) identityUpdate.address = address;
+
+      await db.update(patientIdentities).set(identityUpdate)
+        .where(eq(patientIdentities.id, existing.patientIdentityId));
+    }
+
+    // Update visit row (includes redundant columns for backward compat)
     await db.update(patients).set({
       fullName,
       age,
+      dateOfBirth: dateOfBirth || existing.dateOfBirth,
       sex,
       nationalId,
+      idType: idType || existing.idType,
+      nationality: nationality || existing.nationality,
       phone,
       address,
       allergies,
@@ -203,10 +452,10 @@ router.put('/:id', async (req, res) => {
       currentMedications: currentMedications ? JSON.stringify(currentMedications) : null,
       chiefComplaint,
       symptomOnset,
-      updatedAt: new Date().toISOString()
+      updatedAt: now
     }).where(eq(patients.id, id));
-    
-    const [updated] = await db.select().from(patients).where(eq(patients.id, id));
+
+    const updated = await fetchPatientWithIdentity(db, id);
     res.json(updated);
   } catch (error) {
     console.error('Update patient error:', error);
@@ -231,6 +480,9 @@ router.put('/:id/medical-history', async (req, res) => {
 
     const { chiefComplaint, symptomOnset, allergies, chronicConditions, currentMedications, medicalHistoryNotes, medicalHistory, surgicalHistory, obstetricHistory } = req.body;
 
+    const now = new Date().toISOString();
+
+    // Update the visit row (snapshot)
     await db.update(patients).set({
       chiefComplaint: chiefComplaint !== undefined ? chiefComplaint : existing.chiefComplaint,
       symptomOnset: symptomOnset !== undefined ? symptomOnset : existing.symptomOnset,
@@ -241,10 +493,24 @@ router.put('/:id/medical-history', async (req, res) => {
       medicalHistory: medicalHistory !== undefined ? medicalHistory : existing.medicalHistory,
       surgicalHistory: surgicalHistory !== undefined ? surgicalHistory : existing.surgicalHistory,
       obstetricHistory: obstetricHistory !== undefined ? obstetricHistory : existing.obstetricHistory,
-      updatedAt: new Date().toISOString()
+      updatedAt: now
     }).where(eq(patients.id, id));
 
-    const [updated] = await db.select().from(patients).where(eq(patients.id, id));
+    // Also update the linked patient_identities row (latest known medical history)
+    if (existing.patientIdentityId) {
+      const identityUpdate: Record<string, any> = { updatedAt: now };
+      if (allergies !== undefined) identityUpdate.allergies = allergies;
+      if (chronicConditions !== undefined) identityUpdate.chronicConditions = JSON.stringify(chronicConditions);
+      if (currentMedications !== undefined) identityUpdate.currentMedications = JSON.stringify(currentMedications);
+      if (medicalHistory !== undefined) identityUpdate.medicalHistory = medicalHistory;
+      if (surgicalHistory !== undefined) identityUpdate.surgicalHistory = surgicalHistory;
+      if (obstetricHistory !== undefined) identityUpdate.obstetricHistory = obstetricHistory;
+
+      await db.update(patientIdentities).set(identityUpdate)
+        .where(eq(patientIdentities.id, existing.patientIdentityId));
+    }
+
+    const updated = await fetchPatientWithIdentity(db, id);
     res.json(updated);
   } catch (error) {
     console.error('Update medical history error:', error);
@@ -279,7 +545,7 @@ router.post('/:id/start-triage', async (req, res) => {
       updatedAt: new Date().toISOString()
     }).where(eq(patients.id, id));
     
-    const [updated] = await db.select().from(patients).where(eq(patients.id, id));
+    const updated = await fetchPatientWithIdentity(db, id);
     res.json(updated);
   } catch (error) {
     console.error('Start triage error:', error);
@@ -322,7 +588,7 @@ router.put('/:id/vitals', async (req, res) => {
       updatedAt: new Date().toISOString()
     }).where(eq(patients.id, id));
     
-    const [updated] = await db.select().from(patients).where(eq(patients.id, id));
+    const updated = await fetchPatientWithIdentity(db, id);
     res.json(updated);
   } catch (error) {
     console.error('Update vitals error:', error);
@@ -431,7 +697,7 @@ router.put('/:id/abcde/:category', async (req, res) => {
       qsofaScore
     }).where(eq(patients.id, id));
 
-    const [finalPatient] = await db.select().from(patients).where(eq(patients.id, id));
+    const finalPatient = await fetchPatientWithIdentity(db, id);
     res.json(finalPatient);
   } catch (error) {
     console.error('Update ABCDE error:', error);
@@ -716,7 +982,7 @@ router.put('/:id/esi', async (req, res) => {
       updatedAt: new Date().toISOString()
     }).where(eq(patients.id, id));
 
-    const [updated] = await db.select().from(patients).where(eq(patients.id, id));
+    const updated = await fetchPatientWithIdentity(db, id);
     res.json(updated);
   } catch (error) {
     console.error('Update ESI error:', error);
@@ -774,7 +1040,7 @@ router.post('/:id/complete-triage', async (req, res) => {
       );
     }
 
-    const [updated] = await db.select().from(patients).where(eq(patients.id, id));
+    const updated = await fetchPatientWithIdentity(db, id);
 
     // Notify treatment nurses that triage is complete (fire-and-forget)
     try {
@@ -848,7 +1114,7 @@ router.put('/:id/status', async (req, res) => {
 
     await db.update(patients).set(updateData).where(eq(patients.id, id));
 
-    const [updated] = await db.select().from(patients).where(eq(patients.id, id));
+    const updated = await fetchPatientWithIdentity(db, id);
     res.json(updated);
   } catch (error) {
     console.error('Update status error:', error);
@@ -907,7 +1173,7 @@ router.post('/:id/start-treatment', async (req, res) => {
       updatedAt: now
     }).where(eq(patients.id, id));
 
-    const [updated] = await db.select().from(patients).where(eq(patients.id, id));
+    const updated = await fetchPatientWithIdentity(db, id);
 
     // Notify the auto-assigned doctor (fire-and-forget)
     if (currentDoctor && boxName) {
@@ -1020,7 +1286,7 @@ router.post('/:id/request-retriage', async (req, res) => {
       updatedAt: new Date().toISOString()
     }).where(eq(patients.id, id));
 
-    const [updated] = await db.select().from(patients).where(eq(patients.id, id));
+    const updated = await fetchPatientWithIdentity(db, id);
     res.json(updated);
   } catch (error) {
     console.error('Request retriage error:', error);
@@ -1079,7 +1345,7 @@ router.post('/:id/transfer-to-doctor', async (req, res) => {
       updatedAt: now.toISOString()
     }).where(eq(patients.id, id));
 
-    const [updated] = await db.select().from(patients).where(eq(patients.id, id));
+    const updated = await fetchPatientWithIdentity(db, id);
     res.json(updated);
   } catch (error) {
     console.error('Transfer to doctor error:', error);
@@ -1121,7 +1387,7 @@ router.post('/:id/discharge', async (req, res) => {
       updatedAt: new Date().toISOString()
     }).where(eq(patients.id, id));
 
-    const [updated] = await db.select().from(patients).where(eq(patients.id, id));
+    const updated = await fetchPatientWithIdentity(db, id);
     res.json(updated);
   } catch (error) {
     console.error('Discharge error:', error);
