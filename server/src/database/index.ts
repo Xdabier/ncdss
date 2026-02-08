@@ -53,6 +53,9 @@ export async function initDatabase() {
   // Create refresh_tokens table if it doesn't exist
   await createRefreshTokensTable();
 
+  // Add missing columns to existing tables
+  addColumnIfMissing(sqlite, 'patients', 'medical_history_notes', 'TEXT');
+
   // Seed default admin if no users exist
   await seedDefaultAdmin();
 
@@ -123,6 +126,20 @@ export async function seedDefaultERConfig() {
     }
   } catch (error) {
     console.error('Error seeding ER config:', error);
+  }
+}
+
+function addColumnIfMissing(
+  sqliteDb: Database.Database,
+  table: string,
+  column: string,
+  type: string,
+): void {
+  const columns = sqliteDb.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  const exists = columns.some((c) => c.name === column);
+  if (!exists) {
+    sqliteDb.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+    console.log(`✓ Added column ${table}.${column}`);
   }
 }
 

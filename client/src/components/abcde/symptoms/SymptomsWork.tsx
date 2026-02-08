@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Label } from '../../ui/label';
 import { MultiSelectCombobox } from '../../ui/MultiSelectCombobox';
 
@@ -19,12 +19,26 @@ const SIGNES_LUTTE_OPTIONS = [
 type WorkMode = 'signes_lutte' | 'pause' | undefined;
 
 export function SymptomsWork({ signesLutte, pauseRespiratoire, onSignesLutteChange, onPauseChange }: Props): React.ReactElement {
-  const currentMode: WorkMode =
+  // Explicit mode tracks the user's radio selection so the MultiSelectCombobox
+  // can be shown before any items are picked.
+  const [explicitMode, setExplicitMode] = useState<WorkMode>(undefined);
+
+  const derivedMode: WorkMode =
     (signesLutte && signesLutte.length > 0) ? 'signes_lutte' :
     pauseRespiratoire ? 'pause' :
     undefined;
 
+  // Once props reflect the explicit selection, let derivation take over.
+  useEffect(() => {
+    if (explicitMode !== undefined && derivedMode === explicitMode) {
+      setExplicitMode(undefined);
+    }
+  }, [derivedMode, explicitMode]);
+
+  const currentMode = explicitMode ?? derivedMode;
+
   const handleModeChange = (mode: WorkMode): void => {
+    setExplicitMode(mode);
     if (mode === 'signes_lutte') {
       onPauseChange(false);
     } else if (mode === 'pause') {

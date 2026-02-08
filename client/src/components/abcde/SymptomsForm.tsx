@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import type { SymptomsFormData } from '@ncdss/shared';
 import { Label } from '../ui/label';
 import { Checkbox } from '../ui/checkbox';
@@ -20,8 +20,16 @@ interface Props {
 }
 
 export function SymptomsForm({ data, onChange }: Props): React.ReactElement {
+  // Ref tracks the latest data so that sequential update() calls within
+  // the same tick each see the result of the previous call, preventing
+  // stale-closure overwrites.
+  const dataRef = useRef(data);
+  dataRef.current = data;
+
   const update = <K extends keyof SymptomsFormData>(field: K, value: SymptomsFormData[K]): void => {
-    onChange({ ...data, [field]: value });
+    const updated = { ...dataRef.current, [field]: value };
+    dataRef.current = updated;
+    onChange(updated);
   };
 
   return (
@@ -117,21 +125,21 @@ export function SymptomsForm({ data, onChange }: Props): React.ReactElement {
           <label className="flex items-center gap-2 cursor-pointer">
             <Checkbox
               checked={data.burns ?? false}
-              onCheckedChange={(v) => update('burns', v)}
+              onCheckedChange={(v) => update('burns', v === true)}
             />
             <span className="text-sm">Brûlure</span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
             <Checkbox
               checked={data.electrocution ?? false}
-              onCheckedChange={(v) => update('electrocution', v)}
+              onCheckedChange={(v) => update('electrocution', v === true)}
             />
             <span className="text-sm">Électrocution</span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
             <Checkbox
               checked={data.intoxication ?? false}
-              onCheckedChange={(v) => update('intoxication', v)}
+              onCheckedChange={(v) => update('intoxication', v === true)}
             />
             <span className="text-sm">Intoxication</span>
           </label>

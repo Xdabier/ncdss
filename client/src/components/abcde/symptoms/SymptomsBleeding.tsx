@@ -40,7 +40,7 @@ export function SymptomsBleeding({
         <label className="flex items-center gap-2 cursor-pointer">
           <Checkbox
             checked={interne ?? false}
-            onCheckedChange={onInterneChange}
+            onCheckedChange={(checked) => onInterneChange(checked === true)}
           />
           <span className="text-sm">Interne</span>
         </label>
@@ -48,8 +48,9 @@ export function SymptomsBleeding({
           <Checkbox
             checked={exteriorisee ?? false}
             onCheckedChange={(checked) => {
-              onExterioriseeChange(checked);
-              if (!checked) onTypesChange([]);
+              const val = checked === true;
+              onExterioriseeChange(val);
+              if (!val) onTypesChange([]);
             }}
           />
           <span className="text-sm">Extériorisée</span>
