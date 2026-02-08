@@ -65,7 +65,7 @@ export interface CreatePrescriptionRequest {
   medicationName: string;
   dosage: string;
   route: MedicationRoute;
-  frequency: string;
+  frequency?: string;
   duration?: string;
   instructions?: string;
   startTime?: string;

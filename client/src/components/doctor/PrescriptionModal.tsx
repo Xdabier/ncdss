@@ -83,10 +83,6 @@ export function PrescriptionModal({
       newErrors.route = 'La voie d\'administration est requise';
     }
 
-    if (!formData.frequency.trim()) {
-      newErrors.frequency = 'La fréquence est requise';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -273,7 +269,7 @@ export function PrescriptionModal({
           {/* Frequency (required) */}
           <div className="space-y-2">
             <Label htmlFor="frequency">
-              Fréquence <span className="text-red-500">*</span>
+              Fréquence
             </Label>
             <Input
               id="frequency"

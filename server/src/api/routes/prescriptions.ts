@@ -199,10 +199,6 @@ router.post('/', async (req, res) => {
     if (!route || !route.trim()) {
       return res.status(400).json({ error: 'Voie d\'administration requise' });
     }
-    if (!frequency || !frequency.trim()) {
-      return res.status(400).json({ error: 'Fréquence requise' });
-    }
-
     const db = getDb();
 
     // Verify patient exists
@@ -223,7 +219,7 @@ router.post('/', async (req, res) => {
       medicationName: medicationName.trim(),
       dosage: dosage.trim(),
       route: route.trim().toUpperCase(),
-      frequency: frequency.trim(),
+      frequency: frequency?.trim() || null,
       duration: duration?.trim() || null,
       instructions: instructions?.trim() || null,
       startTime: startTime || now,

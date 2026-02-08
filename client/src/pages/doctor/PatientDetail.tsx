@@ -304,7 +304,7 @@ function CancelPrescriptionModal({ prescription, onClose, onSuccess }: CancelPre
 
     try {
       const api = await getApi();
-      await api.put(API_ROUTES.prescriptions.cancel(prescription.id), { reason });
+      await api.post(API_ROUTES.prescriptions.cancel(prescription.id), { reason });
       onSuccess();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Erreur lors de l\'annulation');
