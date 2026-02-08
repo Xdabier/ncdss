@@ -25,6 +25,7 @@ import {
   Ban,
   PlayCircle,
   CheckSquare,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { DashboardLayout } from '../../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -42,6 +43,7 @@ import { getApi } from '../../../services/api';
 import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, PatientStatus, Box, User as UserType, Prescription, MedicationRoute, AdministrationStatus, PrescriptionStatus, API_ROUTES } from '@ncdss/shared';
 import { formatDateTime } from '../../../utils/dateUtils';
+import { ReassignBoxModal } from '../../../components/shared/ReassignBoxModal';
 
 // Treatment note interface
 interface TreatmentNote {
@@ -137,6 +139,7 @@ export default function PatientCare() {
   const [showDischargeModal, setShowDischargeModal] = useState(false);
   const [showAdministrationModal, setShowAdministrationModal] = useState(false);
   const [showHoldModal, setShowHoldModal] = useState(false);
+  const [showReassignModal, setShowReassignModal] = useState(false);
   const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [prescriptionActionLoading, setPrescriptionActionLoading] = useState<string | null>(null);
@@ -962,6 +965,20 @@ export default function PatientCare() {
                   </div>
                 )}
 
+                {/* Reassign box button (only for IN_TREATMENT or WITH_DOCTOR) */}
+                {(patient.status === PatientStatus.IN_TREATMENT ||
+                  patient.status === PatientStatus.WITH_DOCTOR) && (
+                  <Button
+                    variant="outline"
+                    className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
+                    onClick={() => setShowReassignModal(true)}
+                    disabled={actionLoading}
+                  >
+                    <ArrowRightLeft className="h-4 w-4 mr-2" />
+                    Réorienter
+                  </Button>
+                )}
+
                 {/* Re-triage button (only for IN_TREATMENT or WITH_DOCTOR) */}
                 {(patient.status === PatientStatus.IN_TREATMENT ||
                   patient.status === PatientStatus.WITH_DOCTOR) && (
@@ -1112,6 +1129,18 @@ export default function PatientCare() {
           loading={prescriptionActionLoading === selectedPrescription.id}
         />
       )}
+
+      {/* Reassign Box Modal */}
+      <ReassignBoxModal
+        isOpen={showReassignModal}
+        onClose={() => setShowReassignModal(false)}
+        onSuccess={() => loadData()}
+        patientId={patient.id}
+        patientName={patient.fullName}
+        currentBoxId={patient.assignedBoxId ?? undefined}
+        orientation={patient.finalOrientation ?? undefined}
+        esiLevel={patient.esiLevel ?? undefined}
+      />
     </DashboardLayout>
   );
 }
