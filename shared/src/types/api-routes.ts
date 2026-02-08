@@ -40,6 +40,7 @@ export const API_ROUTES = {
   patients: {
     list: '/patients',
     create: '/patients',
+    lookup: '/patients/lookup',
     byId: (id: number | string) => `/patients/${id}`,
     update: (id: number | string) => `/patients/${id}`,
     medicalHistory: (id: number | string) => `/patients/${id}/medical-history`,

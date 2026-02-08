@@ -27,14 +27,43 @@ export enum OrientationSource {
   MANUAL = 'MANUAL'
 }
 
+export enum IdType {
+  CIN = 'CIN',
+  PASSPORT = 'PASSPORT'
+}
+
+export interface PatientIdentity {
+  id: string;
+  fullName: string;
+  dateOfBirth: string;       // ISO date YYYY-MM-DD
+  sex: Sex;
+  idNumber?: string;         // CIN or passport number
+  idType?: IdType;
+  nationality?: string;      // ISO 3166-1 alpha-2 code
+  phone?: string;
+  address?: string;
+  allergies?: string;
+  chronicConditions?: string;
+  currentMedications?: string;
+  medicalHistory?: string;
+  surgicalHistory?: string;
+  obstetricHistory?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Patient {
   id: string;
-  
+  patientIdentityId: string;
+
   // Demographics
   fullName: string;
   age: number;
+  dateOfBirth?: string;
   sex: Sex;
   nationalId?: string;           // CIN or passport
+  idType?: IdType;
+  nationality?: string;
   phone?: string;
   address?: string;
   
@@ -118,9 +147,12 @@ export interface Patient {
 // Request/Response types
 export interface CreatePatientRequest {
   fullName: string;
-  age: number;
+  dateOfBirth: string;
   sex: Sex;
   nationalId?: string;
+  idType?: IdType;
+  nationality?: string;
+  patientIdentityId?: string;
   phone?: string;
   address?: string;
   allergies?: string;
@@ -128,6 +160,11 @@ export interface CreatePatientRequest {
   currentMedications?: string[];
   chiefComplaint?: string;
   symptomOnset?: string;
+}
+
+export interface LookupPatientResponse {
+  found: boolean;
+  identity?: PatientIdentity;
 }
 
 export interface UpdateMedicalHistoryRequest {
