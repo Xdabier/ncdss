@@ -115,7 +115,8 @@ export default function TreatmentQueue() {
     // Apply status filter based on selected tab
     if (filter === 'waiting' && p.status !== PatientStatus.REGISTERED && p.status !== PatientStatus.IN_TRIAGE && p.status !== PatientStatus.TRIAGED) return false;
     if (filter === 'inTreatment' && p.status !== PatientStatus.IN_TREATMENT && p.status !== PatientStatus.WITH_DOCTOR) return false;
-    // 'all' shows all statuses (critical ESI 1-2)
+    // 'all' = Critiques tab: shows ESI 1-2 across ALL statuses
+    if (filter === 'all' && (p.esiLevel ?? 5) > 2) return false;
 
     // Apply search filter
     if (!search) return true;

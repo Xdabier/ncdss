@@ -157,12 +157,13 @@ export default function TriageQueue() {
         return (
           <Button
             size="sm"
+            className={p.retriageRequested ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''}
             onClick={(e) => {
               e.stopPropagation();
               handleStartTriage(p.id);
             }}
           >
-            Commencer
+            {p.retriageRequested ? 'Re-trier (urgent)' : 'Commencer'}
           </Button>
         );
       }
