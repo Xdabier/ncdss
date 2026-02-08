@@ -1499,6 +1499,95 @@ router.post('/:id/transfer-to-doctor', async (req, res) => {
   }
 });
 
+// Reassign patient to a different box (re-orientation)
+router.post('/:id/reassign-box', async (req, res) => {
+  try {
+    const { userId } = (req as any).user;
+    const { id } = req.params;
+    const { newBoxId, reason } = req.body;
+
+    const db = getDb();
+
+    // 1. Get patient
+    const [patient] = await db.select().from(patients).where(eq(patients.id, id));
+    if (!patient) {
+      return res.status(404).json({ error: 'Patient non trouvé' });
+    }
+
+    // 2. Validate status
+    if (patient.status !== PatientStatus.IN_TREATMENT && patient.status !== PatientStatus.WITH_DOCTOR) {
+      return res.status(400).json({ error: 'Le patient doit être en traitement pour être réorienté' });
+    }
+
+    // 3. Validate newBoxId provided
+    if (!newBoxId) {
+      return res.status(400).json({ error: 'Box de destination requis' });
+    }
+
+    // 4. Validate box exists and is active
+    const [box] = await db.select().from(boxes).where(eq(boxes.id, newBoxId));
+    if (!box || !box.isActive) {
+      return res.status(400).json({ error: 'Box invalide ou inactif' });
+    }
+
+    // 5. Check not same box
+    if (newBoxId === patient.assignedBoxId) {
+      return res.status(400).json({ error: 'Le patient est déjà dans ce box' });
+    }
+
+    // 6. Get current doctor for new box
+    const currentDoctor = await getCurrentDoctorForBox(newBoxId);
+
+    const now = new Date().toISOString();
+
+    // 7. Update patient
+    await db.update(patients).set({
+      assignedBoxId: newBoxId,
+      assignedDoctorId: currentDoctor?.doctorId || null,
+      doctorAssignedAt: currentDoctor ? now : null,
+      status: currentDoctor ? PatientStatus.WITH_DOCTOR : PatientStatus.IN_TREATMENT,
+      updatedAt: now
+    }).where(eq(patients.id, id));
+
+    // 8. Append transfer note
+    const existingNotes = patient.treatmentNotes ? JSON.parse(patient.treatmentNotes) : [];
+    existingNotes.push({
+      id: randomUUID(),
+      type: 'transfer',
+      content: `Réorienté vers ${box.name}${reason ? ': ' + reason : ''}`,
+      authorId: userId,
+      createdAt: now
+    });
+
+    await db.update(patients).set({
+      treatmentNotes: JSON.stringify(existingNotes)
+    }).where(eq(patients.id, id));
+
+    // 9. Notify doctor if assigned (fire-and-forget)
+    if (currentDoctor) {
+      notifyDoctorPatientAssigned(
+        currentDoctor.doctorId,
+        id,
+        patient.fullName,
+        box.name,
+        patient.esiLevel
+      ).catch((err) => console.error('Notification error (reassign-box):', err));
+    }
+
+    // 10. Re-fetch and return updated patient
+    const updated = await fetchPatientWithIdentity(db, id);
+    res.json({
+      ...updated,
+      assignedBoxName: box.name,
+      assignedDoctorName: currentDoctor?.doctorName || null,
+      reassigned: true
+    });
+  } catch (error) {
+    console.error('Reassign box error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 // Discharge patient
 router.post('/:id/discharge', async (req, res) => {
   try {
