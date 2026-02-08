@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Save, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, AlertCircle, Clock } from 'lucide-react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
+import { Input } from '../../components/ui/input';
 import {
   Select,
   SelectContent,
@@ -13,30 +14,57 @@ import {
 } from '../../components/ui/select';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { getApi } from '../../services/api';
-import { NurseAssignment, API_ROUTES } from '@ncdss/shared';
+import {
+  NurseAssignment,
+  NurseShiftPreset,
+  NURSE_SHIFT_PRESETS,
+  API_ROUTES,
+} from '@ncdss/shared';
 import { getWeekStart, addWeeks, formatWeekRange, getDayName } from '../../utils/dateUtils';
+
+interface NurseScheduleDay {
+  role: string;
+  shiftPreset: string | null;
+  shiftStart: string | null;
+  shiftEnd: string | null;
+}
 
 interface NurseSchedule {
   nurseId: string;
   nurseName: string;
-  days: Record<number, string>;
+  days: Record<number, NurseScheduleDay>;
 }
 
-const assignmentOptions = [
-  { value: NurseAssignment.OFF, label: '—', variant: 'secondary' as const },
-  { value: NurseAssignment.INSCRIPTION, label: 'INS', variant: 'success' as const },
-  { value: NurseAssignment.TRIAGE, label: 'TRI', variant: 'warning' as const },
-  { value: NurseAssignment.TREATMENT, label: 'SOI', variant: 'info' as const },
+const assignmentOptions: { value: string; label: string; variant: 'secondary' | 'success' | 'warning' | 'info' }[] = [
+  { value: NurseAssignment.OFF, label: 'Repos', variant: 'secondary' },
+  { value: NurseAssignment.INSCRIPTION, label: 'Inscription', variant: 'success' },
+  { value: NurseAssignment.TRIAGE, label: 'Triage', variant: 'warning' },
+  { value: NurseAssignment.TREATMENT, label: 'Soins', variant: 'info' },
 ];
 
-const assignmentLabels: Record<string, string> = {
-  [NurseAssignment.OFF]: 'Repos',
-  [NurseAssignment.INSCRIPTION]: 'Inscription',
-  [NurseAssignment.TRIAGE]: 'Triage',
-  [NurseAssignment.TREATMENT]: 'Soins',
-};
+const shiftPresetOptions = Object.entries(NURSE_SHIFT_PRESETS).map(([key, config]) => ({
+  value: key,
+  label: config.labelFr,
+}));
 
-export default function WeeklySchedulePage() {
+function makeDefaultDay(role: string = NurseAssignment.OFF): NurseScheduleDay {
+  return { role, shiftPreset: null, shiftStart: null, shiftEnd: null };
+}
+
+function getRoleColor(role: string): string {
+  switch (role) {
+    case NurseAssignment.INSCRIPTION:
+      return 'bg-green-50 border-green-200';
+    case NurseAssignment.TRIAGE:
+      return 'bg-yellow-50 border-yellow-200';
+    case NurseAssignment.TREATMENT:
+      return 'bg-blue-50 border-blue-200';
+    default:
+      return 'bg-gray-50 border-gray-100';
+  }
+}
+
+export default function WeeklySchedulePage(): React.ReactElement {
   const [weekStart, setWeekStart] = useState(getWeekStart(new Date()));
   const [schedules, setSchedules] = useState<NurseSchedule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,39 +77,98 @@ export default function WeeklySchedulePage() {
     loadSchedule();
   }, [weekStart]);
 
-  const loadSchedule = async () => {
+  const loadSchedule = async (): Promise<void> => {
     setLoading(true);
     try {
       const api = await getApi();
       const response = await api.get(API_ROUTES.schedule.byWeek(weekStart));
-      setSchedules(response.data);
-    } catch (e) {
+      // Normalize response: ensure every day has the NurseScheduleDay shape
+      const normalized: NurseSchedule[] = response.data.map((nurse: NurseSchedule) => {
+        const days: Record<number, NurseScheduleDay> = {};
+        for (let i = 0; i < 7; i++) {
+          const raw = nurse.days[i];
+          if (raw && typeof raw === 'object' && 'role' in raw) {
+            days[i] = raw;
+          } else if (typeof raw === 'string') {
+            // Legacy format: plain string role
+            days[i] = makeDefaultDay(raw);
+          } else {
+            days[i] = makeDefaultDay();
+          }
+        }
+        return { ...nurse, days };
+      });
+      setSchedules(normalized);
+    } catch {
       setError('Erreur de chargement');
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePrevWeek = () => {
+  const handlePrevWeek = (): void => {
     setWeekStart(addWeeks(weekStart, -1));
   };
 
-  const handleNextWeek = () => {
+  const handleNextWeek = (): void => {
     setWeekStart(addWeeks(weekStart, 1));
   };
 
-  const handleAssignmentChange = (nurseId: string, day: number, value: string) => {
+  const handleRoleChange = (nurseId: string, day: number, newRole: string): void => {
     setSchedules((prev) =>
       prev.map((s) => {
-        if (s.nurseId === nurseId) {
-          return { ...s, days: { ...s.days, [day]: value } };
-        }
-        return s;
+        if (s.nurseId !== nurseId) return s;
+        const currentDay = s.days[day] || makeDefaultDay();
+        const updatedDay: NurseScheduleDay =
+          newRole === NurseAssignment.OFF
+            ? makeDefaultDay()
+            : { ...currentDay, role: newRole };
+        return { ...s, days: { ...s.days, [day]: updatedDay } };
       })
     );
   };
 
-  const handleValidate = async () => {
+  const handleShiftPresetChange = (nurseId: string, day: number, preset: string): void => {
+    setSchedules((prev) =>
+      prev.map((s) => {
+        if (s.nurseId !== nurseId) return s;
+        const currentDay = s.days[day] || makeDefaultDay();
+        const config = NURSE_SHIFT_PRESETS[preset as NurseShiftPreset];
+        const updatedDay: NurseScheduleDay =
+          preset === NurseShiftPreset.CUSTOM
+            ? {
+                ...currentDay,
+                shiftPreset: preset,
+                shiftStart: currentDay.shiftStart || '08:00',
+                shiftEnd: currentDay.shiftEnd || '20:00',
+              }
+            : {
+                ...currentDay,
+                shiftPreset: preset,
+                shiftStart: config?.startTime ?? null,
+                shiftEnd: config?.endTime ?? null,
+              };
+        return { ...s, days: { ...s.days, [day]: updatedDay } };
+      })
+    );
+  };
+
+  const handleCustomTimeChange = (
+    nurseId: string,
+    day: number,
+    field: 'shiftStart' | 'shiftEnd',
+    value: string
+  ): void => {
+    setSchedules((prev) =>
+      prev.map((s) => {
+        if (s.nurseId !== nurseId) return s;
+        const currentDay = s.days[day] || makeDefaultDay();
+        return { ...s, days: { ...s.days, [day]: { ...currentDay, [field]: value } } };
+      })
+    );
+  };
+
+  const handleValidate = async (): Promise<void> => {
     try {
       const api = await getApi();
       const response = await api.post(API_ROUTES.schedule.validate(weekStart), { schedules });
@@ -93,19 +180,19 @@ export default function WeeklySchedulePage() {
         setValidationErrors(response.data.errors);
         setShowValidation(true);
       }
-    } catch (e) {
+    } catch {
       setError('Erreur de validation');
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<void> => {
     setSaving(true);
     try {
       const api = await getApi();
       await api.post(API_ROUTES.schedule.save(weekStart), { schedules });
       setError(null);
       setShowValidation(false);
-    } catch (e) {
+    } catch {
       setError('Erreur de sauvegarde');
     } finally {
       setSaving(false);
@@ -124,30 +211,32 @@ export default function WeeklySchedulePage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Planning Hebdomadaire</h1>
-          <p className="text-gray-600 mt-2">Gérez les affectations des infirmiers par jour</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Planning Hebdomadaire</h1>
+          <p className="text-gray-600 mt-2">Gérez les affectations et horaires des infirmiers</p>
         </div>
 
         {/* Week Navigation */}
         <Card className="mb-6">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <Button variant="outline" onClick={handlePrevWeek}>
-                <ChevronLeft className="h-4 w-4 mr-2" />
-                Semaine précédente
+              <Button variant="outline" size="sm" onClick={handlePrevWeek}>
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                <span className="hidden sm:inline">Semaine précédente</span>
+                <span className="sm:hidden">Préc.</span>
               </Button>
 
               <div className="text-center">
-                <div className="text-lg font-semibold">{formatWeekRange(weekStart)}</div>
-                <div className="text-sm text-gray-500">Semaine du {weekStart}</div>
+                <div className="text-base md:text-lg font-semibold">{formatWeekRange(weekStart)}</div>
+                <div className="text-xs md:text-sm text-gray-500">Semaine du {weekStart}</div>
               </div>
 
-              <Button variant="outline" onClick={handleNextWeek}>
-                Semaine suivante
-                <ChevronRight className="h-4 w-4 ml-2" />
+              <Button variant="outline" size="sm" onClick={handleNextWeek}>
+                <span className="hidden sm:inline">Semaine suivante</span>
+                <span className="sm:hidden">Suiv.</span>
+                <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
           </CardContent>
@@ -157,7 +246,7 @@ export default function WeeklySchedulePage() {
         <div className="flex flex-wrap gap-2 mb-6">
           {assignmentOptions.map((opt) => (
             <Badge key={opt.value} variant={opt.variant}>
-              {opt.label} = {assignmentLabels[opt.value]}
+              {opt.label}
             </Badge>
           ))}
         </div>
@@ -200,16 +289,16 @@ export default function WeeklySchedulePage() {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px]">
+              <table className="w-full min-w-[1000px]">
                 <thead className="bg-gray-50 border-b">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-40">
                       Infirmier(ère)
                     </th>
                     {[0, 1, 2, 3, 4, 5, 6].map((day) => (
                       <th
                         key={day}
-                        className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                       >
                         {getDayName(day)}
                       </th>
@@ -218,31 +307,100 @@ export default function WeeklySchedulePage() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {schedules.map((nurse) => (
-                    <tr key={nurse.nurseId} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
+                    <tr key={nurse.nurseId} className="hover:bg-gray-50/50">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{nurse.nurseName}</div>
                       </td>
-                      {[0, 1, 2, 3, 4, 5, 6].map((day) => (
-                        <td key={day} className="px-4 py-4 text-center">
-                          <Select
-                            value={nurse.days[day] || NurseAssignment.OFF}
-                            onValueChange={(value) =>
-                              handleAssignmentChange(nurse.nurseId, day, value)
-                            }
+                      {[0, 1, 2, 3, 4, 5, 6].map((day) => {
+                        const dayData = nurse.days[day] || makeDefaultDay();
+                        const isOff = dayData.role === NurseAssignment.OFF;
+                        const isCustom = dayData.shiftPreset === NurseShiftPreset.CUSTOM;
+
+                        return (
+                          <td
+                            key={day}
+                            className={`px-1 py-2 text-center border ${getRoleColor(dayData.role)}`}
                           >
-                            <SelectTrigger className="w-24">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {assignmentOptions.map((opt) => (
-                                <SelectItem key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </td>
-                      ))}
+                            <div className="flex flex-col items-center gap-1.5 w-36 mx-auto">
+                              {/* Role Dropdown */}
+                              <Select
+                                value={dayData.role}
+                                onValueChange={(value) =>
+                                  handleRoleChange(nurse.nurseId, day, value)
+                                }
+                              >
+                                <SelectTrigger className="w-full h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {assignmentOptions.map((opt) => (
+                                    <SelectItem key={opt.value} value={opt.value}>
+                                      {opt.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+
+                              {/* Shift Preset Dropdown — only when not OFF */}
+                              {!isOff && (
+                                <Select
+                                  value={dayData.shiftPreset || ''}
+                                  onValueChange={(value) =>
+                                    handleShiftPresetChange(nurse.nurseId, day, value)
+                                  }
+                                >
+                                  <SelectTrigger className="w-full h-7 text-[11px]">
+                                    <div className="flex items-center gap-1 truncate">
+                                      <Clock className="h-3 w-3 shrink-0 text-gray-400" />
+                                      <SelectValue placeholder="Horaire..." />
+                                    </div>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {shiftPresetOptions.map((opt) => (
+                                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                                        {opt.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+
+                              {/* Custom time inputs */}
+                              {!isOff && isCustom && (
+                                <div className="flex items-center gap-1 w-full">
+                                  <Input
+                                    type="time"
+                                    value={dayData.shiftStart || '08:00'}
+                                    onChange={(e) =>
+                                      handleCustomTimeChange(
+                                        nurse.nurseId,
+                                        day,
+                                        'shiftStart',
+                                        e.target.value
+                                      )
+                                    }
+                                    className="h-6 text-[10px] px-1 w-1/2"
+                                  />
+                                  <span className="text-[10px] text-gray-400">→</span>
+                                  <Input
+                                    type="time"
+                                    value={dayData.shiftEnd || '20:00'}
+                                    onChange={(e) =>
+                                      handleCustomTimeChange(
+                                        nurse.nurseId,
+                                        day,
+                                        'shiftEnd',
+                                        e.target.value
+                                      )
+                                    }
+                                    className="h-6 text-[10px] px-1 w-1/2"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })}
                     </tr>
                   ))}
                 </tbody>
