@@ -48,8 +48,9 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Identifiants invalides' });
     }
 
-    // Get today's assignment for nurses
+    // Get today's assignment and shift info for nurses
     let todayAssignment: string | undefined;
+    let todayShiftInfo: { shiftPreset: string | null; shiftStart: string | null; shiftEnd: string | null } | undefined;
     if (user.role === 'NURSE') {
       const today = new Date();
       const dayOfWeek = (today.getDay() + 6) % 7; // Convert to Mon=0
@@ -67,6 +68,13 @@ router.post('/login', async (req, res) => {
         );
 
       todayAssignment = schedule?.assignedRole || 'OFF';
+      if (schedule) {
+        todayShiftInfo = {
+          shiftPreset: schedule.shiftPreset ?? null,
+          shiftStart: schedule.shiftStart ?? null,
+          shiftEnd: schedule.shiftEnd ?? null,
+        };
+      }
     }
 
     // Generate access token (short-lived)
@@ -108,6 +116,7 @@ router.post('/login', async (req, res) => {
         updatedAt: user.updatedAt,
       },
       todayAssignment,
+      todayShiftInfo,
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -176,8 +185,9 @@ router.post('/refresh', async (req, res) => {
       return res.status(401).json({ error: 'Utilisateur inactif' });
     }
 
-    // Get today's assignment for nurses
+    // Get today's assignment and shift info for nurses
     let todayAssignment: string | undefined;
+    let todayShiftInfo: { shiftPreset: string | null; shiftStart: string | null; shiftEnd: string | null } | undefined;
     if (user.role === 'NURSE') {
       const today = new Date();
       const dayOfWeek = (today.getDay() + 6) % 7; // Convert to Mon=0
@@ -195,6 +205,13 @@ router.post('/refresh', async (req, res) => {
         );
 
       todayAssignment = schedule?.assignedRole || 'OFF';
+      if (schedule) {
+        todayShiftInfo = {
+          shiftPreset: schedule.shiftPreset ?? null,
+          shiftStart: schedule.shiftStart ?? null,
+          shiftEnd: schedule.shiftEnd ?? null,
+        };
+      }
     }
 
     // Generate new access token
@@ -214,6 +231,7 @@ router.post('/refresh', async (req, res) => {
         updatedAt: user.updatedAt,
       },
       todayAssignment,
+      todayShiftInfo,
     });
   } catch (error) {
     console.error('Refresh token error:', error);

@@ -5,14 +5,16 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../components/ui/select';
+import { Label } from '../../components/ui/label';
 import { Alert, AlertDescription } from '../../components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '../../components/ui/dialog';
 import { getApi } from '../../services/api';
 import {
   NurseAssignment,
@@ -21,6 +23,7 @@ import {
   API_ROUTES,
 } from '@ncdss/shared';
 import { getWeekStart, addWeeks, formatWeekRange, getDayName } from '../../utils/dateUtils';
+import { cn } from '../../lib/utils';
 
 interface NurseScheduleDay {
   role: string;
@@ -42,11 +45,6 @@ const assignmentOptions: { value: string; label: string; variant: 'secondary' | 
   { value: NurseAssignment.TREATMENT, label: 'Soins', variant: 'info' },
 ];
 
-const shiftPresetOptions = Object.entries(NURSE_SHIFT_PRESETS).map(([key, config]) => ({
-  value: key,
-  label: config.labelFr,
-}));
-
 function makeDefaultDay(role: string = NurseAssignment.OFF): NurseScheduleDay {
   return { role, shiftPreset: null, shiftStart: null, shiftEnd: null };
 }
@@ -64,6 +62,31 @@ function getRoleColor(role: string): string {
   }
 }
 
+function getRoleBgClass(role: string): string {
+  switch (role) {
+    case NurseAssignment.INSCRIPTION:
+      return 'bg-green-100';
+    case NurseAssignment.TRIAGE:
+      return 'bg-yellow-100';
+    case NurseAssignment.TREATMENT:
+      return 'bg-blue-100';
+    default:
+      return 'bg-gray-100';
+  }
+}
+
+function getRoleLabel(role: string): string {
+  const opt = assignmentOptions.find((o) => o.value === role);
+  return opt?.label || 'Repos';
+}
+
+function formatShiftTime(time: string | null): string {
+  if (!time) return '';
+  const [h, m] = time.split(':');
+  if (m === '00') return `${h}h`;
+  return `${h}h${m}`;
+}
+
 export default function WeeklySchedulePage(): React.ReactElement {
   const [weekStart, setWeekStart] = useState(getWeekStart(new Date()));
   const [schedules, setSchedules] = useState<NurseSchedule[]>([]);
@@ -72,6 +95,14 @@ export default function WeeklySchedulePage(): React.ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [showValidation, setShowValidation] = useState(false);
+
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingCell, setEditingCell] = useState<{ nurseId: string; day: number } | null>(null);
+  const [dialogRole, setDialogRole] = useState<string>(NurseAssignment.OFF);
+  const [dialogShiftPreset, setDialogShiftPreset] = useState<string | null>(null);
+  const [dialogShiftStart, setDialogShiftStart] = useState<string>('08:00');
+  const [dialogShiftEnd, setDialogShiftEnd] = useState<string>('20:00');
 
   useEffect(() => {
     loadSchedule();
@@ -114,58 +145,50 @@ export default function WeeklySchedulePage(): React.ReactElement {
     setWeekStart(addWeeks(weekStart, 1));
   };
 
-  const handleRoleChange = (nurseId: string, day: number, newRole: string): void => {
+  const handleCellClick = (nurseId: string, day: number): void => {
+    const nurse = schedules.find((s) => s.nurseId === nurseId);
+    if (!nurse) return;
+    const dayData = nurse.days[day] || makeDefaultDay();
+
+    setEditingCell({ nurseId, day });
+    setDialogRole(dayData.role);
+    setDialogShiftPreset(dayData.shiftPreset);
+    setDialogShiftStart(dayData.shiftStart || '08:00');
+    setDialogShiftEnd(dayData.shiftEnd || '20:00');
+    setDialogOpen(true);
+  };
+
+  const handleDialogConfirm = (): void => {
+    if (!editingCell) return;
+
+    const { nurseId, day } = editingCell;
+    const isOff = dialogRole === NurseAssignment.OFF;
+
+    const updatedDay: NurseScheduleDay = isOff
+      ? makeDefaultDay()
+      : {
+          role: dialogRole,
+          shiftPreset: dialogShiftPreset,
+          shiftStart: dialogShiftPreset === NurseShiftPreset.CUSTOM
+            ? dialogShiftStart
+            : dialogShiftPreset
+              ? (NURSE_SHIFT_PRESETS[dialogShiftPreset as NurseShiftPreset]?.startTime ?? null)
+              : null,
+          shiftEnd: dialogShiftPreset === NurseShiftPreset.CUSTOM
+            ? dialogShiftEnd
+            : dialogShiftPreset
+              ? (NURSE_SHIFT_PRESETS[dialogShiftPreset as NurseShiftPreset]?.endTime ?? null)
+              : null,
+        };
+
     setSchedules((prev) =>
       prev.map((s) => {
         if (s.nurseId !== nurseId) return s;
-        const currentDay = s.days[day] || makeDefaultDay();
-        const updatedDay: NurseScheduleDay =
-          newRole === NurseAssignment.OFF
-            ? makeDefaultDay()
-            : { ...currentDay, role: newRole };
         return { ...s, days: { ...s.days, [day]: updatedDay } };
       })
     );
-  };
-
-  const handleShiftPresetChange = (nurseId: string, day: number, preset: string): void => {
-    setSchedules((prev) =>
-      prev.map((s) => {
-        if (s.nurseId !== nurseId) return s;
-        const currentDay = s.days[day] || makeDefaultDay();
-        const config = NURSE_SHIFT_PRESETS[preset as NurseShiftPreset];
-        const updatedDay: NurseScheduleDay =
-          preset === NurseShiftPreset.CUSTOM
-            ? {
-                ...currentDay,
-                shiftPreset: preset,
-                shiftStart: currentDay.shiftStart || '08:00',
-                shiftEnd: currentDay.shiftEnd || '20:00',
-              }
-            : {
-                ...currentDay,
-                shiftPreset: preset,
-                shiftStart: config?.startTime ?? null,
-                shiftEnd: config?.endTime ?? null,
-              };
-        return { ...s, days: { ...s.days, [day]: updatedDay } };
-      })
-    );
-  };
-
-  const handleCustomTimeChange = (
-    nurseId: string,
-    day: number,
-    field: 'shiftStart' | 'shiftEnd',
-    value: string
-  ): void => {
-    setSchedules((prev) =>
-      prev.map((s) => {
-        if (s.nurseId !== nurseId) return s;
-        const currentDay = s.days[day] || makeDefaultDay();
-        return { ...s, days: { ...s.days, [day]: { ...currentDay, [field]: value } } };
-      })
-    );
+    setDialogOpen(false);
+    setEditingCell(null);
   };
 
   const handleValidate = async (): Promise<void> => {
@@ -198,6 +221,11 @@ export default function WeeklySchedulePage(): React.ReactElement {
       setSaving(false);
     }
   };
+
+  const editingNurseName = editingCell
+    ? schedules.find((s) => s.nurseId === editingCell.nurseId)?.nurseName || ''
+    : '';
+  const editingDayName = editingCell !== null ? getDayName(editingCell.day) : '';
 
   if (loading) {
     return (
@@ -289,7 +317,7 @@ export default function WeeklySchedulePage(): React.ReactElement {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1000px]">
+              <table className="w-full min-w-[700px]">
                 <thead className="bg-gray-50 border-b">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-40">
@@ -314,90 +342,31 @@ export default function WeeklySchedulePage(): React.ReactElement {
                       {[0, 1, 2, 3, 4, 5, 6].map((day) => {
                         const dayData = nurse.days[day] || makeDefaultDay();
                         const isOff = dayData.role === NurseAssignment.OFF;
-                        const isCustom = dayData.shiftPreset === NurseShiftPreset.CUSTOM;
 
                         return (
                           <td
                             key={day}
                             className={`px-1 py-2 text-center border ${getRoleColor(dayData.role)}`}
                           >
-                            <div className="flex flex-col items-center gap-1.5 w-36 mx-auto">
-                              {/* Role Dropdown */}
-                              <Select
-                                value={dayData.role}
-                                onValueChange={(value) =>
-                                  handleRoleChange(nurse.nurseId, day, value)
-                                }
-                              >
-                                <SelectTrigger className="w-full h-8 text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {assignmentOptions.map((opt) => (
-                                    <SelectItem key={opt.value} value={opt.value}>
-                                      {opt.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-
-                              {/* Shift Preset Dropdown — only when not OFF */}
-                              {!isOff && (
-                                <Select
-                                  value={dayData.shiftPreset || ''}
-                                  onValueChange={(value) =>
-                                    handleShiftPresetChange(nurse.nurseId, day, value)
-                                  }
-                                >
-                                  <SelectTrigger className="w-full h-7 text-[11px]">
-                                    <div className="flex items-center gap-1 truncate">
-                                      <Clock className="h-3 w-3 shrink-0 text-gray-400" />
-                                      <SelectValue placeholder="Horaire..." />
-                                    </div>
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {shiftPresetOptions.map((opt) => (
-                                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                                        {opt.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                            <button
+                              type="button"
+                              onClick={() => handleCellClick(nurse.nurseId, day)}
+                              className={cn(
+                                'w-full rounded-md px-2 py-2 transition-colors cursor-pointer',
+                                'hover:ring-2 hover:ring-blue-300 hover:ring-offset-1',
+                                getRoleBgClass(dayData.role)
                               )}
-
-                              {/* Custom time inputs */}
-                              {!isOff && isCustom && (
-                                <div className="flex items-center gap-1 w-full">
-                                  <Input
-                                    type="time"
-                                    value={dayData.shiftStart || '08:00'}
-                                    onChange={(e) =>
-                                      handleCustomTimeChange(
-                                        nurse.nurseId,
-                                        day,
-                                        'shiftStart',
-                                        e.target.value
-                                      )
-                                    }
-                                    className="h-6 text-[10px] px-1 w-1/2"
-                                  />
-                                  <span className="text-[10px] text-gray-400">→</span>
-                                  <Input
-                                    type="time"
-                                    value={dayData.shiftEnd || '20:00'}
-                                    onChange={(e) =>
-                                      handleCustomTimeChange(
-                                        nurse.nurseId,
-                                        day,
-                                        'shiftEnd',
-                                        e.target.value
-                                      )
-                                    }
-                                    className="h-6 text-[10px] px-1 w-1/2"
-                                  />
+                            >
+                              <div className="text-xs font-medium text-gray-800">
+                                {getRoleLabel(dayData.role)}
+                              </div>
+                              {!isOff && dayData.shiftStart && dayData.shiftEnd && (
+                                <div className="text-[10px] text-gray-500 mt-0.5 flex items-center justify-center gap-0.5">
+                                  <Clock className="h-2.5 w-2.5" />
+                                  {formatShiftTime(dayData.shiftStart)} → {formatShiftTime(dayData.shiftEnd)}
                                 </div>
                               )}
-                            </div>
+                            </button>
                           </td>
                         );
                       })}
@@ -416,6 +385,127 @@ export default function WeeklySchedulePage(): React.ReactElement {
             {saving ? 'Enregistrement...' : 'Enregistrer le planning'}
           </Button>
         </div>
+
+        {/* Edit Dialog */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Modifier l'affectation</DialogTitle>
+              <DialogDescription>
+                {editingNurseName} — {editingDayName}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+              {/* Role grid */}
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">Rôle</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {assignmentOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        setDialogRole(opt.value);
+                        if (opt.value === NurseAssignment.OFF) {
+                          setDialogShiftPreset(null);
+                        }
+                      }}
+                      className={cn(
+                        'p-3 rounded-lg border-2 transition-all text-center text-sm font-medium',
+                        getRoleBgClass(opt.value),
+                        dialogRole === opt.value
+                          ? 'border-blue-500 ring-2 ring-blue-200'
+                          : 'border-transparent hover:border-gray-300'
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Shift preset grid */}
+              {dialogRole !== NurseAssignment.OFF && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <Clock className="h-3.5 w-3.5 inline mr-1" />
+                    Horaire
+                  </Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(NURSE_SHIFT_PRESETS).map(([key, config]) => {
+                      const isCustom = key === NurseShiftPreset.CUSTOM;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => {
+                            setDialogShiftPreset(key);
+                            if (!isCustom) {
+                              setDialogShiftStart(config.startTime);
+                              setDialogShiftEnd(config.endTime);
+                            }
+                          }}
+                          className={cn(
+                            'p-2 rounded-lg border-2 transition-all text-center',
+                            dialogShiftPreset === key
+                              ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50'
+                              : 'border-gray-200 hover:border-gray-300 bg-white'
+                          )}
+                        >
+                          <div className="text-xs font-medium text-gray-800">
+                            {isCustom ? config.labelFr : config.labelFr.split(' (')[0]}
+                          </div>
+                          {!isCustom && (
+                            <div className="text-[10px] text-gray-500">
+                              {formatShiftTime(config.startTime)} → {formatShiftTime(config.endTime)}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Custom time inputs */}
+              {dialogRole !== NurseAssignment.OFF &&
+                dialogShiftPreset === NurseShiftPreset.CUSTOM && (
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                    <Label className="text-xs font-medium text-gray-600">Horaires personnalisés</Label>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <Label className="text-[10px] text-gray-500">Début</Label>
+                        <Input
+                          type="time"
+                          value={dialogShiftStart}
+                          onChange={(e) => setDialogShiftStart(e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <span className="text-gray-400 mt-4">→</span>
+                      <div className="flex-1">
+                        <Label className="text-[10px] text-gray-500">Fin</Label>
+                        <Input
+                          type="time"
+                          value={dialogShiftEnd}
+                          onChange={(e) => setDialogShiftEnd(e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                Annuler
+              </Button>
+              <Button onClick={handleDialogConfirm}>Appliquer</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

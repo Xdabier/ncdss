@@ -66,9 +66,9 @@ export default function Login() {
       const api = await getApi();
       const response = await api.post(API_ROUTES.auth.login, { username, password });
 
-      const { accessToken, refreshToken, user, todayAssignment } = response.data;
+      const { accessToken, refreshToken, user, todayAssignment, todayShiftInfo } = response.data;
       setAuthToken(accessToken);
-      await setAuth(user, accessToken, refreshToken, todayAssignment);
+      await setAuth(user, accessToken, refreshToken, todayAssignment, todayShiftInfo);
 
       navigate(CLIENT_ROUTES.dashboard);
     } catch (e: any) {

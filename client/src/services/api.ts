@@ -79,7 +79,7 @@ export async function getApi(): Promise<AxiosInstance> {
           // Call refresh endpoint
           if (!apiInstance) throw new Error('API instance not initialized');
           const response = await apiInstance.post(API_ROUTES.auth.refresh, { refreshToken });
-          const { accessToken, user, todayAssignment } = response.data;
+          const { accessToken, user, todayAssignment, todayShiftInfo } = response.data;
 
           // Update tokens in store
           await useAuthStore.getState().setAccessToken(accessToken);
@@ -91,7 +91,7 @@ export async function getApi(): Promise<AxiosInstance> {
             if (currentRefreshToken) {
               await useAuthStore
                 .getState()
-                .setAuth(user, accessToken, currentRefreshToken, todayAssignment);
+                .setAuth(user, accessToken, currentRefreshToken, todayAssignment, todayShiftInfo);
             }
           }
 
