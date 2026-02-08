@@ -507,6 +507,7 @@ export default function PatientDetail() {
   const [error, setError] = useState<string | null>(null);
 
   const [showDiagnosisModal, setShowDiagnosisModal] = useState(false);
+  const [editingDiagnosis, setEditingDiagnosis] = useState<Diagnosis | null>(null);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [showDischargeModal, setShowDischargeModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -769,6 +770,7 @@ export default function PatientDetail() {
           <Button
             size="sm"
             onClick={() => {
+              setEditingDiagnosis(null);
               setAiDiagnosisInitialData(undefined);
               setShowDiagnosisModal(true);
             }}
@@ -1049,6 +1051,7 @@ export default function PatientDetail() {
                   <Button
                     size="sm"
                     onClick={() => {
+                      setEditingDiagnosis(null);
                       setAiDiagnosisInitialData(undefined);
                       setShowDiagnosisModal(true);
                     }}
@@ -1157,10 +1160,22 @@ export default function PatientDetail() {
                               )}
                               Exclure
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingDiagnosis(diagnosis);
+                                setAiDiagnosisInitialData(undefined);
+                                setShowDiagnosisModal(true);
+                              }}
+                            >
+                              <Edit3 className="h-3 w-3 mr-1" />
+                              Modifier
+                            </Button>
                           </div>
                         )}
 
-                        {/* Resolve button for confirmed active diagnoses */}
+                        {/* Resolve + Edit buttons for confirmed active diagnoses */}
                         {diagnosis.status === DiagnosisStatus.ACTIVE && diagnosis.confirmedAt && (
                           <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-200">
                             <Button
@@ -1175,6 +1190,18 @@ export default function PatientDetail() {
                                 <CheckCircle className="h-3 w-3 mr-1" />
                               )}
                               Marquer résolu
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingDiagnosis(diagnosis);
+                                setAiDiagnosisInitialData(undefined);
+                                setShowDiagnosisModal(true);
+                              }}
+                            >
+                              <Edit3 className="h-3 w-3 mr-1" />
+                              Modifier
                             </Button>
                           </div>
                         )}
@@ -1392,9 +1419,14 @@ export default function PatientDetail() {
         onClose={() => {
           setShowDiagnosisModal(false);
           setAiDiagnosisInitialData(undefined);
+          setEditingDiagnosis(null);
         }}
-        onSuccess={loadDiagnoses}
+        onSuccess={() => {
+          loadDiagnoses();
+          setEditingDiagnosis(null);
+        }}
         initialData={aiDiagnosisInitialData}
+        editDiagnosis={editingDiagnosis}
       />
 
       {showPrescriptionModal && (

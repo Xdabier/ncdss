@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { getApi } from '../../services/api';
-import { API_ROUTES } from '@ncdss/shared';
+import { API_ROUTES, Diagnosis } from '@ncdss/shared';
 
 interface InitialDiagnosisData {
   diagnosisCode?: string;
@@ -28,6 +28,7 @@ interface DiagnosisModalProps {
   patientId: string;
   onSuccess: () => void;
   initialData?: InitialDiagnosisData;
+  editDiagnosis?: Diagnosis | null;
 }
 
 // Diagnosis type enum values with descriptions
@@ -83,25 +84,39 @@ export function DiagnosisModal({
   patientId,
   onSuccess,
   initialData,
+  editDiagnosis,
 }: DiagnosisModalProps): React.ReactElement | null {
-  const getInitialFormData = (): FormData => ({
-    diagnosisCode: initialData?.diagnosisCode || '',
-    diagnosisName: initialData?.diagnosisName || '',
-    diagnosisType: initialData?.diagnosisType || '',
-    severity: initialData?.severity || '',
-    notes: initialData?.notes || '',
-  });
+  const isEditMode = !!editDiagnosis;
+
+  const getInitialFormData = (): FormData => {
+    if (editDiagnosis) {
+      return {
+        diagnosisCode: editDiagnosis.diagnosisCode || '',
+        diagnosisName: editDiagnosis.diagnosisName || '',
+        diagnosisType: editDiagnosis.diagnosisType || '',
+        severity: editDiagnosis.severity || '',
+        notes: editDiagnosis.notes || '',
+      };
+    }
+    return {
+      diagnosisCode: initialData?.diagnosisCode || '',
+      diagnosisName: initialData?.diagnosisName || '',
+      diagnosisType: initialData?.diagnosisType || '',
+      severity: initialData?.severity || '',
+      notes: initialData?.notes || '',
+    };
+  };
 
   const [formData, setFormData] = useState<FormData>(getInitialFormData());
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Update form when initialData changes (e.g., from AI suggestion)
+  // Update form when initialData or editDiagnosis changes
   React.useEffect(() => {
     if (isOpen) {
       setFormData(getInitialFormData());
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, editDiagnosis]);
 
   if (!isOpen) return null;
 
@@ -132,14 +147,24 @@ export function DiagnosisModal({
 
     try {
       const api = await getApi();
-      await api.post(API_ROUTES.diagnoses.create, {
-        patientId,
-        diagnosisCode: formData.diagnosisCode.trim() || null,
-        diagnosisName: formData.diagnosisName.trim(),
-        diagnosisType: formData.diagnosisType,
-        severity: formData.severity || null,
-        notes: formData.notes.trim() || null,
-      });
+      if (isEditMode) {
+        await api.put(API_ROUTES.diagnoses.update(editDiagnosis!.id), {
+          diagnosisCode: formData.diagnosisCode.trim() || null,
+          diagnosisName: formData.diagnosisName.trim(),
+          diagnosisType: formData.diagnosisType,
+          severity: formData.severity || null,
+          notes: formData.notes.trim() || null,
+        });
+      } else {
+        await api.post(API_ROUTES.diagnoses.create, {
+          patientId,
+          diagnosisCode: formData.diagnosisCode.trim() || null,
+          diagnosisName: formData.diagnosisName.trim(),
+          diagnosisType: formData.diagnosisType,
+          severity: formData.severity || null,
+          notes: formData.notes.trim() || null,
+        });
+      }
 
       // Reset form
       setFormData({
@@ -153,12 +178,12 @@ export function DiagnosisModal({
       onSuccess();
       onClose();
     } catch (error: unknown) {
-      console.error('Error creating diagnosis:', error);
+      console.error(`Error ${isEditMode ? 'updating' : 'creating'} diagnosis:`, error);
       const axiosError = error as { response?: { data?: { error?: string } } };
       setErrors({
         general:
           axiosError.response?.data?.error ||
-          'Erreur lors de la création du diagnostic',
+          (isEditMode ? 'Erreur lors de la mise à jour du diagnostic' : 'Erreur lors de la création du diagnostic'),
       });
     } finally {
       setIsSubmitting(false);
@@ -195,7 +220,7 @@ export function DiagnosisModal({
             <div className="p-2 rounded-lg bg-blue-100">
               <Stethoscope className="h-5 w-5 text-blue-600" />
             </div>
-            <h2 className="text-lg font-semibold">Nouveau diagnostic</h2>
+            <h2 className="text-lg font-semibold">{isEditMode ? 'Modifier le diagnostic' : 'Nouveau diagnostic'}</h2>
           </div>
           <button
             onClick={handleClose}
@@ -404,10 +429,10 @@ export function DiagnosisModal({
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Enregistrement...
+                  {isEditMode ? 'Mise à jour...' : 'Enregistrement...'}
                 </>
               ) : (
-                'Enregistrer'
+                isEditMode ? 'Mettre à jour' : 'Enregistrer'
               )}
             </Button>
           </div>
