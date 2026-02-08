@@ -22,6 +22,13 @@
       "when": 1770475091303,
       "tag": "0002_loose_taskmaster",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1770547771217,
+      "tag": "0003_broad_ironclad",
+      "breakpoints": true
     }
   ]
 }

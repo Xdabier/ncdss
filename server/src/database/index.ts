@@ -59,6 +59,15 @@ export async function initDatabase() {
   addColumnIfMissing(sqlite, 'patients', 'surgical_history', 'TEXT');
   addColumnIfMissing(sqlite, 'patients', 'obstetric_history', 'TEXT');
 
+  // Create patient_identities table and migrate existing data
+  createPatientIdentitiesTable(sqlite);
+  addColumnIfMissing(sqlite, 'patients', 'patient_identity_id', 'TEXT');
+  addColumnIfMissing(sqlite, 'patients', 'date_of_birth', 'TEXT');
+  addColumnIfMissing(sqlite, 'patients', 'id_type', 'TEXT');
+  addColumnIfMissing(sqlite, 'patients', 'nationality', 'TEXT');
+  migratePatientIdentities(sqlite);
+  createPatientIdentityIndexes(sqlite);
+
   // Seed default admin if no users exist
   await seedDefaultAdmin();
 
@@ -177,4 +186,199 @@ async function createRefreshTokensTable() {
   } catch (error) {
     console.error('Error creating refresh_tokens table:', error);
   }
+}
+
+function createPatientIdentitiesTable(sqliteDb: Database.Database): void {
+  const tableExists = sqliteDb
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='patient_identities'")
+    .get();
+
+  if (!tableExists) {
+    sqliteDb.exec(`
+      CREATE TABLE patient_identities (
+        id TEXT PRIMARY KEY,
+        full_name TEXT NOT NULL,
+        date_of_birth TEXT,
+        sex TEXT NOT NULL,
+        id_number TEXT,
+        id_type TEXT,
+        nationality TEXT,
+        phone TEXT,
+        address TEXT,
+        allergies TEXT,
+        chronic_conditions TEXT,
+        current_medications TEXT,
+        medical_history TEXT,
+        surgical_history TEXT,
+        obstetric_history TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✓ patient_identities table created');
+  }
+}
+
+function migratePatientIdentities(sqliteDb: Database.Database): void {
+  // Check if any patients need migration (have no identity linked)
+  const unmigrated = sqliteDb
+    .prepare('SELECT COUNT(*) as count FROM patients WHERE patient_identity_id IS NULL')
+    .get() as { count: number };
+
+  if (unmigrated.count === 0) {
+    return;
+  }
+
+  console.log(`Migrating ${unmigrated.count} patient(s) to patient_identities...`);
+
+  const now = new Date().toISOString();
+  const currentYear = new Date().getFullYear();
+
+  // Run migration in a transaction for safety
+  const migrateTransaction = sqliteDb.transaction(() => {
+    // Map: national_id -> identity UUID (for deduplication)
+    const nationalIdToIdentity = new Map<string, string>();
+
+    // Step 1: Handle patients WITH national_id (deduplication by national_id)
+    // Get all unmigrated patients with national_id, ordered by created_at DESC (most recent first)
+    const patientsWithNationalId = sqliteDb
+      .prepare(`
+        SELECT id, full_name, age, sex, national_id, phone, address,
+               allergies, chronic_conditions, current_medications,
+               medical_history, surgical_history, obstetric_history,
+               created_at
+        FROM patients
+        WHERE patient_identity_id IS NULL AND national_id IS NOT NULL
+        ORDER BY created_at DESC
+      `)
+      .all() as Array<{
+        id: string;
+        full_name: string;
+        age: number;
+        sex: string;
+        national_id: string;
+        phone: string | null;
+        address: string | null;
+        allergies: string | null;
+        chronic_conditions: string | null;
+        current_medications: string | null;
+        medical_history: string | null;
+        surgical_history: string | null;
+        obstetric_history: string | null;
+        created_at: string;
+      }>;
+
+    const insertIdentity = sqliteDb.prepare(`
+      INSERT INTO patient_identities (id, full_name, date_of_birth, sex, id_number, id_type,
+        phone, address, allergies, chronic_conditions, current_medications,
+        medical_history, surgical_history, obstetric_history, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const linkPatient = sqliteDb.prepare(`
+      UPDATE patients SET patient_identity_id = ?, date_of_birth = ?, id_type = ? WHERE id = ?
+    `);
+
+    for (const patient of patientsWithNationalId) {
+      const approxDob = `${currentYear - patient.age}-01-01`;
+
+      if (nationalIdToIdentity.has(patient.national_id)) {
+        // Identity already created for this national_id - just link
+        const existingIdentityId = nationalIdToIdentity.get(patient.national_id)!;
+        linkPatient.run(existingIdentityId, approxDob, 'CIN', patient.id);
+      } else {
+        // Create new identity from this patient (most recent due to ORDER BY)
+        const identityId = randomUUID();
+        nationalIdToIdentity.set(patient.national_id, identityId);
+
+        insertIdentity.run(
+          identityId,
+          patient.full_name,
+          approxDob,
+          patient.sex,
+          patient.national_id,
+          'CIN',
+          patient.phone,
+          patient.address,
+          patient.allergies,
+          patient.chronic_conditions,
+          patient.current_medications,
+          patient.medical_history,
+          patient.surgical_history,
+          patient.obstetric_history,
+          now,
+          now,
+        );
+
+        linkPatient.run(identityId, approxDob, 'CIN', patient.id);
+      }
+    }
+
+    // Step 2: Handle patients WITHOUT national_id (each gets its own identity)
+    const patientsWithoutNationalId = sqliteDb
+      .prepare(`
+        SELECT id, full_name, age, sex, phone, address,
+               allergies, chronic_conditions, current_medications,
+               medical_history, surgical_history, obstetric_history
+        FROM patients
+        WHERE patient_identity_id IS NULL AND national_id IS NULL
+      `)
+      .all() as Array<{
+        id: string;
+        full_name: string;
+        age: number;
+        sex: string;
+        phone: string | null;
+        address: string | null;
+        allergies: string | null;
+        chronic_conditions: string | null;
+        current_medications: string | null;
+        medical_history: string | null;
+        surgical_history: string | null;
+        obstetric_history: string | null;
+      }>;
+
+    for (const patient of patientsWithoutNationalId) {
+      const identityId = randomUUID();
+      const approxDob = `${currentYear - patient.age}-01-01`;
+
+      insertIdentity.run(
+        identityId,
+        patient.full_name,
+        approxDob,
+        patient.sex,
+        null,
+        null,
+        patient.phone,
+        patient.address,
+        patient.allergies,
+        patient.chronic_conditions,
+        patient.current_medications,
+        patient.medical_history,
+        patient.surgical_history,
+        patient.obstetric_history,
+        now,
+        now,
+      );
+
+      linkPatient.run(identityId, approxDob, null, patient.id);
+    }
+
+    console.log(
+      `✓ Migrated ${unmigrated.count} patient(s): ` +
+      `${nationalIdToIdentity.size} shared identities (by national_id), ` +
+      `${patientsWithoutNationalId.length} individual identities`,
+    );
+  });
+
+  migrateTransaction();
+}
+
+function createPatientIdentityIndexes(sqliteDb: Database.Database): void {
+  sqliteDb.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_patient_identities_id_number
+      ON patient_identities(id_number) WHERE id_number IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_patients_identity_id
+      ON patients(patient_identity_id);
+  `);
 }

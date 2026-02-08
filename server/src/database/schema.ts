@@ -96,17 +96,51 @@ export const boxAssignments = sqliteTable('box_assignments', {
 });
 
 // ============================================================================
+// PATIENT IDENTITIES (Persistent identity across visits)
+// ============================================================================
+
+export const patientIdentities = sqliteTable('patient_identities', {
+  id: text('id').primaryKey(),
+  fullName: text('full_name').notNull(),
+  dateOfBirth: text('date_of_birth'),
+  sex: text('sex').notNull(), // MALE, FEMALE
+  idNumber: text('id_number'),
+  idType: text('id_type'), // CIN, PASSPORT
+  nationality: text('nationality'),
+  phone: text('phone'),
+  address: text('address'),
+  allergies: text('allergies'),
+  chronicConditions: text('chronic_conditions'), // JSON array
+  currentMedications: text('current_medications'), // JSON array
+  medicalHistory: text('medical_history'),
+  surgicalHistory: text('surgical_history'),
+  obstetricHistory: text('obstetric_history'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ============================================================================
 // PATIENTS (Basic structure - will expand in Week 2)
 // ============================================================================
 
 export const patients = sqliteTable('patients', {
   id: text('id').primaryKey(),
-  
+
+  // Identity link
+  patientIdentityId: text('patient_identity_id').references(() => patientIdentities.id),
+
   // Demographics
   fullName: text('full_name').notNull(),
   age: integer('age').notNull(),
+  dateOfBirth: text('date_of_birth'),
   sex: text('sex').notNull(), // MALE, FEMALE
   nationalId: text('national_id'),
+  idType: text('id_type'), // CIN, PASSPORT
+  nationality: text('nationality'),
   phone: text('phone'),
   address: text('address'),
   
