@@ -66,7 +66,6 @@ function hasCriticalABCDE(symptoms: Partial<SymptomsFormData>, abcde: Record<str
     symptoms.bleedingInterne || symptoms.bleedingExteriorisee ||
     symptoms.pupilSymmetry === 'asymetrique' ||
     (gcs > 0 && gcs <= 8) ||
-    symptoms.burns ||
     E.burns
   );
 }
@@ -146,23 +145,95 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
   const autoSaveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // -----------------------------------------------------------------------
-  // Tab navigation
+  // Tab navigation & scroll tracking
   // -----------------------------------------------------------------------
 
-  const activeSection = (() => {
-    for (const s of sectionsMeta) {
-      if (openSections.has(s.id)) return s.id;
-    }
-    return null;
-  })();
+  const [activeTab, setActiveTab] = useState<string | null>(null);
+  const stickyHeaderRef = useRef<HTMLDivElement>(null);
+  const isAutoScrollingRef = useRef(false);
+  const prevOpenSectionsRef = useRef<Set<string>>(new Set());
+
+  // Active section: prefer the explicitly-set tab, fall back to the first
+  // open section so the highlight still works when opened via accordion click.
+  const activeSection = activeTab && openSections.has(activeTab)
+    ? activeTab
+    : (() => {
+        for (const s of sectionsMeta) {
+          if (openSections.has(s.id)) return s.id;
+        }
+        return null;
+      })();
+
+  // Scroll a section into view, positioned just below the sticky headers.
+  const scrollToSection = useCallback((sectionId: string) => {
+    const el = sectionRefs[sectionId]?.current;
+    if (!el) return;
+    const stickyBottom = stickyHeaderRef.current?.getBoundingClientRect().bottom ?? 0;
+    const elRect = el.getBoundingClientRect();
+    const scrollY = window.scrollY + elRect.top - stickyBottom - 8;
+    isAutoScrollingRef.current = true;
+    window.scrollTo({ top: Math.max(0, scrollY), behavior: 'smooth' });
+    setTimeout(() => { isAutoScrollingRef.current = false; }, 600);
+  }, [sectionRefs]);
 
   const handleTabClick = useCallback((sectionId: string) => {
+    setActiveTab(sectionId);
     openSection(sectionId);
-    const ref = sectionRefs[sectionId];
-    setTimeout(() => {
-      ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 50);
-  }, [openSection]);
+    // Wait a tick for the section to expand, then scroll
+    setTimeout(() => scrollToSection(sectionId), 50);
+  }, [openSection, scrollToSection]);
+
+  // When a section is opened via accordion click, scroll it into view and
+  // update the active tab.  Wait for the collapse/expand CSS transition
+  // (duration-300 = 300ms) to finish so the layout has settled before we
+  // measure positions.
+  useEffect(() => {
+    for (const id of openSections) {
+      if (!prevOpenSectionsRef.current.has(id) && !isAutoScrollingRef.current) {
+        setActiveTab(id);
+        isAutoScrollingRef.current = true;
+        setTimeout(() => scrollToSection(id), 320);
+      }
+    }
+    prevOpenSectionsRef.current = new Set(openSections);
+  }, [openSections, scrollToSection]);
+
+  // Track active tab from scroll position: the last section whose header is
+  // at or above the bottom of the sticky header area is the "current" one.
+  useEffect(() => {
+    const handleScroll = () => {
+      if (isAutoScrollingRef.current) return;
+      const stickyBottom = stickyHeaderRef.current?.getBoundingClientRect().bottom ?? 0;
+      let found: string | null = null;
+      for (const s of sectionsMeta) {
+        const el = sectionRefs[s.id]?.current;
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        if (rect.top <= stickyBottom + 50 && rect.bottom > stickyBottom) {
+          found = s.id;
+        }
+      }
+      if (found) setActiveTab(found);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [sectionRefs]);
+
+  // Track active tab from focus: when a user focuses an input inside a
+  // section, highlight that section's tab.
+  useEffect(() => {
+    const handleFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      for (const s of sectionsMeta) {
+        if (sectionRefs[s.id]?.current?.contains(target)) {
+          setActiveTab(s.id);
+          break;
+        }
+      }
+    };
+    document.addEventListener('focusin', handleFocusIn);
+    return () => document.removeEventListener('focusin', handleFocusIn);
+  }, [sectionRefs]);
 
   // -----------------------------------------------------------------------
   // Patient loading
@@ -193,6 +264,9 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
         chronicConditions: parsedChronicConditions,
         currentMedications: parsedCurrentMedications,
         medicalHistoryNotes: p.medicalHistoryNotes ?? undefined,
+        medicalHistory: p.medicalHistory ?? undefined,
+        surgicalHistory: p.surgicalHistory ?? undefined,
+        obstetricHistory: p.obstetricHistory ?? undefined,
       });
 
       // Initialise vitals from flat fields
@@ -393,7 +467,21 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
             // Merge E data with symptoms-owned E fields, preserving E.notes
             const splitResult = splitSymptomsToABCDE(symptomsData);
             const mergedE = { ...abcdeData.E, ...splitResult.E, notes: abcdeData.E?.notes };
-            const response = await api.put(API_ROUTES.patients.abcde(id, 'E'), mergedE);
+            const [response] = await Promise.all([
+              api.put(API_ROUTES.patients.abcde(id, 'E'), mergedE),
+              // Chief complaint / symptom onset are displayed in this section
+              api.put(API_ROUTES.patients.medicalHistory(id), {
+                chiefComplaint: medicalHistoryData.chiefComplaint,
+                symptomOnset: medicalHistoryData.symptomOnset,
+                allergies: medicalHistoryData.allergies,
+                chronicConditions: medicalHistoryData.chronicConditions,
+                currentMedications: medicalHistoryData.currentMedications,
+                medicalHistoryNotes: medicalHistoryData.medicalHistoryNotes,
+                medicalHistory: medicalHistoryData.medicalHistory,
+                surgicalHistory: medicalHistoryData.surgicalHistory,
+                obstetricHistory: medicalHistoryData.obstetricHistory,
+              }),
+            ]);
             setPatient(response.data);
             setAbcdeData(prev => ({ ...prev, E: mergedE }));
             break;
@@ -406,6 +494,9 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
               chronicConditions: medicalHistoryData.chronicConditions,
               currentMedications: medicalHistoryData.currentMedications,
               medicalHistoryNotes: medicalHistoryData.medicalHistoryNotes,
+              medicalHistory: medicalHistoryData.medicalHistory,
+              surgicalHistory: medicalHistoryData.surgicalHistory,
+              obstetricHistory: medicalHistoryData.obstetricHistory,
             });
             setPatient(response.data);
             break;
@@ -577,8 +668,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
         const critical = !!(
           symptomsData.airwayStatus === 'obstrue' ||
           symptomsData.bleedingInterne ||
-          symptomsData.bleedingExteriorisee ||
-          symptomsData.burns
+          symptomsData.bleedingExteriorisee
         );
         if (critical) return <span className="text-red-600 font-medium text-xs">⚠ Critiques</span>;
         if (filled > 0) return <span className="text-green-600 text-xs">✓ {filled} renseigne{filled > 1 ? 's' : ''}</span>;
@@ -587,6 +677,8 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
       case 'etat-general': {
         const E = abcdeData.E || {};
         let filled = 0;
+        if (medicalHistoryData.chiefComplaint) filled++;
+        if (medicalHistoryData.symptomOnset) filled++;
         if (E.rash) filled++;
         if (E.vomiting) filled++;
         if (E.diarrhea) filled++;
@@ -603,8 +695,9 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
       }
       case 'antecedents': {
         const hasData = !!(
-          medicalHistoryData.chiefComplaint ||
-          medicalHistoryData.symptomOnset ||
+          medicalHistoryData.medicalHistory ||
+          medicalHistoryData.surgicalHistory ||
+          medicalHistoryData.obstetricHistory ||
           medicalHistoryData.allergies ||
           (medicalHistoryData.chronicConditions && medicalHistoryData.chronicConditions.length > 0) ||
           (medicalHistoryData.currentMedications && medicalHistoryData.currentMedications.length > 0) ||
@@ -645,7 +738,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
       {/* ============================================================= */}
       {/* Sticky header: patient info + ScoreBar + TabNav               */}
       {/* ============================================================= */}
-      <div className="sticky top-0 z-20 bg-white border-b shadow-sm">
+      <div ref={stickyHeaderRef} className="sticky top-0 z-20 bg-white border-b shadow-sm">
         {/* Patient info bar */}
         <div className="px-4 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
@@ -760,6 +853,16 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
             onChange={(d) => handleAbcdeChange('E', d)}
             vitalsData={vitalsData}
             hideVitalBadges
+            chiefComplaint={medicalHistoryData.chiefComplaint ?? ''}
+            symptomOnset={medicalHistoryData.symptomOnset ?? ''}
+            onChiefComplaintChange={(v) => {
+              setMedicalHistoryData(prev => ({ ...prev, chiefComplaint: v }));
+              dirtyRef.current['etat-general'] = true;
+            }}
+            onSymptomOnsetChange={(v) => {
+              setMedicalHistoryData(prev => ({ ...prev, symptomOnset: v }));
+              dirtyRef.current['etat-general'] = true;
+            }}
           />
         </TriageAccordionSection>
 

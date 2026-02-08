@@ -55,6 +55,9 @@ export async function initDatabase() {
 
   // Add missing columns to existing tables
   addColumnIfMissing(sqlite, 'patients', 'medical_history_notes', 'TEXT');
+  addColumnIfMissing(sqlite, 'patients', 'medical_history', 'TEXT');
+  addColumnIfMissing(sqlite, 'patients', 'surgical_history', 'TEXT');
+  addColumnIfMissing(sqlite, 'patients', 'obstetric_history', 'TEXT');
 
   // Seed default admin if no users exist
   await seedDefaultAdmin();

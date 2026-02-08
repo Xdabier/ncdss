@@ -1,7 +1,6 @@
 import React, { useRef } from 'react';
 import type { SymptomsFormData } from '@ncdss/shared';
 import { Label } from '../ui/label';
-import { Checkbox } from '../ui/checkbox';
 import {
   SymptomsAirway,
   SymptomsAuscultation,
@@ -118,37 +117,7 @@ export function SymptomsForm({ data, onChange }: Props): React.ReactElement {
 
       <hr className="border-border" />
 
-      {/* 10-12. Standalone checkboxes */}
-      <div>
-        <Label className="text-base font-semibold mb-3 block">Autres</Label>
-        <div className="grid grid-cols-3 gap-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <Checkbox
-              checked={data.burns ?? false}
-              onCheckedChange={(v) => update('burns', v === true)}
-            />
-            <span className="text-sm">Brûlure</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <Checkbox
-              checked={data.electrocution ?? false}
-              onCheckedChange={(v) => update('electrocution', v === true)}
-            />
-            <span className="text-sm">Électrocution</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <Checkbox
-              checked={data.intoxication ?? false}
-              onCheckedChange={(v) => update('intoxication', v === true)}
-            />
-            <span className="text-sm">Intoxication</span>
-          </label>
-        </div>
-      </div>
-
-      <hr className="border-border" />
-
-      {/* 13. Notes */}
+      {/* 10. Notes */}
       <div className="space-y-2">
         <Label className="text-base font-semibold">Notes</Label>
         <textarea

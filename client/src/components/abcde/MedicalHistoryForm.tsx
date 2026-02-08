@@ -13,6 +13,8 @@ export interface MedicalHistoryData {
   currentMedications?: string[];
   surgicalHistory?: string;
   medicalHistoryNotes?: string;
+  medicalHistory?: string;
+  obstetricHistory?: string;
 }
 
 interface Props {
@@ -56,35 +58,55 @@ export function MedicalHistoryForm({ data, onChange }: Props): React.ReactElemen
 
   return (
     <div className="space-y-6">
-      {/* Chief Complaint - prominent */}
-      <div className="space-y-3">
-        <h3 className="font-medium text-lg">Motif de Consultation</h3>
+      {/* 1. Antecedents medicaux */}
+      <div className="border rounded-lg p-4 space-y-3">
+        <h3 className="font-medium text-lg">Antecedents medicaux</h3>
         <div className="space-y-2">
-          <Label htmlFor="chiefComplaint" className="text-base font-medium">
-            Motif principal
-          </Label>
+          <Label htmlFor="medicalHistory">Antecedents medicaux</Label>
           <textarea
-            id="chiefComplaint"
-            className="flex min-h-[100px] w-full rounded-md border-2 border-blue-200 bg-blue-50/30 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
-            value={data.chiefComplaint || ''}
-            onChange={(e) => updateField('chiefComplaint', e.target.value)}
-            placeholder="Ex: Douleur thoracique, difficulte a respirer..."
+            id="medicalHistory"
+            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            value={data.medicalHistory || ''}
+            onChange={(e) => updateField('medicalHistory', e.target.value)}
+            placeholder="Ex: Diabete type 2 depuis 2015, HTA traitee..."
             rows={3}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="symptomOnset">Debut des symptomes</Label>
-          <Input
-            id="symptomOnset"
-            value={data.symptomOnset || ''}
-            onChange={(e) => updateField('symptomOnset', e.target.value)}
-            placeholder="Ex: Depuis ce matin, il y a 2 jours..."
           />
         </div>
       </div>
 
-      {/* Box 1: Allergies */}
+      {/* 2. Antecedents chirurgicaux */}
+      <div className="border rounded-lg p-4 space-y-3">
+        <h3 className="font-medium text-lg">Antecedents chirurgicaux</h3>
+        <div className="space-y-2">
+          <Label htmlFor="surgicalHistory">Operations precedentes</Label>
+          <textarea
+            id="surgicalHistory"
+            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            value={data.surgicalHistory || ''}
+            onChange={(e) => updateField('surgicalHistory', e.target.value)}
+            placeholder="Ex: Appendicectomie 2019, Prothese de hanche..."
+            rows={2}
+          />
+        </div>
+      </div>
+
+      {/* 3. Antecedents obstetricaux */}
+      <div className="border rounded-lg p-4 space-y-3">
+        <h3 className="font-medium text-lg">Antecedents obstetricaux</h3>
+        <div className="space-y-2">
+          <Label htmlFor="obstetricHistory">Grossesses, accouchements, complications</Label>
+          <textarea
+            id="obstetricHistory"
+            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            value={data.obstetricHistory || ''}
+            onChange={(e) => updateField('obstetricHistory', e.target.value)}
+            placeholder="Ex: G2P2, cesarienne 2020, pas de complications..."
+            rows={2}
+          />
+        </div>
+      </div>
+
+      {/* 4. Allergies */}
       <div className="border rounded-lg p-4 space-y-3">
         <h3 className="font-medium text-lg">Allergies</h3>
         <div className="space-y-2">
@@ -100,7 +122,7 @@ export function MedicalHistoryForm({ data, onChange }: Props): React.ReactElemen
         </div>
       </div>
 
-      {/* Box 2: Maladies & Conditions */}
+      {/* 5. Maladies & Conditions */}
       <div className="border rounded-lg p-4 space-y-4">
         <h3 className="font-medium text-lg">Maladies & Conditions</h3>
 
@@ -157,22 +179,9 @@ export function MedicalHistoryForm({ data, onChange }: Props): React.ReactElemen
             </div>
           )}
         </div>
-
-        {/* Surgical History */}
-        <div className="space-y-2">
-          <Label htmlFor="surgicalHistory">Antecedents chirurgicaux / Operations precedentes</Label>
-          <textarea
-            id="surgicalHistory"
-            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            value={data.surgicalHistory || ''}
-            onChange={(e) => updateField('surgicalHistory', e.target.value)}
-            placeholder="Ex: Appendicectomie 2019, Prothese de hanche..."
-            rows={2}
-          />
-        </div>
       </div>
 
-      {/* Notes */}
+      {/* 6. Notes */}
       <div className="space-y-2">
         <Label htmlFor="medicalHistoryNotes">Notes</Label>
         <textarea

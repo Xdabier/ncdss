@@ -1,5 +1,6 @@
 import React from 'react';
 import { Label } from '../ui/label';
+import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import {
   Select,
@@ -22,6 +23,8 @@ export interface ExposureData {
   edemaType?: string[];
   burns: boolean;
   traumaSigns: boolean;
+  electrocution?: boolean;
+  intoxication?: boolean;
   findings?: string[];
   notes?: string;
 }
@@ -35,6 +38,10 @@ interface Props {
   hideVitalBadges?: boolean;
   /** @deprecated Notes are now always shown in this form. Kept for backward compatibility. */
   hideNotes?: boolean;
+  chiefComplaint?: string;
+  symptomOnset?: string;
+  onChiefComplaintChange?: (value: string) => void;
+  onSymptomOnsetChange?: (value: string) => void;
 }
 
 const edemaOptions = [
@@ -52,7 +59,7 @@ const lastMealOptions = [
   'Il y a 2 jours+',
 ];
 
-export function ExposureForm({ data, onChange, onSave, loading, vitalsData, hideVitalBadges }: Props) {
+export function ExposureForm({ data, onChange, onSave, loading, vitalsData, hideVitalBadges, chiefComplaint, symptomOnset, onChiefComplaintChange, onSymptomOnsetChange }: Props) {
   const updateField = <K extends keyof ExposureData>(field: K, value: ExposureData[K]) => {
     onChange({ ...data, [field]: value });
   };
@@ -77,6 +84,35 @@ export function ExposureForm({ data, onChange, onSave, loading, vitalsData, hide
   return (
     <div className="space-y-6">
       {!hideVitalBadges && <h3 className="font-medium text-lg">E - Exposition & Environnement</h3>}
+
+      {/* Chief Complaint - prominent */}
+      {onChiefComplaintChange && (
+        <div className="space-y-3">
+          <h3 className="font-medium text-lg">Motif de Consultation</h3>
+          <div className="space-y-2">
+            <Label htmlFor="chiefComplaint" className="text-base font-medium">
+              Motif principal
+            </Label>
+            <textarea
+              id="chiefComplaint"
+              className="flex min-h-[100px] w-full rounded-md border-2 border-blue-200 bg-blue-50/30 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
+              value={chiefComplaint || ''}
+              onChange={(e) => onChiefComplaintChange(e.target.value)}
+              placeholder="Ex: Douleur thoracique, difficulte a respirer..."
+              rows={3}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="symptomOnset">Debut des symptomes</Label>
+            <Input
+              id="symptomOnset"
+              value={symptomOnset || ''}
+              onChange={(e) => onSymptomOnsetChange?.(e.target.value)}
+              placeholder="Ex: Depuis ce matin, il y a 2 jours..."
+            />
+          </div>
+        </div>
+      )}
 
       {/* Critical warning banner */}
       {hasCritical && (
@@ -170,6 +206,30 @@ export function ExposureForm({ data, onChange, onSave, loading, vitalsData, hide
               onChange={(e) => updateField('diarrhea', e.target.checked)}
             />
             <span className="font-medium text-sm text-orange-600">Diarrhee</span>
+          </label>
+
+          <label className={`flex items-center space-x-3 border p-3 rounded-md cursor-pointer transition-colors ${
+            data.electrocution ? 'bg-red-50 border-red-300' : 'hover:bg-gray-50 border-red-200'
+          }`}>
+            <input
+              type="checkbox"
+              className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-500"
+              checked={data.electrocution || false}
+              onChange={(e) => updateField('electrocution', e.target.checked)}
+            />
+            <span className="font-medium text-sm text-red-600">Electrocution</span>
+          </label>
+
+          <label className={`flex items-center space-x-3 border p-3 rounded-md cursor-pointer transition-colors ${
+            data.intoxication ? 'bg-red-50 border-red-300' : 'hover:bg-gray-50 border-red-200'
+          }`}>
+            <input
+              type="checkbox"
+              className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-500"
+              checked={data.intoxication || false}
+              onChange={(e) => updateField('intoxication', e.target.checked)}
+            />
+            <span className="font-medium text-sm text-red-600">Intoxication</span>
           </label>
         </div>
       </div>

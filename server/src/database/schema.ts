@@ -115,8 +115,11 @@ export const patients = sqliteTable('patients', {
   chronicConditions: text('chronic_conditions'), // JSON array
   currentMedications: text('current_medications'), // JSON array
   
-  // Medical History Notes (free text, captured during triage)
+  // Medical History (free text, captured during triage)
   medicalHistoryNotes: text('medical_history_notes'),
+  medicalHistory: text('medical_history'),
+  surgicalHistory: text('surgical_history'),
+  obstetricHistory: text('obstetric_history'),
 
   // Chief Complaint (from inscription - symptom-based, not diagnosis)
   chiefComplaint: text('chief_complaint'),                   // Free text or selected from presenting_complaints

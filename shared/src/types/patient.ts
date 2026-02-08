@@ -43,6 +43,9 @@ export interface Patient {
   chronicConditions?: string;    // JSON array
   currentMedications?: string;   // JSON array
   medicalHistoryNotes?: string | null;
+  medicalHistory?: string;
+  surgicalHistory?: string;
+  obstetricHistory?: string;
   
   // Chief Complaint (from inscription)
   chiefComplaint?: string;
@@ -133,6 +136,10 @@ export interface UpdateMedicalHistoryRequest {
   allergies?: string;
   chronicConditions?: string[];
   currentMedications?: string[];
+  medicalHistoryNotes?: string;
+  medicalHistory?: string;
+  surgicalHistory?: string;
+  obstetricHistory?: string;
 }
 
 export interface UpdateVitalsRequest {
