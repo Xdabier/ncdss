@@ -58,6 +58,7 @@ export async function initDatabase() {
   addColumnIfMissing(sqlite, 'patients', 'medical_history', 'TEXT');
   addColumnIfMissing(sqlite, 'patients', 'surgical_history', 'TEXT');
   addColumnIfMissing(sqlite, 'patients', 'obstetric_history', 'TEXT');
+  addColumnIfMissing(sqlite, 'patients', 'absent_call_history', 'TEXT');
 
   // Create patient_identities table and migrate existing data
   createPatientIdentitiesTable(sqlite);
