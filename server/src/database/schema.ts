@@ -421,6 +421,41 @@ export const diagnoses = sqliteTable('diagnoses', {
 });
 
 // ============================================================================
+// COMPLEMENTARY EXAMS
+// ============================================================================
+
+export const complementaryExams = sqliteTable('complementary_exams', {
+  id: text('id').primaryKey(),
+  patientId: text('patient_id')
+    .notNull()
+    .references(() => patients.id),
+  examName: text('exam_name').notNull(),
+  examType: text('exam_type').notNull(),       // IMAGING, BLOOD_WORK, SAMPLE, OTHER
+  status: text('status').notNull().default('REQUESTED'), // REQUESTED, IN_PROGRESS, COMPLETED, CANCELLED
+  priority: text('priority').notNull().default('NORMAL'), // NORMAL, URGENT
+  source: text('source').notNull().default('DOCTOR'),     // DOCTOR, AI_RECOMMENDATION
+  notes: text('notes'),
+  results: text('results'),
+  requestedBy: text('requested_by')
+    .notNull()
+    .references(() => users.id),
+  requestedAt: text('requested_at').notNull(),
+  startedAt: text('started_at'),
+  startedBy: text('started_by').references(() => users.id),
+  completedAt: text('completed_at'),
+  completedBy: text('completed_by').references(() => users.id),
+  cancelledAt: text('cancelled_at'),
+  cancelledBy: text('cancelled_by').references(() => users.id),
+  cancelReason: text('cancel_reason'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ============================================================================
 // AI PRE-DIAGNOSIS
 // Stores AI-generated pre-diagnosis results for persistence
 // ============================================================================

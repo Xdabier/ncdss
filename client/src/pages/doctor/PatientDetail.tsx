@@ -19,6 +19,8 @@ import { DiagnosisModal } from '../../components/doctor/DiagnosisModal';
 import { PrescriptionModal } from '../../components/doctor/PrescriptionModal';
 import { DoctorDischargeModal } from '../../components/doctor/DoctorDischargeModal';
 import { HoldPatientModal } from '../../components/doctor/HoldPatientModal';
+import { ExamsPanel } from '../../components/doctor/ExamsPanel';
+import { ReassignBoxModal } from '../../components/shared/ReassignBoxModal';
 import { AIPreDiagnosisPanel } from '../../components/shared/AIPreDiagnosisPanel';
 import { getApi } from '../../services/api';
 import { getScoreColor, getScoreLabel } from '../../utils/scoreUtils';
@@ -41,6 +43,7 @@ import {
 import { CLIENT_ROUTES } from '../../routes';
 import {
   ArrowLeft,
+  ArrowRight,
   RefreshCw,
   User,
   AlertTriangle,
@@ -136,19 +139,21 @@ interface PrescriptionEntryModalProps {
   patientId: string;
   onClose: () => void;
   onSuccess: () => void;
+  initialData?: Partial<CreatePrescriptionRequest & { administeredInBox?: boolean }>;
 }
 
-function PrescriptionEntryModal({ patientId, onClose, onSuccess }: PrescriptionEntryModalProps) {
+function PrescriptionEntryModal({ patientId, onClose, onSuccess, initialData }: PrescriptionEntryModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<CreatePrescriptionRequest>({
+  const [form, setForm] = useState<CreatePrescriptionRequest & { administeredInBox?: boolean }>({
     patientId,
-    medicationName: '',
-    dosage: '',
-    route: MedicationRoute.PO,
-    frequency: '',
-    duration: '',
-    instructions: '',
+    medicationName: initialData?.medicationName || '',
+    dosage: initialData?.dosage || '',
+    route: initialData?.route || MedicationRoute.PO,
+    frequency: initialData?.frequency || '',
+    duration: initialData?.duration || '',
+    instructions: initialData?.instructions || '',
+    administeredInBox: initialData?.administeredInBox || false,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -529,6 +534,17 @@ export default function PatientDetail() {
   const [editingPrescription, setEditingPrescription] = useState<Prescription | null>(null);
   const [prescriptionToCancel, setPrescriptionToCancel] = useState<Prescription | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [aiRecommendedTests, setAiRecommendedTests] = useState<string[]>([]);
+
+  // Redirect to treatment box
+  const [showRedirectToBoxModal, setShowRedirectToBoxModal] = useState(false);
+  const [redirectSuccess, setRedirectSuccess] = useState<string | null>(null);
+
+  // Rabies protocol alert
+  const [rabiesAlertDismissed, setRabiesAlertDismissed] = useState(false);
+  const [prescriptionInitialData, setPrescriptionInitialData] = useState<
+    Partial<CreatePrescriptionRequest & { administeredInBox?: boolean }> | undefined
+  >(undefined);
 
   // Consultation notes auto-save
   const [consultationNotes, setConsultationNotes] = useState('');
@@ -580,12 +596,30 @@ export default function PatientDetail() {
     }
   }, [id]);
 
+  const loadAiRecommendedTests = useCallback(async () => {
+    if (!id) return;
+    try {
+      const api = await getApi();
+      const response = await api.get(API_ROUTES.patients.aiPrediagnosis(id));
+      if (response.data?.recommendedTests) {
+        const tests = typeof response.data.recommendedTests === 'string'
+          ? JSON.parse(response.data.recommendedTests)
+          : response.data.recommendedTests;
+        if (Array.isArray(tests)) {
+          setAiRecommendedTests(tests);
+        }
+      }
+    } catch {
+      // AI data may not exist - that's fine
+    }
+  }, [id]);
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
-    await Promise.all([loadPatient(), loadDiagnoses(), loadPrescriptions()]);
+    await Promise.all([loadPatient(), loadDiagnoses(), loadPrescriptions(), loadAiRecommendedTests()]);
     setLoading(false);
-  }, [loadPatient, loadDiagnoses, loadPrescriptions]);
+  }, [loadPatient, loadDiagnoses, loadPrescriptions, loadAiRecommendedTests]);
 
   useEffect(() => {
     loadAll();
@@ -644,11 +678,65 @@ export default function PatientDetail() {
     }
   };
 
+  // Redirect to treatment box handler
+  const handleRedirectToBox = async () => {
+    // ReassignBoxModal handles the reassignment; after success, auto-hold the patient
+    try {
+      const api = await getApi();
+      await api.post(API_ROUTES.patients.hold(id!), {
+        holdStatus: 'waiting_for_treatment',
+        holdReason: 'Redirigé vers box de soins',
+      });
+      setShowRedirectToBoxModal(false);
+      setRedirectSuccess('Patient redirigé vers le box de soins avec succès');
+      await loadPatient();
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => setRedirectSuccess(null), 5000);
+    } catch (err: any) {
+      console.error('Error setting hold after redirect:', err);
+      // Even if hold fails, the reassignment succeeded
+      setShowRedirectToBoxModal(false);
+      await loadPatient();
+    }
+  };
+
   // Check if patient has at least one PRIMARY diagnosis that is ACTIVE or CONFIRMED
   const hasPrimaryDiagnosis = diagnoses.some(
     d => d.diagnosisType === DiagnosisType.PRIMARY &&
          (d.status === DiagnosisStatus.ACTIVE || d.confirmedAt)
   );
+
+  // Rabies protocol detection
+  const rabiesKeywords = [
+    'rage', 'rabique', 'morsure animale', 'morsure de chien', 'morsure de chat',
+    'morsure animal', 'griffure animale', 'griffure de chat', 'griffure de chien',
+    'morsure', 'griffure',
+  ];
+  const chiefComplaintLower = (patient?.chiefComplaint || '').toLowerCase();
+  const hasRabiesChiefComplaint = rabiesKeywords.some(kw => chiefComplaintLower.includes(kw));
+  const hasRabiesDiagnosis = diagnoses.some(
+    d => d.status !== DiagnosisStatus.RULED_OUT &&
+      (d.diagnosisName.toLowerCase().includes('rage') || d.diagnosisName.toLowerCase().includes('rabique'))
+  );
+  const hasExistingRabiesPrescription = prescriptions.some(
+    p => p.status !== PrescriptionStatus.CANCELLED &&
+      (p.medicationName.toLowerCase().includes('anti-rabique') ||
+       p.medicationName.toLowerCase().includes('vaccin rabique'))
+  );
+  const showRabiesAlert = (hasRabiesChiefComplaint || hasRabiesDiagnosis) &&
+    !hasExistingRabiesPrescription && !rabiesAlertDismissed;
+
+  const handleAddRabiesProtocol = () => {
+    setPrescriptionInitialData({
+      medicationName: 'Vaccin anti-rabique (protocole Essen)',
+      dosage: '1 dose',
+      route: MedicationRoute.IM,
+      frequency: '',
+      instructions: 'Protocole Essen post-exposition: J0, J3, J7, J14, J28. Administrer dans le deltoïde. Vérifier statut SAT (sérum anti-tétanique) et VAT (vaccin anti-tétanique). Nettoyer et désinfecter la plaie.',
+      administeredInBox: true,
+    });
+    setShowPrescriptionModal(true);
+  };
 
   // Handle AI suggestion selection
   const handleUseAISuggestion = (suggestion: {
@@ -870,6 +958,17 @@ export default function PatientDetail() {
             <UserPlus className="h-4 w-4 mr-2" />
             Transférer
           </Button>
+          {patient.status === PatientStatus.WITH_DOCTOR && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowRedirectToBoxModal(true)}
+              className="text-indigo-700 border-indigo-300 hover:bg-indigo-50"
+            >
+              <ArrowRight className="h-4 w-4 mr-2" />
+              Rediriger vers box de soins
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -944,6 +1043,53 @@ export default function PatientDetail() {
                 )}
                 Reprendre la consultation
               </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Redirect Success Banner */}
+        {redirectSuccess && (
+          <Alert className="mb-6 bg-green-50 border-green-200">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800">
+              {redirectSuccess}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Rabies Protocol Alert */}
+        {showRabiesAlert && (
+          <div className="mb-6 p-4 bg-amber-50 border-2 border-amber-300 rounded-lg">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-semibold text-amber-800">
+                    Protocole vaccinal anti-rabique recommandé
+                  </p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    Morsure/griffure animale détectée. Le protocole vaccinal anti-rabique post-exposition est recommandé.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  onClick={handleAddRabiesProtocol}
+                  className="bg-amber-600 hover:bg-amber-700"
+                >
+                  <Syringe className="h-4 w-4 mr-2" />
+                  Ajouter le protocole
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setRabiesAlertDismissed(true)}
+                  className="text-amber-600 hover:text-amber-800 hover:bg-amber-100"
+                >
+                  Ignorer
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -1442,6 +1588,12 @@ export default function PatientDetail() {
               </CardContent>
             </Card>
 
+            {/* Complementary Exams */}
+            <ExamsPanel
+              patientId={patient.id}
+              aiRecommendedTests={aiRecommendedTests}
+            />
+
             {/* Consultation Notes (auto-save) */}
             <Card>
               <CardHeader className="pb-2">
@@ -1601,9 +1753,14 @@ export default function PatientDetail() {
       {showPrescriptionModal && (
         <PrescriptionEntryModal
           patientId={patient.id}
-          onClose={() => setShowPrescriptionModal(false)}
+          initialData={prescriptionInitialData}
+          onClose={() => {
+            setShowPrescriptionModal(false);
+            setPrescriptionInitialData(undefined);
+          }}
           onSuccess={() => {
             setShowPrescriptionModal(false);
+            setPrescriptionInitialData(undefined);
             loadPrescriptions();
           }}
         />
@@ -1665,6 +1822,17 @@ export default function PatientDetail() {
           }}
         />
       )}
+
+      <ReassignBoxModal
+        isOpen={showRedirectToBoxModal}
+        onClose={() => setShowRedirectToBoxModal(false)}
+        onSuccess={handleRedirectToBox}
+        patientId={patient.id}
+        patientName={patient.fullName}
+        currentBoxId={patient.assignedBoxId || undefined}
+        orientation={patient.finalOrientation || undefined}
+        esiLevel={patient.esiLevel || undefined}
+      />
     </DashboardLayout>
   );
 }

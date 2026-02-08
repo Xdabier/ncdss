@@ -90,6 +90,15 @@ export const API_ROUTES = {
     ruleOut: (id: number | string) => `/diagnoses/${id}/rule-out`,
   },
 
+  exams: {
+    create: '/exams',
+    byPatient: (patientId: number | string) => `/exams/patient/${patientId}`,
+    byId: (id: number | string) => `/exams/${id}`,
+    update: (id: number | string) => `/exams/${id}`,
+    updateStatus: (id: number | string) => `/exams/${id}/status`,
+    cancel: (id: number | string) => `/exams/${id}/cancel`,
+  },
+
   stats: {
     dashboard: '/stats/dashboard',
     queues: '/stats/queues',

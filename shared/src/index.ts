@@ -19,6 +19,9 @@ export * from './types/clinical';
 // Prescription & Diagnosis types
 export * from './types/prescription';
 
+// Complementary Exam types
+export * from './types/exam';
+
 // Notification types
 export * from './types/notification';
 

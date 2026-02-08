@@ -27,6 +27,8 @@ import {
   CheckSquare,
   ArrowRightLeft,
   Syringe,
+  ClipboardList,
+  FlaskConical,
 } from 'lucide-react';
 import { DashboardLayout } from '../../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -42,7 +44,7 @@ import {
 } from '../../../components/ui/select';
 import { getApi } from '../../../services/api';
 import { CLIENT_ROUTES } from '../../../routes';
-import { Patient, PatientStatus, Box, User as UserType, Prescription, MedicationRoute, AdministrationStatus, PrescriptionStatus, API_ROUTES } from '@ncdss/shared';
+import { Patient, PatientStatus, Box, User as UserType, Prescription, MedicationRoute, AdministrationStatus, PrescriptionStatus, ComplementaryExam, ExamType, ExamStatus, ExamPriority, API_ROUTES } from '@ncdss/shared';
 import { formatDateTime } from '../../../utils/dateUtils';
 import { ReassignBoxModal } from '../../../components/shared/ReassignBoxModal';
 
@@ -132,6 +134,7 @@ export default function PatientCare() {
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [doctors, setDoctors] = useState<UserType[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [exams, setExams] = useState<ComplementaryExam[]>([]);
   const [loading, setLoading] = useState(true);
   const [newNote, setNewNote] = useState('');
   const [noteType, setNoteType] = useState('observation');
@@ -144,6 +147,9 @@ export default function PatientCare() {
   const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [prescriptionActionLoading, setPrescriptionActionLoading] = useState<string | null>(null);
+  const [examActionLoading, setExamActionLoading] = useState<string | null>(null);
+  const [showExamResultsModal, setShowExamResultsModal] = useState(false);
+  const [selectedExam, setSelectedExam] = useState<ComplementaryExam | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -163,12 +169,13 @@ export default function PatientCare() {
     try {
       setLoading(true);
       const api = await getApi();
-      const [patientRes, boxesRes, doctorsRes, activePresRes, holdPresRes] = await Promise.all([
+      const [patientRes, boxesRes, doctorsRes, activePresRes, holdPresRes, examsRes] = await Promise.all([
         api.get(API_ROUTES.patients.byId(id!)),
         api.get(API_ROUTES.config.boxes),
         api.get(API_ROUTES.users.byRole('DOCTOR')),
         api.get(API_ROUTES.prescriptions.byPatient(id!), { params: { status: 'ACTIVE' } }),
         api.get(API_ROUTES.prescriptions.byPatient(id!), { params: { status: 'ON_HOLD' } }),
+        api.get(API_ROUTES.exams.byPatient(id!)),
       ]);
 
       setPatient(patientRes.data);
@@ -189,6 +196,7 @@ export default function PatientCare() {
       setDoctors(doctorsRes.data);
       // Combine ACTIVE and ON_HOLD prescriptions
       setPrescriptions([...activePresRes.data, ...holdPresRes.data]);
+      setExams(examsRes.data);
     } catch (error) {
       console.error('Error loading patient:', error);
     } finally {
@@ -350,6 +358,40 @@ export default function PatientCare() {
   const handleOpenHoldModal = (prescription: Prescription): void => {
     setSelectedPrescription(prescription);
     setShowHoldModal(true);
+  };
+
+  // Exam actions
+  const handleStartExam = async (examId: string): Promise<void> => {
+    setExamActionLoading(examId);
+    try {
+      const api = await getApi();
+      await api.put(API_ROUTES.exams.updateStatus(examId), { status: 'IN_PROGRESS' });
+      const examsRes = await api.get(API_ROUTES.exams.byPatient(id!));
+      setExams(examsRes.data);
+    } catch (error) {
+      console.error('Error starting exam:', error);
+    } finally {
+      setExamActionLoading(null);
+    }
+  };
+
+  const handleCompleteExam = async (examId: string, results: string): Promise<void> => {
+    setExamActionLoading(examId);
+    try {
+      const api = await getApi();
+      await api.put(API_ROUTES.exams.updateStatus(examId), {
+        status: 'COMPLETED',
+        results: results.trim() || undefined,
+      });
+      const examsRes = await api.get(API_ROUTES.exams.byPatient(id!));
+      setExams(examsRes.data);
+      setShowExamResultsModal(false);
+      setSelectedExam(null);
+    } catch (error) {
+      console.error('Error completing exam:', error);
+    } finally {
+      setExamActionLoading(null);
+    }
   };
 
   // Get last administration time for a prescription
@@ -885,6 +927,140 @@ export default function PatientCare() {
                 )}
               </CardContent>
             </Card>
+            {/* Complementary Exams Section */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5 text-teal-500" />
+                  Examens complémentaires
+                  {exams.filter(e => e.status !== 'CANCELLED').length > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      {exams.filter(e => e.status !== 'CANCELLED').length}
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {exams.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <FlaskConical className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>Aucun examen demandé</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {exams.filter(e => e.status !== 'CANCELLED').map((exam) => {
+                      const isLoading = examActionLoading === exam.id;
+                      const examTypeLabel: Record<string, string> = {
+                        IMAGING: 'Imagerie',
+                        BLOOD_WORK: 'Bilan sanguin',
+                        SAMPLE: 'Prélèvement',
+                        OTHER: 'Autre',
+                      };
+                      const examTypeColor: Record<string, string> = {
+                        IMAGING: 'bg-purple-100 text-purple-800',
+                        BLOOD_WORK: 'bg-blue-100 text-blue-800',
+                        SAMPLE: 'bg-orange-100 text-orange-800',
+                        OTHER: 'bg-gray-100 text-gray-800',
+                      };
+                      const examStatusLabel: Record<string, string> = {
+                        REQUESTED: 'Demandé',
+                        IN_PROGRESS: 'En cours',
+                        COMPLETED: 'Terminé',
+                        CANCELLED: 'Annulé',
+                      };
+                      const examStatusColor: Record<string, string> = {
+                        REQUESTED: 'bg-yellow-100 text-yellow-800',
+                        IN_PROGRESS: 'bg-blue-100 text-blue-800',
+                        COMPLETED: 'bg-green-100 text-green-800',
+                        CANCELLED: 'bg-red-100 text-red-800',
+                      };
+
+                      return (
+                        <div
+                          key={exam.id}
+                          className={`p-4 border rounded-lg ${
+                            exam.status === 'COMPLETED'
+                              ? 'bg-green-50 border-green-200'
+                              : exam.priority === 'URGENT'
+                                ? 'bg-red-50 border-l-4 border-l-red-500 border-red-200'
+                                : 'bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h4 className="font-semibold text-gray-900">{exam.examName}</h4>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${examTypeColor[exam.examType] || 'bg-gray-100 text-gray-800'}`}>
+                                  {examTypeLabel[exam.examType] || exam.examType}
+                                </span>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${examStatusColor[exam.status] || 'bg-gray-100 text-gray-800'}`}>
+                                  {examStatusLabel[exam.status] || exam.status}
+                                </span>
+                                {exam.priority === 'URGENT' && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                                    <AlertTriangle className="h-3 w-3 mr-0.5" />
+                                    Urgent
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Action buttons based on status */}
+                            {exam.status === 'REQUESTED' && (
+                              <Button
+                                size="sm"
+                                className="bg-teal-600 hover:bg-teal-700"
+                                onClick={() => handleStartExam(exam.id)}
+                                disabled={isLoading}
+                              >
+                                {isLoading ? (
+                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                ) : (
+                                  <Play className="h-4 w-4 mr-1" />
+                                )}
+                                Commencer
+                              </Button>
+                            )}
+                            {exam.status === 'IN_PROGRESS' && (
+                              <Button
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700"
+                                onClick={() => {
+                                  setSelectedExam(exam);
+                                  setShowExamResultsModal(true);
+                                }}
+                                disabled={isLoading}
+                              >
+                                {isLoading ? (
+                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                ) : (
+                                  <CheckCircle className="h-4 w-4 mr-1" />
+                                )}
+                                Résultats
+                              </Button>
+                            )}
+                          </div>
+
+                          {/* Results for completed exams */}
+                          {exam.status === 'COMPLETED' && exam.results && (
+                            <div className="mt-2 p-2 bg-white rounded border border-green-200">
+                              <p className="text-xs font-medium text-green-700 mb-1">Résultats :</p>
+                              <p className="text-sm text-gray-800 whitespace-pre-wrap">{exam.results}</p>
+                            </div>
+                          )}
+
+                          {/* Meta info */}
+                          <div className="text-xs text-gray-400 mt-2">
+                            <Clock className="h-3 w-3 inline mr-1" />
+                            Demandé par {exam.requestedByName || 'Médecin'} le {formatDateTime(exam.requestedAt)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           {/* Right Column - Status & Actions (1/3 width) */}
@@ -1142,6 +1318,19 @@ export default function PatientCare() {
             setSelectedPrescription(null);
           }}
           loading={prescriptionActionLoading === selectedPrescription.id}
+        />
+      )}
+
+      {/* Exam Results Modal */}
+      {showExamResultsModal && selectedExam && (
+        <ExamResultsModal
+          exam={selectedExam}
+          onConfirm={(results) => handleCompleteExam(selectedExam.id, results)}
+          onCancel={() => {
+            setShowExamResultsModal(false);
+            setSelectedExam(null);
+          }}
+          loading={examActionLoading === selectedExam.id}
         />
       )}
 
@@ -1522,6 +1711,81 @@ function HoldPrescriptionModal({ prescription, onConfirm, onCancel, loading }: H
               <>
                 <Pause className="h-4 w-4 mr-2" />
                 Suspendre
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Exam Results Modal Component
+interface ExamResultsModalProps {
+  exam: ComplementaryExam;
+  onConfirm: (results: string) => void;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
+function ExamResultsModal({ exam, onConfirm, onCancel, loading }: ExamResultsModalProps) {
+  const [results, setResults] = useState('');
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <FlaskConical className="h-5 w-5 text-green-500" />
+            Résultats d'examen
+          </h3>
+          <button onClick={onCancel} className="text-gray-400 hover:text-gray-600" disabled={loading}>
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Exam info */}
+        <div className="p-4 bg-gray-50 border-b">
+          <h4 className="font-semibold text-gray-900">{exam.examName}</h4>
+          <p className="text-sm text-gray-600">
+            {exam.examType === 'IMAGING' ? 'Imagerie' :
+             exam.examType === 'BLOOD_WORK' ? 'Bilan sanguin' :
+             exam.examType === 'SAMPLE' ? 'Prélèvement' : 'Autre'}
+          </p>
+        </div>
+
+        <div className="p-4">
+          <label className="block text-sm font-medium mb-2">
+            Résultats de l'examen
+          </label>
+          <textarea
+            value={results}
+            onChange={(e) => setResults(e.target.value)}
+            placeholder="Saisir les résultats de l'examen..."
+            className="w-full border rounded-lg p-3 min-h-[120px] focus:outline-none focus:ring-2 focus:ring-green-500"
+            autoFocus
+            disabled={loading}
+          />
+        </div>
+
+        <div className="flex gap-3 p-4 border-t bg-gray-50 rounded-b-lg">
+          <Button variant="outline" className="flex-1" onClick={onCancel} disabled={loading}>
+            Annuler
+          </Button>
+          <Button
+            className="flex-1 bg-green-600 hover:bg-green-700"
+            onClick={() => onConfirm(results)}
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Enregistrement...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Marquer terminé
               </>
             )}
           </Button>
