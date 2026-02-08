@@ -368,7 +368,7 @@ export const prescriptions = sqliteTable('prescriptions', {
   medicationName: text('medication_name').notNull(),
   dosage: text('dosage').notNull(),           // e.g., "500mg"
   route: text('route').notNull(),             // PO, IV, IM, SC, SL, INH, TOP, PR, OPH
-  frequency: text('frequency').notNull(),     // e.g., "3x/jour", "toutes les 8h"
+  frequency: text('frequency'),                // e.g., "3x/jour", "toutes les 8h" — optional
   duration: text('duration'),                 // e.g., "5 jours"
   instructions: text('instructions'),         // Special instructions
   startTime: text('start_time'),

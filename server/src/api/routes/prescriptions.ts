@@ -224,7 +224,7 @@ router.put('/:id', async (req, res) => {
     }
 
     if (frequency !== undefined) {
-      updates.frequency = frequency?.trim() || null;
+      updates.frequency = frequency?.trim() || '';
     }
 
     if (duration !== undefined) {
@@ -346,7 +346,7 @@ router.post('/', async (req, res) => {
       medicationName: medicationName.trim(),
       dosage: dosage.trim(),
       route: route.trim().toUpperCase(),
-      frequency: frequency?.trim() || null,
+      frequency: frequency?.trim() || '',
       duration: duration?.trim() || null,
       instructions: instructions?.trim() || null,
       startTime: startTime || now,

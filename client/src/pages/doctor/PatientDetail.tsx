@@ -166,11 +166,6 @@ function PrescriptionEntryModal({ patientId, onClose, onSuccess, initialData }: 
       setError('La posologie est requise');
       return;
     }
-    if (!form.frequency?.trim()) {
-      setError('La fréquence est requise');
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
