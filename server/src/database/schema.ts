@@ -494,6 +494,40 @@ export const aiPrediagnosis = sqliteTable('ai_prediagnosis', {
 });
 
 // ============================================================================
+// UNIFIED LLM CLINICAL ANALYSIS
+// Stores unified LLM-generated clinical analysis results
+// ============================================================================
+
+export const unifiedAnalysis = sqliteTable('unified_analysis', {
+  id: text('id').primaryKey(),
+  patientId: text('patient_id')
+    .notNull()
+    .references(() => patients.id, { onDelete: 'cascade' }),
+
+  // Status: 'pending' | 'generating' | 'completed' | 'failed'
+  status: text('status').notNull().default('pending'),
+
+  // Result (JSON blob matching UnifiedClinicalAnalysis)
+  result: text('result'),
+
+  // Error tracking
+  errorMessage: text('error_message'),
+
+  // Audit
+  generatedBy: text('generated_by').references(() => users.id),
+  triggerSource: text('trigger_source'),
+
+  // Timestamps
+  generatedAt: text('generated_at'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ============================================================================
 // NOTIFICATIONS
 // ============================================================================
 

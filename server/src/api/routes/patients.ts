@@ -6,8 +6,9 @@ import { patients, patientIdentities, users, boxes, weeklySchedule } from '../..
 import { PatientStatus, Orientation, OrientationSource, BoxType, calculateAge } from '@ncdss/shared';
 import { calculateNEWS, calculateGCS, calculateQSOFA } from '../../utils/scores';
 import { matchFindingsToPathologies } from '../../services/pathologyMatcher';
-import { getLLMProvider, PreDiagnosisContext } from '../../services/llm';
+import { getLLMProvider, PreDiagnosisContext, UnifiedAnalysisContext } from '../../services/llm';
 import * as aiPreDiagnosisService from '../../services/ai-prediagnosis-service';
+import * as unifiedAnalysisService from '../../services/unified-analysis-service';
 import { getCurrentDoctorForBox } from './box-assignments';
 import {
   notifyDoctorPatientAssigned,
@@ -2054,6 +2055,162 @@ router.get('/:id/ai-prediagnosis-stream', async (req, res) => {
       await aiPreDiagnosisService.updateStatus(id, 'failed', error.message || 'Erreur du service d\'IA');
     } catch (updateError) {
       console.error('Failed to update AI pre-diagnosis status:', updateError);
+    }
+    res.write(`data: ${JSON.stringify({ type: 'error', error: 'Erreur du service d\'IA' })}\n\n`);
+    res.end();
+  }
+});
+
+// ============================================================================
+// UNIFIED LLM CLINICAL ANALYSIS
+// ============================================================================
+
+// Get saved unified analysis
+router.get('/:id/unified-analysis', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const saved = await unifiedAnalysisService.getByPatientId(id);
+
+    if (!saved) {
+      return res.json({
+        exists: false,
+        status: null,
+        result: null,
+        errorMessage: null,
+        generatedAt: null,
+        triggerSource: null
+      });
+    }
+
+    res.json({
+      exists: true,
+      status: saved.status,
+      result: saved.status === 'completed' && saved.result
+        ? JSON.parse(saved.result)
+        : null,
+      errorMessage: saved.status === 'failed' ? saved.errorMessage : null,
+      generatedAt: saved.generatedAt,
+      triggerSource: saved.triggerSource
+    });
+  } catch (error) {
+    console.error('Get unified analysis error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Generate unified analysis (blocking)
+router.post('/:id/unified-analysis', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId, role } = (req as any).user;
+    const db = getDb();
+
+    // Load patient
+    const [patient] = await db.select().from(patients).where(eq(patients.id, id));
+    if (!patient) {
+      return res.status(404).json({ error: 'Patient non trouvé' });
+    }
+
+    // Determine trigger source based on role
+    const triggerSource = role === 'DOCTOR' ? 'manual_doctor' : 'manual_nurse';
+
+    // Set status to 'generating'
+    await unifiedAnalysisService.createOrUpdate(id, userId, triggerSource);
+
+    // Get LLM provider
+    const llm = getLLMProvider();
+
+    // Build context from patient data
+    const context: UnifiedAnalysisContext = unifiedAnalysisService.buildUnifiedContext(patient);
+
+    // Generate unified analysis
+    const result = await llm.generateUnifiedAnalysis(context);
+
+    // Save the result to database
+    await unifiedAnalysisService.saveResult(id, result);
+
+    // Add metadata to the analysis
+    const analysis = {
+      ...result.analysis,
+      analysisTimestamp: new Date().toISOString(),
+      locale: 'fr' as const,
+      modelVersion: 'llamacpp-local'
+    };
+
+    res.json(analysis);
+  } catch (error: any) {
+    const { id } = req.params;
+    console.error('Unified analysis error:', error);
+    await unifiedAnalysisService.updateStatus(id, 'failed', error.message || 'Erreur du service d\'IA');
+    res.status(500).json({ error: 'Erreur du service d\'IA' });
+  }
+});
+
+// Generate unified analysis with streaming (SSE)
+router.get('/:id/unified-analysis-stream', async (req, res) => {
+  const { id } = req.params;
+  const { userId, role } = (req as any).user;
+
+  try {
+    const db = getDb();
+
+    // Load patient
+    const [patient] = await db.select().from(patients).where(eq(patients.id, id));
+    if (!patient) {
+      res.status(404).json({ error: 'Patient non trouvé' });
+      return;
+    }
+
+    // Determine trigger source based on role
+    const triggerSource = role === 'DOCTOR' ? 'manual_doctor' : 'manual_nurse';
+
+    // Set status to 'generating'
+    await unifiedAnalysisService.createOrUpdate(id, userId, triggerSource);
+
+    // Set SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    // Get LLM provider
+    const llm = getLLMProvider();
+
+    // Build context from patient data
+    const context: UnifiedAnalysisContext = unifiedAnalysisService.buildUnifiedContext(patient);
+
+    // Stream unified analysis generation and save result when done
+    await llm.generateUnifiedAnalysisStream(context, async (chunk) => {
+      res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+
+      // Save result to database when generation completes
+      if (chunk.type === 'done' && chunk.unifiedResult) {
+        try {
+          await unifiedAnalysisService.saveResult(id, chunk.unifiedResult);
+        } catch (saveError) {
+          console.error('Failed to save unified analysis result:', saveError);
+        }
+      }
+
+      // Update status to failed on error
+      if (chunk.type === 'error') {
+        try {
+          await unifiedAnalysisService.updateStatus(id, 'failed', chunk.error || 'Erreur inconnue');
+        } catch (updateError) {
+          console.error('Failed to update unified analysis status:', updateError);
+        }
+      }
+    });
+
+    res.end();
+  } catch (error: any) {
+    console.error('Unified analysis stream error:', error);
+    try {
+      await unifiedAnalysisService.updateStatus(id, 'failed', error.message || 'Erreur du service d\'IA');
+    } catch (updateError) {
+      console.error('Failed to update unified analysis status:', updateError);
     }
     res.write(`data: ${JSON.stringify({ type: 'error', error: 'Erreur du service d\'IA' })}\n\n`);
     res.end();

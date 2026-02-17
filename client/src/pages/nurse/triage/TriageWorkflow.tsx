@@ -30,7 +30,8 @@ import { splitSymptomsToABCDE, extractSymptomsFromABCDE } from '../../../utils/s
 import { getApi } from '../../../services/api';
 import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, Orientation as OrientationType, OrientationSource, API_ROUTES } from '@ncdss/shared';
-import type { ClinicalAnalysisResult, SymptomsFormData } from '@ncdss/shared';
+import type { ClinicalAnalysisResult, SymptomsFormData, UnifiedClinicalAnalysis } from '@ncdss/shared';
+import { useFeatureFlagsStore } from '../../../stores/feature-flags.store';
 import { suggestESI } from '../../../utils/scoreUtils';
 
 // ---------------------------------------------------------------------------
@@ -132,6 +133,22 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
   const [suggestion, setSuggestion] = useState<OrientationSuggestion | null>(null);
   const [selectedOrientation, setSelectedOrientation] = useState<OrientationType | null>(null);
   const [overrideReason, setOverrideReason] = useState('');
+
+  // Feature flag: unified analysis
+  const useUnifiedAnalysis = useFeatureFlagsStore(s => s.useUnifiedAnalysis);
+
+  const handleUnifiedAnalysisReady = useCallback((analysis: UnifiedClinicalAnalysis) => {
+    const newSuggestion: OrientationSuggestion = {
+      suggestion: analysis.orientation as OrientationType,
+      source: OrientationSource.AI_SUGGESTION,
+      reason: analysis.orientationReason,
+      scores: {},
+    };
+    setSuggestion(newSuggestion);
+    if (!selectedOrientation) {
+      setSelectedOrientation(analysis.orientation as OrientationType);
+    }
+  }, [selectedOrientation]);
 
   // Per-section dirty tracking
   const dirtyRef = useRef<Record<string, boolean>>({
@@ -342,9 +359,9 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
       setSuggestedESI(esi);
       setSelectedESI(esi);
 
-      // Auto-run analysis if patient has ABCDE data
+      // Auto-run analysis if patient has ABCDE data (skip in unified mode — panel manages its own)
       const hasABCDEData = !!(p.abcdeAirway || p.abcdeBreathing || p.abcdeCirculation || p.abcdeDisability || p.abcdeExposure);
-      if (hasABCDEData) {
+      if (hasABCDEData && !useUnifiedAnalysis) {
         runAnalysis();
       }
 
@@ -355,7 +372,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, useUnifiedAnalysis]);
 
   useEffect(() => {
     loadPatient();
@@ -403,13 +420,14 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
   }, [id]);
 
   const debouncedRunAnalysis = useCallback(() => {
+    if (useUnifiedAnalysis) return; // Unified panel manages its own generation
     if (analysisTimerRef.current) {
       clearTimeout(analysisTimerRef.current);
     }
     analysisTimerRef.current = setTimeout(() => {
       runAnalysis(true);
     }, 2000);
-  }, [runAnalysis]);
+  }, [runAnalysis, useUnifiedAnalysis]);
 
   useEffect(() => {
     return () => {
@@ -928,6 +946,8 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
         onConfirm={handleComplete}
         saving={saving}
         canConfirm={canConfirm}
+        useUnifiedAnalysis={useUnifiedAnalysis}
+        onUnifiedAnalysisReady={handleUnifiedAnalysisReady}
       />
     )}
 

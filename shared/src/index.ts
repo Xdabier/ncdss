@@ -25,6 +25,9 @@ export * from './types/exam';
 // Notification types
 export * from './types/notification';
 
+// Unified LLM Analysis types
+export * from './types/unified-analysis';
+
 // API route definitions
 export * from './types/api-routes';
 

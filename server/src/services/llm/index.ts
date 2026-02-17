@@ -1,4 +1,5 @@
 import { LlamaCppProvider } from './providers/llamacpp';
+import type { UnifiedClinicalAnalysis } from '@ncdss/shared';
 
 /**
  * Streaming chunk for real-time UI updates
@@ -7,7 +8,46 @@ export interface StreamChunk {
   type: 'thinking' | 'response' | 'done' | 'error';
   content?: string;
   result?: PreDiagnosisSuggestion;
+  unifiedResult?: UnifiedAnalysisResult;
   error?: string;
+}
+
+/**
+ * Patient context for unified LLM clinical analysis
+ */
+export interface UnifiedAnalysisContext {
+  chiefComplaint: string;
+  age: number;
+  sex: string;
+  vitals: {
+    temperature?: number;
+    heartRate?: number;
+    respiratoryRate?: number;
+    bloodPressure?: string;
+    oxygenSaturation?: number;
+    painLevel?: number;
+  };
+  abcdeFindings: {
+    airway?: Record<string, unknown>;
+    breathing?: Record<string, unknown>;
+    circulation?: Record<string, unknown>;
+    disability?: Record<string, unknown>;
+    exposure?: Record<string, unknown>;
+  };
+  scores: { news?: number; gcs?: number; qsofa?: number };
+  medicalHistory?: string[];
+  allergies?: string;
+}
+
+/**
+ * Unified LLM analysis result combining orientation, pathologies, interventions, tests, and warnings
+ */
+export interface UnifiedAnalysisResult {
+  available: boolean;
+  analysis?: UnifiedClinicalAnalysis;
+  generatedAt: string;
+  thinkingTrace?: string;
+  thinkingEnabled: boolean;
 }
 
 /**
@@ -18,6 +58,11 @@ export interface LLMProvider {
   generatePreDiagnosis(context: PreDiagnosisContext): Promise<PreDiagnosisSuggestion>;
   generatePreDiagnosisStream(
     context: PreDiagnosisContext,
+    onChunk: (chunk: StreamChunk) => void
+  ): Promise<void>;
+  generateUnifiedAnalysis(context: UnifiedAnalysisContext): Promise<UnifiedAnalysisResult>;
+  generateUnifiedAnalysisStream(
+    context: UnifiedAnalysisContext,
     onChunk: (chunk: StreamChunk) => void
   ): Promise<void>;
   isAvailable(): Promise<boolean>;

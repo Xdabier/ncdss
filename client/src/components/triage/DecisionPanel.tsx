@@ -12,8 +12,9 @@ import {
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { SuggestionsDetail } from './SuggestionsDetail';
+import { UnifiedAnalysisPanel } from './UnifiedAnalysisPanel';
 import { Patient, Orientation as OrientationType } from '@ncdss/shared';
-import type { ClinicalAnalysisResult } from '@ncdss/shared';
+import type { ClinicalAnalysisResult, UnifiedClinicalAnalysis } from '@ncdss/shared';
 
 // =============================================================================
 // ESI Levels
@@ -102,6 +103,8 @@ export interface DecisionPanelProps {
   onConfirm: () => void;
   saving: boolean;
   canConfirm: boolean;
+  useUnifiedAnalysis?: boolean;
+  onUnifiedAnalysisReady?: (analysis: UnifiedClinicalAnalysis) => void;
 }
 
 // =============================================================================
@@ -124,6 +127,8 @@ export function DecisionPanel({
   onConfirm,
   saving,
   canConfirm,
+  useUnifiedAnalysis,
+  onUnifiedAnalysisReady,
 }: DecisionPanelProps): React.ReactElement {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -150,7 +155,9 @@ export function DecisionPanel({
       >
         {/* Header with close button */}
         <div className="flex items-center justify-between px-4 py-3 border-b bg-white shrink-0">
-          <h2 className="text-lg font-semibold text-gray-800">Decision clinique</h2>
+          <h2 className="text-lg font-semibold text-gray-800">
+            {useUnifiedAnalysis ? 'Analyse IA' : 'Decision clinique'}
+          </h2>
           <button
             onClick={() => setIsOpen(false)}
             className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
@@ -163,30 +170,32 @@ export function DecisionPanel({
           {/* Controls section */}
           <div className="border-b bg-gray-50">
             <div className="px-4 py-4 max-w-4xl mx-auto space-y-4">
-              {/* Recommendation line */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <MapPin className="h-4 w-4 text-blue-600 shrink-0" />
-                  <span className="text-sm text-gray-600 shrink-0">Recommandation:</span>
-                  {analysis?.suggestedOrientation ? (
-                    <Badge className={`text-xs ${orientationColors[analysis.suggestedOrientation] || 'bg-gray-500 text-white'}`}>
-                      {orientationLabels[analysis.suggestedOrientation] || analysis.suggestedOrientation}
-                    </Badge>
-                  ) : (
-                    <span className="text-sm text-gray-400">--</span>
-                  )}
+              {/* Recommendation line (hidden in unified mode — UnifiedAnalysisPanel has its own) */}
+              {!useUnifiedAnalysis && (
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <MapPin className="h-4 w-4 text-blue-600 shrink-0" />
+                    <span className="text-sm text-gray-600 shrink-0">Recommandation:</span>
+                    {analysis?.suggestedOrientation ? (
+                      <Badge className={`text-xs ${orientationColors[analysis.suggestedOrientation] || 'bg-gray-500 text-white'}`}>
+                        {orientationLabels[analysis.suggestedOrientation] || analysis.suggestedOrientation}
+                      </Badge>
+                    ) : (
+                      <span className="text-sm text-gray-400">--</span>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onRunAnalysis(true)}
+                    disabled={analyzing}
+                    className="shrink-0"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 mr-1 ${analyzing ? 'animate-spin' : ''}`} />
+                    Re-analyser
+                  </Button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onRunAnalysis(true)}
-                  disabled={analyzing}
-                  className="shrink-0"
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 mr-1 ${analyzing ? 'animate-spin' : ''}`} />
-                  Re-analyser
-                </Button>
-              </div>
+              )}
 
               {/* ESI + Orientation row */}
               <div className="flex flex-col sm:flex-row gap-3">
@@ -249,13 +258,20 @@ export function DecisionPanel({
             </div>
           </div>
 
-          {/* Suggestions detail */}
-          <SuggestionsDetail
-            analysis={analysis}
-            analyzing={analyzing}
-            patientId={patient.id}
-            onRunAnalysis={onRunAnalysis}
-          />
+          {/* Suggestions detail / Unified analysis */}
+          {useUnifiedAnalysis ? (
+            <UnifiedAnalysisPanel
+              patientId={patient.id}
+              onAnalysisReady={onUnifiedAnalysisReady}
+            />
+          ) : (
+            <SuggestionsDetail
+              analysis={analysis}
+              analyzing={analyzing}
+              patientId={patient.id}
+              onRunAnalysis={onRunAnalysis}
+            />
+          )}
         </div>
       </div>
 

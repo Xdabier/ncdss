@@ -90,7 +90,7 @@ const analysisPhases = [
 ];
 
 // Animated loading component
-function AILoadingAnimation({
+export function AILoadingAnimation({
   streamActivity,
   thinkingActive,
   responseActive

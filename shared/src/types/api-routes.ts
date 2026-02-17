@@ -67,6 +67,8 @@ export const API_ROUTES = {
     aiPrediagnosis: (id: number | string) => `/patients/${id}/ai-prediagnosis`,
     aiStatus: (id: number | string) => `/patients/${id}/ai-status`,
     aiPrediagnosisStream: (id: number | string) => `/patients/${id}/ai-prediagnosis-stream`,
+    unifiedAnalysis: (id: number | string) => `/patients/${id}/unified-analysis`,
+    unifiedAnalysisStream: (id: number | string) => `/patients/${id}/unified-analysis-stream`,
   },
 
   prescriptions: {
