@@ -1,3 +1,4 @@
+import './load-env'; // Must be first — loads .env into process.env
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
 import { startServer, stopServer, getServerStatus } from './server';

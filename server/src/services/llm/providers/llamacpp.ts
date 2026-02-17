@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs/promises';
 import { LLMProvider, PreDiagnosisContext, PreDiagnosisSuggestion, StreamChunk, UnifiedAnalysisContext, UnifiedAnalysisResult } from '../index';
+import { logBenchmark, estimateTokens, validateUnifiedSchema, validatePreDiagnosisSchema, closeBenchmarkLogger, type BenchmarkEntry } from '../benchmark-logger';
 
 // Types for node-llama-cpp (dynamically imported)
 type LlamaInstance = any;
@@ -94,6 +95,7 @@ export class LlamaCppProvider implements LLMProvider {
   private unifiedResponseGrammar: any | null = null;
   private modelsDir: string;
   private modelPath: string;
+  private resolvedModelPath: string = '';
   private enableThinking: boolean;
   private initialized: boolean = false;
   private initPromise: Promise<void> | null = null;
@@ -163,6 +165,7 @@ export class LlamaCppProvider implements LLMProvider {
       }
 
       console.log(`[LlamaCpp] Loading model: ${resolvedPath}`);
+      this.resolvedModelPath = resolvedPath;
 
       // Load model with GPU auto-configuration
       this.model = await this.llama.loadModel({
@@ -193,6 +196,11 @@ export class LlamaCppProvider implements LLMProvider {
     }
   }
 
+  /** Get model filename for benchmark logs */
+  private get modelFileName(): string {
+    return this.resolvedModelPath ? path.basename(this.resolvedModelPath) : 'unknown';
+  }
+
   /**
    * Check if the LLM is available (model loaded)
    */
@@ -210,6 +218,7 @@ export class LlamaCppProvider implements LLMProvider {
    */
   async generatePreDiagnosis(context: PreDiagnosisContext): Promise<PreDiagnosisSuggestion> {
     const now = new Date().toISOString();
+    const startTime = performance.now();
 
     if (!await this.isAvailable()) {
       return { available: false, suggestions: [], generatedAt: now, thinkingEnabled: false };
@@ -243,9 +252,59 @@ export class LlamaCppProvider implements LLMProvider {
       // Dispose context after use
       await ctx.dispose();
 
-      return this.parseResponse(fullResponse, now, undefined);
+      const result = this.parseResponse(fullResponse, now, undefined);
+
+      // Benchmark logging
+      const latencyMs = Math.round(performance.now() - startTime);
+      let jsonParseSuccess = false;
+      let schemaCompliant = false;
+      try {
+        const jsonMatch = fullResponse.replace(/<think>[\s\S]*?<\/think>/g, '').match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          jsonParseSuccess = true;
+          schemaCompliant = validatePreDiagnosisSchema(parsed);
+        }
+      } catch { /* parse failed */ }
+
+      logBenchmark({
+        timestamp: now,
+        latencyMs,
+        method: 'generatePreDiagnosis',
+        modelFile: this.modelFileName,
+        promptLengthChars: prompt.length,
+        outputLengthChars: fullResponse.length,
+        promptTokenEstimate: estimateTokens(prompt),
+        outputTokenEstimate: estimateTokens(fullResponse),
+        jsonParseSuccess,
+        jsonRepaired: false,
+        schemaCompliant,
+        available: result.available,
+        suggestionCount: result.suggestions.length,
+        thinkingEnabled: result.thinkingEnabled,
+        thinkingLengthChars: result.thinkingTrace?.length,
+        response: result.available ? { suggestions: result.suggestions, recommendedTests: result.recommendedTests, warnings: result.warnings } : undefined,
+      });
+
+      return result;
     } catch (error) {
       console.error('[LlamaCpp] Pre-diagnosis error:', error);
+      logBenchmark({
+        timestamp: now,
+        latencyMs: Math.round(performance.now() - startTime),
+        method: 'generatePreDiagnosis',
+        modelFile: this.modelFileName,
+        promptLengthChars: 0,
+        outputLengthChars: 0,
+        promptTokenEstimate: 0,
+        outputTokenEstimate: 0,
+        jsonParseSuccess: false,
+        jsonRepaired: false,
+        schemaCompliant: false,
+        available: false,
+        thinkingEnabled: false,
+        error: String(error),
+      });
       return { available: false, suggestions: [], generatedAt: now, thinkingEnabled: false };
     }
   }
@@ -258,6 +317,7 @@ export class LlamaCppProvider implements LLMProvider {
     onChunk: (chunk: StreamChunk) => void
   ): Promise<void> {
     const now = new Date().toISOString();
+    const startTime = performance.now();
 
     if (!await this.isAvailable()) {
       onChunk({ type: 'error', error: 'Service LLM non disponible' });
@@ -310,10 +370,58 @@ export class LlamaCppProvider implements LLMProvider {
       const result = this.parseResponse(fullResponse, now, fullThinking || undefined);
       onChunk({ type: 'done', result });
 
+      // Benchmark logging
+      const latencyMs = Math.round(performance.now() - startTime);
+      let jsonParseSuccess = false;
+      let schemaCompliant = false;
+      try {
+        const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          jsonParseSuccess = true;
+          schemaCompliant = validatePreDiagnosisSchema(parsed);
+        }
+      } catch { /* parse failed */ }
+
+      logBenchmark({
+        timestamp: now,
+        latencyMs,
+        method: 'generatePreDiagnosisStream',
+        modelFile: this.modelFileName,
+        promptLengthChars: prompt.length,
+        outputLengthChars: fullResponse.length + fullThinking.length,
+        promptTokenEstimate: estimateTokens(prompt),
+        outputTokenEstimate: estimateTokens(fullResponse) + estimateTokens(fullThinking),
+        jsonParseSuccess,
+        jsonRepaired: false,
+        schemaCompliant,
+        available: result.available,
+        suggestionCount: result.suggestions.length,
+        thinkingEnabled: result.thinkingEnabled,
+        thinkingLengthChars: fullThinking.length || undefined,
+        response: result.available ? { suggestions: result.suggestions, recommendedTests: result.recommendedTests, warnings: result.warnings } : undefined,
+      });
+
       // Cleanup
       await ctx.dispose();
     } catch (error) {
       console.error('[LlamaCpp] Streaming error:', error);
+      logBenchmark({
+        timestamp: now,
+        latencyMs: Math.round(performance.now() - startTime),
+        method: 'generatePreDiagnosisStream',
+        modelFile: this.modelFileName,
+        promptLengthChars: 0,
+        outputLengthChars: 0,
+        promptTokenEstimate: 0,
+        outputTokenEstimate: 0,
+        jsonParseSuccess: false,
+        jsonRepaired: false,
+        schemaCompliant: false,
+        available: false,
+        thinkingEnabled: false,
+        error: String(error),
+      });
       onChunk({ type: 'error', error: 'Erreur lors de la generation' });
     }
   }
@@ -698,6 +806,7 @@ Reponds UNIQUEMENT avec un objet JSON valide.`;
    */
   async generateUnifiedAnalysis(context: UnifiedAnalysisContext): Promise<UnifiedAnalysisResult> {
     const now = new Date().toISOString();
+    const startTime = performance.now();
 
     if (!await this.isAvailable()) {
       return { available: false, generatedAt: now, thinkingEnabled: false };
@@ -728,9 +837,32 @@ Reponds UNIQUEMENT avec un objet JSON valide.`;
 
       await ctx.dispose();
 
-      return this.parseUnifiedResponse(fullResponse, now, undefined);
+      const result = this.parseUnifiedResponse(fullResponse, now, undefined);
+
+      // Benchmark logging
+      const latencyMs = Math.round(performance.now() - startTime);
+      const benchmarkInfo = this.buildUnifiedBenchmark(fullResponse, result, prompt, now, latencyMs, 'generateUnifiedAnalysis');
+      logBenchmark(benchmarkInfo);
+
+      return result;
     } catch (error) {
       console.error('[LlamaCpp] Unified analysis error:', error);
+      logBenchmark({
+        timestamp: now,
+        latencyMs: Math.round(performance.now() - startTime),
+        method: 'generateUnifiedAnalysis',
+        modelFile: this.modelFileName,
+        promptLengthChars: 0,
+        outputLengthChars: 0,
+        promptTokenEstimate: 0,
+        outputTokenEstimate: 0,
+        jsonParseSuccess: false,
+        jsonRepaired: false,
+        schemaCompliant: false,
+        available: false,
+        thinkingEnabled: false,
+        error: String(error),
+      });
       return { available: false, generatedAt: now, thinkingEnabled: false };
     }
   }
@@ -743,6 +875,7 @@ Reponds UNIQUEMENT avec un objet JSON valide.`;
     onChunk: (chunk: StreamChunk) => void
   ): Promise<void> {
     const now = new Date().toISOString();
+    const startTime = performance.now();
 
     if (!await this.isAvailable()) {
       onChunk({ type: 'error', error: 'Service LLM non disponible' });
@@ -791,11 +924,104 @@ Reponds UNIQUEMENT avec un objet JSON valide.`;
       const result = this.parseUnifiedResponse(fullResponse, now, fullThinking || undefined);
       onChunk({ type: 'done', unifiedResult: result });
 
+      // Benchmark logging
+      const latencyMs = Math.round(performance.now() - startTime);
+      const benchmarkInfo = this.buildUnifiedBenchmark(
+        fullResponse, result, prompt, now, latencyMs, 'generateUnifiedAnalysisStream'
+      );
+      benchmarkInfo.thinkingLengthChars = fullThinking.length || undefined;
+      benchmarkInfo.outputLengthChars = fullResponse.length + fullThinking.length;
+      benchmarkInfo.outputTokenEstimate = estimateTokens(fullResponse) + estimateTokens(fullThinking);
+      logBenchmark(benchmarkInfo);
+
       await ctx.dispose();
     } catch (error) {
       console.error('[LlamaCpp] Unified analysis streaming error:', error);
+      logBenchmark({
+        timestamp: now,
+        latencyMs: Math.round(performance.now() - startTime),
+        method: 'generateUnifiedAnalysisStream',
+        modelFile: this.modelFileName,
+        promptLengthChars: 0,
+        outputLengthChars: 0,
+        promptTokenEstimate: 0,
+        outputTokenEstimate: 0,
+        jsonParseSuccess: false,
+        jsonRepaired: false,
+        schemaCompliant: false,
+        available: false,
+        thinkingEnabled: false,
+        error: String(error),
+      });
       onChunk({ type: 'error', error: 'Erreur lors de la generation de l\'analyse unifiee' });
     }
+  }
+
+  /**
+   * Build a BenchmarkEntry for unified analysis calls.
+   * Detects JSON repair, schema compliance, and extracts result metadata.
+   */
+  private buildUnifiedBenchmark(
+    rawOutput: string,
+    result: UnifiedAnalysisResult,
+    prompt: string,
+    timestamp: string,
+    latencyMs: number,
+    method: 'generateUnifiedAnalysis' | 'generateUnifiedAnalysisStream'
+  ): BenchmarkEntry {
+    let jsonParseSuccess = false;
+    let jsonRepaired = false;
+    let schemaCompliant = false;
+
+    const cleanOutput = rawOutput.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    const jsonMatch = cleanOutput.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      let jsonStr = jsonMatch[0];
+      try {
+        JSON.parse(jsonStr);
+        jsonParseSuccess = true;
+      } catch {
+        // Check if repair would have been needed
+        const repaired = this.repairTruncatedJson(jsonStr);
+        try {
+          JSON.parse(repaired);
+          jsonParseSuccess = true;
+          jsonRepaired = true;
+        } catch { /* both failed */ }
+      }
+
+      if (jsonParseSuccess) {
+        try {
+          const parsed = JSON.parse(jsonRepaired ? this.repairTruncatedJson(jsonStr) : jsonStr);
+          schemaCompliant = validateUnifiedSchema(parsed);
+        } catch { /* validation parse failed */ }
+      }
+    }
+
+    const analysis = result.analysis;
+    return {
+      timestamp,
+      latencyMs,
+      method,
+      modelFile: this.modelFileName,
+      promptLengthChars: prompt.length,
+      outputLengthChars: rawOutput.length,
+      promptTokenEstimate: estimateTokens(prompt),
+      outputTokenEstimate: estimateTokens(rawOutput),
+      jsonParseSuccess,
+      jsonRepaired,
+      schemaCompliant,
+      available: result.available,
+      orientation: analysis?.orientation,
+      pathologyCount: analysis?.pathologies?.length,
+      hasNursingInterventions: analysis ? analysis.nursingInterventions.length > 0 : undefined,
+      hasMedicalInterventions: analysis ? analysis.medicalInterventions.length > 0 : undefined,
+      hasRecommendedTests: analysis ? analysis.recommendedTests.length > 0 : undefined,
+      hasCriticalAlerts: analysis ? analysis.criticalAlerts.length > 0 : undefined,
+      thinkingEnabled: result.thinkingEnabled,
+      thinkingLengthChars: result.thinkingTrace?.length,
+      response: analysis ?? undefined,
+    };
   }
 
   /**
@@ -958,6 +1184,7 @@ Reponds UNIQUEMENT avec un objet JSON valide.`;
    * Cleanup resources on shutdown
    */
   async dispose(): Promise<void> {
+    closeBenchmarkLogger();
     if (this.model) {
       this.model = null;
     }

@@ -63,3 +63,6 @@ server/release/
 # LLM Models (large files, download separately)
 server/models/
 *.gguf
+
+# Benchmark logs (JSONL, generated during inference)
+server/benchmark-logs/
