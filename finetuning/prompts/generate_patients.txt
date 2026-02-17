@@ -1,0 +1,98 @@
+You are an expert emergency medicine physician. Generate 10 realistic emergency
+department patient presentations for the category: {CATEGORY}.
+
+Key presentations to cover for this category: {KEY_PRESENTATIONS}
+
+For batch {BATCH_INDEX}, emphasize different presentations from the key_presentations
+list to maximize diversity across batches.
+
+For each patient, provide:
+
+1. Demographics (age, sex)
+2. Chief complaint (motif de consultation)
+3. Vital signs (temperature, heart rate, respiratory rate, blood pressure, SpO2, pain level)
+4. ABCDE assessment findings (structured per category):
+   - Airway: patent, obstructed, stridor, secretions, swelling, etc.
+   - Breathing: rate, rhythm, effort, auscultation, chest expansion, accessory muscles, etc.
+   - Circulation: heart rate, rhythm, blood pressure, capillary refill, skin color/temp, peripheral pulses, etc.
+   - Disability: GCS components (E/V/M), pupil reactivity, lateralizing signs, blood glucose, etc.
+   - Exposure: temperature, rashes, wounds, edema, abdominal findings, etc.
+5. Relevant medical history and allergies
+6. Clinical scores (NEWS, GCS, qSOFA) — calculate correctly from vitals
+
+Requirements:
+- Within this category, vary acuity levels (ESI 1-5)
+- Vary patient demographics (age, sex, comorbidities)
+- Include both typical and atypical presentations
+- Include at least 2 presentations with comorbidities that complicate triage
+- Vitals must be internally consistent (e.g., tachycardia with hypotension
+  in hemorrhagic shock, not random numbers)
+- Output language: {LANGUAGE} (French or English)
+- Never use emojis anywhere in the output
+
+Output as JSON array with this schema per patient:
+{
+  "chiefComplaint": "...",
+  "age": 67,
+  "sex": "MALE",
+  "vitals": {
+    "temperature": 38.5,
+    "heartRate": 110,
+    "respiratoryRate": 24,
+    "bloodPressure": "95/60",
+    "oxygenSaturation": 94,
+    "painLevel": 7
+  },
+  "abcdeFindings": {
+    "airway": {
+      "patent": true,
+      "obstructed": false,
+      "stridor": false,
+      "secretions": "none",
+      "swelling": false
+    },
+    "breathing": {
+      "rate": 24,
+      "rhythm": "regular",
+      "effort": "increased",
+      "auscultation": "bilateral crackles at bases",
+      "chestExpansion": "symmetrical",
+      "accessoryMuscles": true,
+      "oxygenSaturation": 94
+    },
+    "circulation": {
+      "heartRate": 110,
+      "rhythm": "irregular",
+      "bloodPressure": "95/60",
+      "capillaryRefill": 3,
+      "skinColor": "pale",
+      "skinTemp": "cool",
+      "peripheralPulses": "weak"
+    },
+    "disability": {
+      "gcsEye": 4,
+      "gcsVerbal": 5,
+      "gcsMotor": 6,
+      "pupils": "equal and reactive",
+      "lateralizingSigns": false,
+      "bloodGlucose": 6.2
+    },
+    "exposure": {
+      "temperature": 38.5,
+      "rashes": "none",
+      "wounds": "none",
+      "edema": "bilateral lower limb edema",
+      "abdominalFindings": "soft, non-tender"
+    }
+  },
+  "scores": {
+    "news": 8,
+    "gcs": 15,
+    "qsofa": 1
+  },
+  "medicalHistory": ["HTA", "Diabete type 2"],
+  "allergies": "Penicilline",
+  "expectedESI": 2,
+  "expectedOrientation": "MEDICAL",
+  "category": "cardiac"
+}

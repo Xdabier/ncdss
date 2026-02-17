@@ -1,0 +1,37 @@
+{
+  "type": "object",
+  "properties": {
+    "orientation": {
+      "type": "string",
+      "enum": ["SAUV", "MEDICAL", "SURGICAL", "TRAUMA", "PEDIATRIC"]
+    },
+    "orientationReason": { "type": "string" },
+    "criticalAlerts": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "pathologies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 100 },
+          "signs": { "type": "array", "items": { "type": "string" } },
+          "reasoning": { "type": "string" },
+          "urgency": { "type": "string", "enum": ["routine", "urgent", "emergent"] },
+          "icd10Code": { "type": "string", "pattern": "^[A-Z]\\d{2}(\\.\\d{1,2})?$" }
+        },
+        "required": ["name", "confidence", "signs", "reasoning", "urgency"]
+      },
+      "minItems": 1,
+      "maxItems": 5
+    },
+    "nursingInterventions": { "type": "array", "items": { "type": "string" }, "minItems": 2 },
+    "medicalInterventions": { "type": "array", "items": { "type": "string" }, "minItems": 2 },
+    "recommendedTests": { "type": "array", "items": { "type": "string" } },
+    "warnings": { "type": "array", "items": { "type": "string" } }
+  },
+  "required": ["orientation", "orientationReason", "criticalAlerts", "pathologies",
+               "nursingInterventions", "medicalInterventions", "recommendedTests", "warnings"]
+}

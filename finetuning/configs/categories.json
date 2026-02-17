@@ -1,0 +1,144 @@
+{
+  "categories": [
+    {
+      "id": "cardiac",
+      "name_fr": "Cardiaque",
+      "name_en": "Cardiac",
+      "target_count": 500,
+      "key_presentations": [
+        "SCA ST+/ST-", "Unstable angina", "Heart failure",
+        "Arrhythmias", "Pericarditis", "Endocarditis",
+        "Tamponade", "Hypertensive crisis"
+      ]
+    },
+    {
+      "id": "respiratory",
+      "name_fr": "Respiratoire",
+      "name_en": "Respiratory",
+      "target_count": 500,
+      "key_presentations": [
+        "Pneumonia", "PE", "Pneumothorax", "COPD exacerbation",
+        "Severe asthma", "Pleural effusion", "Hemoptysis", "Epiglottitis"
+      ]
+    },
+    {
+      "id": "neurological",
+      "name_fr": "Neurologique",
+      "name_en": "Neurological",
+      "target_count": 400,
+      "key_presentations": [
+        "Stroke (ischemic/hemorrhagic)", "TIA", "Seizures", "Meningitis",
+        "Status epilepticus", "Head trauma", "Spinal cord compression"
+      ]
+    },
+    {
+      "id": "abdominal_gi",
+      "name_fr": "Abdominal/GI",
+      "name_en": "Abdominal/GI",
+      "target_count": 400,
+      "key_presentations": [
+        "Appendicitis", "Cholecystitis", "Pancreatitis",
+        "Bowel obstruction", "GI bleed", "Perforated ulcer",
+        "Ectopic pregnancy", "Ovarian torsion"
+      ]
+    },
+    {
+      "id": "trauma",
+      "name_fr": "Trauma",
+      "name_en": "Trauma",
+      "target_count": 500,
+      "key_presentations": [
+        "Polytrauma", "Open fractures", "Burns", "Head injury",
+        "Spinal injury", "Penetrating wounds", "Crush injury", "Blast injury"
+      ]
+    },
+    {
+      "id": "sepsis_infectious",
+      "name_fr": "Sepsis/Infectieux",
+      "name_en": "Sepsis/Infectious",
+      "target_count": 400,
+      "key_presentations": [
+        "Septic shock", "Meningococcemia", "Necrotizing fasciitis",
+        "Pyelonephritis", "Pneumonia-sepsis", "UTI", "Cellulitis", "Abscess"
+      ]
+    },
+    {
+      "id": "pediatric",
+      "name_fr": "Pediatrique",
+      "name_en": "Pediatric",
+      "target_count": 400,
+      "key_presentations": [
+        "Febrile seizures", "Bronchiolitis", "Croup", "Intussusception",
+        "Meningitis", "NAI", "Foreign body", "Dehydration"
+      ]
+    },
+    {
+      "id": "metabolic_endocrine",
+      "name_fr": "Metabolique/Endocrinien",
+      "name_en": "Metabolic/Endocrine",
+      "target_count": 300,
+      "key_presentations": [
+        "DKA", "Hypoglycemia", "Thyroid storm", "Adrenal crisis",
+        "Hyperkalemia", "Hypokalemia", "Hyponatremia"
+      ]
+    },
+    {
+      "id": "toxicology_psychiatric",
+      "name_fr": "Toxicologie/Psychiatrique",
+      "name_en": "Toxicology/Psychiatric",
+      "target_count": 300,
+      "key_presentations": [
+        "Paracetamol overdose", "Opioid overdose", "Benzodiazepine overdose",
+        "Alcohol intoxication", "Organophosphate poisoning",
+        "Suicidal ideation", "Acute psychosis"
+      ]
+    },
+    {
+      "id": "obstetric_gynecological",
+      "name_fr": "Obstetrique/Gynecologique",
+      "name_en": "Obstetric/Gynecological",
+      "target_count": 200,
+      "key_presentations": [
+        "Eclampsia", "Placental abruption", "Ectopic pregnancy",
+        "Postpartum hemorrhage", "Miscarriage"
+      ]
+    },
+    {
+      "id": "tunisia_specific",
+      "name_fr": "Specifique Tunisie",
+      "name_en": "Tunisia-specific",
+      "target_count": 400,
+      "key_presentations": [
+        "Scorpion stings (grades I-III)", "Road traffic accidents",
+        "Agricultural injuries", "Heat stroke", "Phosphine poisoning",
+        "Mediterranean fever", "Thalassemia crises", "Snake bites", "Jellyfish stings"
+      ]
+    },
+    {
+      "id": "low_acuity",
+      "name_fr": "Faible acuite (ESI 4-5)",
+      "name_en": "Low-acuity (ESI 4-5)",
+      "target_count": 400,
+      "key_presentations": [
+        "Sore throat", "Minor wound", "Sprain", "UTI",
+        "Headache", "Back pain", "Gastroenteritis", "Minor allergic reaction"
+      ]
+    },
+    {
+      "id": "edge_cases",
+      "name_fr": "Cas limites",
+      "name_en": "Edge cases",
+      "target_count": 200,
+      "key_presentations": [
+        "Elderly polymedicated", "Atypical MI in women/diabetics",
+        "Silent PE", "Afebrile sepsis", "Psychiatric mimicking medical",
+        "Pediatric with adult-sized vitals"
+      ]
+    }
+  ],
+  "language_split": {
+    "fr_ratio": 0.7,
+    "en_ratio": 0.3
+  },
+  "total_target": 4600
+}
