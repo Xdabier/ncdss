@@ -340,9 +340,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
         painLevel: p.painLevel ?? undefined,
       });
       setSuggestedESI(esi);
-      if (!p.esiLevel) {
-        setSelectedESI(esi);
-      }
+      setSelectedESI(esi);
 
       // Auto-run analysis if patient has ABCDE data
       const hasABCDEData = !!(p.abcdeAirway || p.abcdeBreathing || p.abcdeCirculation || p.abcdeDisability || p.abcdeExposure);
@@ -456,6 +454,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
               painLevel: updatedPatient.painLevel ?? undefined,
             });
             setSuggestedESI(esi);
+            setSelectedESI(esi);
             break;
           }
           case 'symptomes': {

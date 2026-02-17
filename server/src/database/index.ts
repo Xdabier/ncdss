@@ -60,6 +60,16 @@ export async function initDatabase() {
   addColumnIfMissing(sqlite, 'patients', 'obstetric_history', 'TEXT');
   addColumnIfMissing(sqlite, 'patients', 'absent_call_history', 'TEXT');
 
+  // Migration 0006: prescriptions.administered_in_box
+  addColumnIfMissing(sqlite, 'prescriptions', 'administered_in_box', 'INTEGER DEFAULT 0');
+
+  // Migration 0007: patient hold/consultation columns
+  addColumnIfMissing(sqlite, 'patients', 'hold_status', 'TEXT');
+  addColumnIfMissing(sqlite, 'patients', 'hold_reason', 'TEXT');
+  addColumnIfMissing(sqlite, 'patients', 'hold_at', 'TEXT');
+  addColumnIfMissing(sqlite, 'patients', 'hold_by', 'TEXT');
+  addColumnIfMissing(sqlite, 'patients', 'consultation_notes', 'TEXT');
+
   // Create patient_identities table and migrate existing data
   createPatientIdentitiesTable(sqlite);
   addColumnIfMissing(sqlite, 'patients', 'patient_identity_id', 'TEXT');

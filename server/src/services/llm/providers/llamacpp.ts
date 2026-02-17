@@ -6,18 +6,48 @@ import { LLMProvider, PreDiagnosisContext, PreDiagnosisSuggestion, StreamChunk }
 type LlamaInstance = any;
 type LlamaModelInstance = any;
 type LlamaChatSessionConstructor = any;
-
 /**
- * node-llama-cpp provider for local LLM inference
- * Runs fully offline using embedded llama.cpp
- * Automatically uses GPU (CUDA/Metal/Vulkan) if available
- *
- * Uses dynamic import() because node-llama-cpp is ESM-only
+ * JSON schema for the pre-diagnosis response.
+ * Used by LlamaJsonSchemaGrammar to constrain model output
+ * so it ONLY generates valid JSON matching this structure.
+ * This eliminates wasted tokens on formatting and guarantees parseable output.
  */
+const PRE_DIAGNOSIS_JSON_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    suggestions: {
+      type: 'array' as const,
+      items: {
+        type: 'object' as const,
+        properties: {
+          diagnosis: { type: 'string' as const },
+          confidence: { type: 'number' as const },
+          reasoning: { type: 'string' as const },
+          urgency: { type: 'string' as const, enum: ['routine', 'urgent', 'emergent'] },
+          icd10Code: { type: 'string' as const }
+        },
+        required: ['diagnosis', 'confidence', 'reasoning', 'urgency']
+      },
+      minItems: 1,
+      maxItems: 4
+    },
+    recommendedTests: {
+      type: 'array' as const,
+      items: { type: 'string' as const }
+    },
+    warnings: {
+      type: 'array' as const,
+      items: { type: 'string' as const }
+    }
+  },
+  required: ['suggestions', 'recommendedTests', 'warnings']
+};
+
 export class LlamaCppProvider implements LLMProvider {
   private llama: LlamaInstance | null = null;
   private model: LlamaModelInstance | null = null;
   private LlamaChatSession: LlamaChatSessionConstructor | null = null;
+  private responseGrammar: any | null = null;
   private modelsDir: string;
   private modelPath: string;
   private enableThinking: boolean;
@@ -101,6 +131,15 @@ export class LlamaCppProvider implements LLMProvider {
         }
       });
 
+      // Pre-create JSON schema grammar for constrained decoding
+      try {
+        this.responseGrammar = await this.llama.createGrammarForJsonSchema(PRE_DIAGNOSIS_JSON_SCHEMA);
+        console.log('[LlamaCpp] JSON schema grammar created for constrained output');
+      } catch (grammarError) {
+        console.warn('[LlamaCpp] Failed to create JSON grammar, will use unconstrained generation:', grammarError);
+        this.responseGrammar = null;
+      }
+
       this.initialized = true;
     } catch (error) {
       console.error('[LlamaCpp] Initialization failed:', error);
@@ -132,6 +171,7 @@ export class LlamaCppProvider implements LLMProvider {
 
     try {
       const prompt = this.buildPrompt(context);
+      const grammar = this.responseGrammar;
 
       // Create context and session for this request
       const ctx = await this.model!.createContext({
@@ -144,10 +184,11 @@ export class LlamaCppProvider implements LLMProvider {
 
       let fullResponse = '';
 
-      // Generate response with streaming to capture output
+      // Generate response with grammar constraint for faster, reliable JSON output
       await session.prompt(prompt, {
-        maxTokens: 2000,
+        maxTokens: 800,
         temperature: 0.3,
+        ...(grammar ? { grammar } : {}),
         onTextChunk: (chunk: string) => {
           fullResponse += chunk;
         }
@@ -179,6 +220,7 @@ export class LlamaCppProvider implements LLMProvider {
 
     try {
       const prompt = this.buildPrompt(context);
+      const grammar = this.responseGrammar;
 
       // Create context and session
       const ctx = await this.model!.createContext({
@@ -193,10 +235,11 @@ export class LlamaCppProvider implements LLMProvider {
       let fullThinking = '';
       let inThinkingBlock = false;
 
-      // Stream response
+      // Stream response with grammar constraint
       await session.prompt(prompt, {
-        maxTokens: 2000,
+        maxTokens: 800,
         temperature: 0.3,
+        ...(grammar ? { grammar } : {}),
         onTextChunk: (chunk: string) => {
           // Detect thinking blocks (<think>...</think>)
           if (chunk.includes('<think>')) {
@@ -382,5 +425,6 @@ Règles:
     this.initialized = false;
     this.initPromise = null;
     this.LlamaChatSession = null;
+    this.responseGrammar = null;
   }
 }
