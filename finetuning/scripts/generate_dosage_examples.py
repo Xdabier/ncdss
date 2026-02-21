@@ -44,6 +44,7 @@ from scripts.common import (
     load_jsonl,
     validate_against_schema,
 )
+from scripts.batch_utils import sanitize_custom_id
 from scripts.distill_labels import (
     distill_label,
     extract_json_object,
@@ -439,6 +440,7 @@ def run_dosage_batch(
         build_retry_batch_request,
         collect_results,
         poll_batch,
+        sanitize_custom_id,
         save_batch_checkpoint,
         load_batch_checkpoint,
         clear_batch_checkpoint,
@@ -453,7 +455,7 @@ def run_dosage_batch(
     for idx, patient in enumerate(selected):
         category = patient.get("category", "unknown")
         language = patient.get("_language", "fr")
-        patient_id = f"dosage_{category}_{language}_{idx:03d}"
+        patient_id = sanitize_custom_id(f"dosage_{category}_{language}_{idx:03d}")
 
         if patient_id in existing_patient_ids:
             continue
@@ -795,7 +797,7 @@ async def main() -> None:
         for idx, patient in enumerate(selected):
             category = patient.get("category", "unknown")
             language = patient.get("_language", "fr")
-            patient_id = f"dosage_{category}_{language}_{idx:03d}"
+            patient_id = sanitize_custom_id(f"dosage_{category}_{language}_{idx:03d}")
 
             if args.resume and patient_id in existing_patient_ids:
                 continue

@@ -8,6 +8,7 @@ See: https://docs.anthropic.com/en/docs/build-with-claude/batch-processing
 """
 
 import json
+import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -16,6 +17,16 @@ from typing import Any, Callable
 import anthropic
 
 from scripts.common import logger
+
+
+def sanitize_custom_id(raw_id: str) -> str:
+    """Sanitize a string for use as a batch API custom_id.
+
+    The Anthropic Batch API requires custom_id to match ``^[a-zA-Z0-9_-]{1,64}``.
+    This replaces invalid characters with ``_`` and truncates to 64 chars.
+    """
+    sanitized = re.sub(r"[^a-zA-Z0-9_-]", "_", raw_id)
+    return sanitized[:64]
 
 # ---------------------------------------------------------------------------
 # Data classes
