@@ -278,7 +278,7 @@ export function VitalsForm({ data, onChange, onSave, loading }: Props) {
                 <SelectItem value="4">4 - Spontanee</SelectItem>
                 <SelectItem value="3">3 - A la demande</SelectItem>
                 <SelectItem value="2">2 - A la douleur</SelectItem>
-                <SelectItem value="1">1 - Nulle</SelectItem>
+                <SelectItem value="1">1 - Aucune</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -297,7 +297,7 @@ export function VitalsForm({ data, onChange, onSave, loading }: Props) {
                 <SelectItem value="4">4 - Confuse</SelectItem>
                 <SelectItem value="3">3 - Inappropriee</SelectItem>
                 <SelectItem value="2">2 - Incomprehensible</SelectItem>
-                <SelectItem value="1">1 - Nulle</SelectItem>
+                <SelectItem value="1">1 - Aucune</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -312,12 +312,12 @@ export function VitalsForm({ data, onChange, onSave, loading }: Props) {
                 <SelectValue placeholder="Selectionner" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="6">6 - A la commande</SelectItem>
-                <SelectItem value="5">5 - Orientee a la douleur</SelectItem>
-                <SelectItem value="4">4 - Evitement</SelectItem>
-                <SelectItem value="3">3 - Decortication</SelectItem>
-                <SelectItem value="2">2 - Decerebration</SelectItem>
-                <SelectItem value="1">1 - Nulle</SelectItem>
+                <SelectItem value="6">6 - Obéit à la commande</SelectItem>
+                <SelectItem value="5">5 - Localise la douleur</SelectItem>
+                <SelectItem value="4">4 - Retrait à la douleur (flexion normale/évitement)</SelectItem>
+                <SelectItem value="3">3 - Flexion anormale (décortication)</SelectItem>
+                <SelectItem value="2">2 - Extension à la douleur (décérébration)</SelectItem>
+                <SelectItem value="1">1 - Aucune</SelectItem>
               </SelectContent>
             </Select>
           </div>

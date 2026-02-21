@@ -75,9 +75,21 @@ function hasCriticalABCDE(symptoms: Partial<SymptomsFormData>, abcde: Record<str
   );
 }
 
+const NORMAL_DEFAULTS: Record<string, unknown> = {
+  airwayStatus: 'libre',
+  auscultationNormal: true,
+  pupilSymmetry: 'symetrique',
+  pupilReactivity: true,
+  gcsEye: 4,
+  gcsVerbal: 5,
+  gcsMotor: 6,
+};
+
 function countFilledFields(data: Record<string, any>): number {
-  return Object.values(data).filter(
-    (v) => v !== undefined && v !== null && v !== '' && v !== false
+  return Object.entries(data).filter(
+    ([k, v]) =>
+      v !== undefined && v !== null && v !== '' && v !== false &&
+      NORMAL_DEFAULTS[k] !== v
   ).length;
 }
 
@@ -119,11 +131,20 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
 
   // Form data
   const [medicalHistoryData, setMedicalHistoryData] = useState<Partial<MedicalHistoryData>>({});
-  const [vitalsData, setVitalsData] = useState<Partial<VitalsData>>({});
+  const [vitalsData, setVitalsData] = useState<Partial<VitalsData>>({
+    gcsEye: 4,
+    gcsVerbal: 5,
+    gcsMotor: 6,
+  });
   const [abcdeData, setAbcdeData] = useState<Record<string, any>>({
     A: {}, B: {}, C: {}, D: {}, E: {},
   });
-  const [symptomsData, setSymptomsData] = useState<Partial<SymptomsFormData>>({});
+  const [symptomsData, setSymptomsData] = useState<Partial<SymptomsFormData>>({
+    airwayStatus: 'libre',
+    auscultationNormal: true,
+    pupilSymmetry: 'symetrique',
+    pupilReactivity: true,
+  });
 
   // Decision state
   const [analysis, setAnalysis] = useState<ClinicalAnalysisResult | null>(null);
@@ -311,9 +332,9 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
         oxygenSaturation: p.oxygenSaturation ?? undefined,
         painLevel: p.painLevel ?? undefined,
         glucoseLevel: p.glucoseLevel ?? undefined,
-        gcsEye: p.gcsEye ?? undefined,
-        gcsVerbal: p.gcsVerbal ?? undefined,
-        gcsMotor: p.gcsMotor ?? undefined,
+        gcsEye: p.gcsEye ?? 4,
+        gcsVerbal: p.gcsVerbal ?? 5,
+        gcsMotor: p.gcsMotor ?? 6,
       });
 
       // Initialise ABCDE from JSON blobs
@@ -640,16 +661,10 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
 
   const canConfirm =
     selectedESI !== null &&
-    selectedOrientation !== null &&
-    (!isOrientationOverride || overrideReason.trim().length > 0);
+    selectedOrientation !== null;
 
   const handleComplete = useCallback(async () => {
     if (!selectedESI || !selectedOrientation || !id) return;
-
-    if (isOrientationOverride && !overrideReason.trim()) {
-      setError("Veuillez indiquer la raison du changement d'orientation");
-      return;
-    }
 
     setSaving(true);
     setError(null);

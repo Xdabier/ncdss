@@ -153,7 +153,11 @@ export function extractSymptomsFromABCDE(
 
   // --- B ---
   if (B) {
-    result.auscultationNormal = B.breathSounds === 'normal';
+    if (B.breathSounds !== undefined) {
+      result.auscultationNormal = B.breathSounds === 'normal';
+    } else if (B.breathSoundsMulti?.length) {
+      result.auscultationNormal = false;
+    }
     if (B.breathSoundsMulti?.length) {
       result.breathSoundsDetail = [...B.breathSoundsMulti];
     } else if (B.breathSounds && B.breathSounds !== 'normal') {
@@ -232,6 +236,13 @@ export function extractSymptomsFromABCDE(
     if (E.electrocution !== undefined) result.electrocution = E.electrocution;
     if (E.intoxication !== undefined) result.intoxication = E.intoxication;
   }
+
+  // Apply normal clinical defaults for fields that were not set from stored data.
+  // "Charting by exception": normal baseline is pre-filled so nurses only change abnormals.
+  if (result.airwayStatus === undefined) result.airwayStatus = 'libre';
+  if (result.auscultationNormal === undefined) result.auscultationNormal = true;
+  if (result.pupilSymmetry === undefined) result.pupilSymmetry = 'symetrique';
+  if (result.pupilReactivity === undefined) result.pupilReactivity = true;
 
   return result;
 }
