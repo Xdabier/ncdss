@@ -4,12 +4,20 @@ For each synthetic patient profile, calls Claude Sonnet to produce the unified
 JSON output (orientation, pathologies, interventions, tests, warnings) that the
 fine-tuned model will learn to reproduce.
 
+Supports two modes:
+- **Batch mode** (default): Uses the Anthropic Message Batches API for ~50%
+  cost savings.  Requests are submitted as a batch, polled until completion,
+  then validated with automatic retries.
+- **Real-time mode** (``--realtime``): Uses ``client.messages.create()`` with
+  async concurrency — the original behavior, useful for debugging or small runs.
+
 Usage:
     python -m scripts.distill_labels
     python -m scripts.distill_labels --categories cardiac,trauma --language fr
     python -m scripts.distill_labels --dosage-mode
     python -m scripts.distill_labels --dry-run
     python -m scripts.distill_labels --resume
+    python -m scripts.distill_labels --realtime
 """
 
 import argparse
@@ -26,6 +34,7 @@ import anthropic
 from tqdm import tqdm
 
 from scripts.common import (
+    get_anthropic_client,
     get_data_dir,
     load_categories,
     load_env,
@@ -100,12 +109,17 @@ def parse_args() -> argparse.Namespace:
         "--max-concurrent",
         type=int,
         default=None,
-        help="Max concurrent API calls (default: from env or 5)",
+        help="Max concurrent API calls (default: from env or 5; ignored in batch mode)",
     )
     parser.add_argument(
         "--dosage-mode",
         action="store_true",
         help="Use the dosage-focused prompt template instead",
+    )
+    parser.add_argument(
+        "--realtime",
+        action="store_true",
+        help="Use real-time API calls instead of the batch API (for debugging/small runs)",
     )
     return parser.parse_args()
 
@@ -451,17 +465,18 @@ def extract_json_object(text: str) -> dict:
     raw = text[start : end + 1]
 
     # Try parsing as-is first
+    saved_err_pos = 0
     try:
         return json.loads(raw)
     except json.JSONDecodeError as first_err:
-        pass
+        saved_err_pos = first_err.pos or 0
 
     # Retry after fixing common LLM JSON errors
     try:
         return json.loads(_fix_json(raw))
     except json.JSONDecodeError:
         # Log the problematic region for debugging
-        pos = first_err.pos or 0
+        pos = saved_err_pos
         context_start = max(0, pos - 80)
         context_end = min(len(raw), pos + 80)
         snippet = raw[context_start:context_end]
@@ -473,7 +488,7 @@ def extract_json_object(text: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# API call + retry
+# Real-time API call + retry (used by --realtime and other scripts)
 # ---------------------------------------------------------------------------
 
 
@@ -608,7 +623,7 @@ def log_distillation_error(
 
 
 # ---------------------------------------------------------------------------
-# Core processing
+# Core processing — real-time mode (--realtime)
 # ---------------------------------------------------------------------------
 
 
@@ -719,7 +734,7 @@ async def process_category_language(
     existing_ids: set[str],
     resume: bool,
 ) -> dict[str, Any]:
-    """Process all patients for one category/language pair."""
+    """Process all patients for one category/language pair (real-time mode)."""
     total = len(patients)
     success = 0
     failed = 0
@@ -804,6 +819,209 @@ async def process_category_language(
 
 
 # ---------------------------------------------------------------------------
+# Batch mode helpers
+# ---------------------------------------------------------------------------
+
+
+def build_distill_batch_request(
+    patient: dict,
+    patient_id: str,
+    prompt_template: str,
+    language: str,
+    temperature: float = TEMPERATURE,
+) -> dict[str, Any]:
+    """Build one batch request dict for a patient distillation."""
+    from scripts.batch_utils import build_batch_request, split_prompt_for_caching
+
+    patient_data = format_patient_prompt(patient, language)
+    system_text, user_text = split_prompt_for_caching(prompt_template, patient_data)
+
+    return build_batch_request(
+        custom_id=patient_id,
+        model=MODEL,
+        system_text=system_text,
+        user_content=user_text,
+        max_tokens=MAX_TOKENS,
+        temperature=temperature,
+    )
+
+
+def build_distill_retry_request(
+    custom_id: str,
+    prompt_template: str,
+    patient: dict,
+    language: str,
+    response_text: str | None,
+    error_msg: str,
+) -> dict[str, Any]:
+    """Build a 3-message retry batch request for a failed distillation."""
+    from scripts.batch_utils import build_retry_batch_request, split_prompt_for_caching
+
+    patient_data = format_patient_prompt(patient, language)
+    system_text, user_text = split_prompt_for_caching(prompt_template, patient_data)
+
+    if response_text is None:
+        # API-level failure — just re-send the original request
+        from scripts.batch_utils import build_batch_request
+        return build_batch_request(
+            custom_id=custom_id,
+            model=MODEL,
+            system_text=system_text,
+            user_content=user_text,
+            max_tokens=MAX_TOKENS,
+            temperature=TEMPERATURE,
+        )
+
+    # Determine fix instruction from the error type
+    if error_msg.startswith("JSON parse error"):
+        fix_instruction = (
+            "The previous response could not be parsed as JSON. "
+            "Please respond with ONLY a valid JSON object, "
+            "no markdown, no extra text."
+        )
+    else:
+        fix_instruction = (
+            f"The previous response had validation errors:\n{error_msg}\n\n"
+            "Please fix and respond with valid JSON only."
+        )
+
+    return build_retry_batch_request(
+        custom_id=custom_id,
+        model=MODEL,
+        system_text=system_text,
+        original_user_content=user_text,
+        bad_response=response_text,
+        fix_instruction=fix_instruction,
+        max_tokens=MAX_TOKENS,
+        temperature=TEMPERATURE,
+    )
+
+
+def process_category_language_batch(
+    client: anthropic.Anthropic,
+    cat_id: str,
+    language: str,
+    patients: list[dict],
+    prompt_template: str,
+    schema: dict,
+    output_path: Path,
+    error_log_path: Path,
+    existing_ids: set[str],
+    resume: bool,
+    data_dir: Path,
+) -> dict[str, Any]:
+    """Process all patients for one category/language pair using the batch API."""
+    from scripts.batch_utils import run_batch_with_retries
+
+    total = len(patients)
+
+    # Build tasks for patients that need processing
+    tasks: list[tuple[int, dict, str]] = []
+    for idx, patient in enumerate(patients):
+        pid = build_patient_id(cat_id, language, idx)
+        if resume and pid in existing_ids:
+            continue
+        tasks.append((idx, patient, pid))
+
+    if not tasks:
+        logger.info("[%s/%s] All %d patients already processed, skipping", cat_id, language, total)
+        return {
+            "category": cat_id,
+            "language": language,
+            "total": total,
+            "success": total,
+            "failed": 0,
+            "retry_rate": 0.0,
+            "api_calls": 0,
+            "skipped": True,
+        }
+
+    # Build a lookup: patient_id -> (patient, idx) for validation and retries
+    patient_lookup: dict[str, dict] = {}
+    batch_requests: list[dict[str, Any]] = []
+    for idx, patient, pid in tasks:
+        patient_lookup[pid] = patient
+        batch_requests.append(
+            build_distill_batch_request(patient, pid, prompt_template, language)
+        )
+
+    logger.info("[%s/%s] Submitting %d requests via batch API", cat_id, language, len(batch_requests))
+
+    # Validation callback
+    def validate_fn(custom_id: str, response_text: str) -> tuple[Any | None, str | None]:
+        try:
+            label = extract_json_object(response_text)
+        except (json.JSONDecodeError, TypeError) as e:
+            return None, f"JSON parse error: {str(e)[:200]}"
+        patient = patient_lookup[custom_id]
+        validation_errors = validate_label(label, patient, schema, language)
+        if validation_errors:
+            return None, "; ".join(validation_errors[:5])
+        return label, None
+
+    # Retry builder callback
+    def build_retry_fn(custom_id: str, response_text: str | None, error_msg: str) -> dict[str, Any]:
+        patient = patient_lookup[custom_id]
+        return build_distill_retry_request(
+            custom_id, prompt_template, patient, language, response_text, error_msg,
+        )
+
+    # Run the batch pipeline with retries
+    outcome = run_batch_with_retries(
+        client=client,
+        requests=batch_requests,
+        validate_fn=validate_fn,
+        build_retry_fn=build_retry_fn,
+        description=f"distill_{cat_id}_{language}",
+        max_rounds=MAX_RETRIES,
+        checkpoint_name=f"distill_{cat_id}_{language}",
+        checkpoint_dir=data_dir,
+    )
+
+    # Write successful results to output
+    records: list[dict] = []
+    for pid, (label, rounds_used) in outcome.succeeded.items():
+        records.append({
+            "patient_id": pid,
+            "category": cat_id,
+            "language": language,
+            "patient": patient_lookup[pid],
+            "label": label,
+            "distilled_at": datetime.now(timezone.utc).isoformat(),
+            "retries": rounds_used,
+        })
+
+    if records:
+        save_jsonl(records, str(output_path))
+
+    # Log failures
+    for failure in outcome.failures:
+        log_distillation_error(
+            error_log_path,
+            failure["custom_id"],
+            failure.get("error", "unknown"),
+            failure.get("last_response"),
+        )
+
+    success = len(outcome.succeeded)
+    failed = len(outcome.failures)
+    retried = sum(1 for _, (_, rounds) in outcome.succeeded.items() if rounds > 0)
+    processed = success + failed
+    retry_rate = (retried / processed * 100) if processed > 0 else 0.0
+
+    return {
+        "category": cat_id,
+        "language": language,
+        "total": total,
+        "success": success + (total - len(tasks)),
+        "failed": failed,
+        "retry_rate": retry_rate,
+        "api_calls": outcome.total_requests_submitted,
+        "skipped": False,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -849,6 +1067,8 @@ async def main() -> None:
 
     # Dry run: show one prompt and exit
     if args.dry_run:
+        from scripts.batch_utils import split_prompt_for_caching
+
         cat_id, lang, filepath = patient_files[0]
         patients = load_patients_file(filepath)
         if not patients:
@@ -856,27 +1076,29 @@ async def main() -> None:
             sys.exit(1)
         patient_data = format_patient_prompt(patients[0], lang)
         filled = prompt_template.replace("{PATIENT_DATA}", patient_data)
+        system_text, user_text = split_prompt_for_caching(prompt_template, patient_data)
         print("=" * 80)
         print(f"DRY RUN — Category: {cat_id}, Language: {lang}")
         print(f"Patient file: {filepath} ({len(patients)} patients)")
         print(f"Template: {template_name}")
+        print(f"Mode: {'realtime' if args.realtime else 'batch'}")
         print("=" * 80)
+        print("\n--- Full prompt ---\n")
         print(filled)
+        if not args.realtime:
+            print("\n--- Batch request preview ---\n")
+            req = build_distill_batch_request(patients[0], build_patient_id(cat_id, lang, 0), prompt_template, lang)
+            print(json.dumps(req, indent=2, ensure_ascii=False)[:3000])
         print("=" * 80)
         print(f"Patient ID would be: {build_patient_id(cat_id, lang, 0)}")
         return
-
-    # Setup
-    max_concurrent = args.max_concurrent or int(os.getenv("MAX_CONCURRENT", "5"))
-    semaphore = asyncio.Semaphore(max_concurrent)
-    client = anthropic.AsyncAnthropic()
 
     # Load existing IDs per language for resume
     existing_ids_by_lang: dict[str, set[str]] = {}
     if args.resume:
         for lang in languages:
-            output_path = output_dir / f"labels_{lang}.jsonl"
-            existing_ids_by_lang[lang] = load_existing_ids(output_path)
+            op = output_dir / f"labels_{lang}.jsonl"
+            existing_ids_by_lang[lang] = load_existing_ids(op)
             if existing_ids_by_lang[lang]:
                 logger.info(
                     "Resume: found %d existing labels for %s",
@@ -887,25 +1109,51 @@ async def main() -> None:
     all_results: list[dict[str, Any]] = []
     total_patients = 0
 
-    for cat_id, lang, filepath in patient_files:
-        patients = load_patients_file(filepath)
-        if not patients:
-            logger.warning("No patients in %s, skipping", filepath)
-            continue
+    if args.realtime:
+        # ---- Real-time mode (original behavior) ----
+        max_concurrent = args.max_concurrent or int(os.getenv("MAX_CONCURRENT", "5"))
+        semaphore = asyncio.Semaphore(max_concurrent)
+        async_client = anthropic.AsyncAnthropic()
 
-        total_patients += len(patients)
-        output_path = output_dir / f"labels_{lang}.jsonl"
-        existing_ids = existing_ids_by_lang.get(lang, set())
+        for cat_id, lang, filepath in patient_files:
+            patients = load_patients_file(filepath)
+            if not patients:
+                logger.warning("No patients in %s, skipping", filepath)
+                continue
 
-        result = await process_category_language(
-            client, cat_id, lang, patients, prompt_template, schema,
-            output_path, error_log_path, semaphore, existing_ids, args.resume,
-        )
-        all_results.append(result)
+            total_patients += len(patients)
+            output_path = output_dir / f"labels_{lang}.jsonl"
+            existing_ids = existing_ids_by_lang.get(lang, set())
+
+            result = await process_category_language(
+                async_client, cat_id, lang, patients, prompt_template, schema,
+                output_path, error_log_path, semaphore, existing_ids, args.resume,
+            )
+            all_results.append(result)
+    else:
+        # ---- Batch mode (default — 50% cost savings) ----
+        sync_client = get_anthropic_client()
+
+        for cat_id, lang, filepath in patient_files:
+            patients = load_patients_file(filepath)
+            if not patients:
+                logger.warning("No patients in %s, skipping", filepath)
+                continue
+
+            total_patients += len(patients)
+            output_path = output_dir / f"labels_{lang}.jsonl"
+            existing_ids = existing_ids_by_lang.get(lang, set())
+
+            result = process_category_language_batch(
+                sync_client, cat_id, lang, patients, prompt_template, schema,
+                output_path, error_log_path, existing_ids, args.resume, data_dir,
+            )
+            all_results.append(result)
 
     # Print summary table
+    mode_label = "realtime" if args.realtime else "batch"
     print("\n" + "=" * 90)
-    print(f"DISTILLATION SUMMARY {'(dosage mode)' if args.dosage_mode else ''}")
+    print(f"DISTILLATION SUMMARY {'(dosage mode) ' if args.dosage_mode else ''}[{mode_label}]")
     print("=" * 90)
     print(
         f"{'Category':<25} {'Lang':<6} {'Total':>7} {'Success':>9} "
@@ -936,9 +1184,13 @@ async def main() -> None:
     # Cost estimate (rough: ~1500 input + ~500 output tokens per call)
     est_input_tokens = total_api_calls * 1500
     est_output_tokens = total_api_calls * 500
-    # Sonnet pricing: $3/M input, $15/M output
-    est_cost = (est_input_tokens * 3 + est_output_tokens * 15) / 1_000_000
-    print(f"Estimated cost:     ~${est_cost:.2f}")
+    if args.realtime:
+        # Sonnet pricing: $3/M input, $15/M output
+        est_cost = (est_input_tokens * 3 + est_output_tokens * 15) / 1_000_000
+    else:
+        # Batch pricing: 50% discount
+        est_cost = (est_input_tokens * 1.5 + est_output_tokens * 7.5) / 1_000_000
+    print(f"Estimated cost:     ~${est_cost:.2f} ({mode_label})")
 
     if total_failed > 0:
         print(f"\nErrors logged to: {error_log_path}")

@@ -33,8 +33,13 @@ def load_env() -> None:
 
 
 def get_anthropic_client() -> anthropic.Anthropic:
-    """Return an Anthropic client using the API key from env."""
+    """Return a synchronous Anthropic client using the API key from env."""
     return anthropic.Anthropic()
+
+
+def get_async_anthropic_client() -> anthropic.AsyncAnthropic:
+    """Return an async Anthropic client using the API key from env."""
+    return anthropic.AsyncAnthropic()
 
 
 def get_data_dir() -> Path:

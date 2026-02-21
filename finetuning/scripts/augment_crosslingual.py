@@ -4,11 +4,19 @@ Selects the highest-quality French labels and produces English translations
 of both the patient profiles and the unified labels, creating aligned pairs
 that teach the model language-invariant clinical reasoning.
 
+Supports two modes:
+- **Batch mode** (default): Two-phase batch pipeline — (1) translate FR
+  patient profiles to EN, (2) distill EN labels for translated patients.
+  Each phase uses the Anthropic Message Batches API for ~50% cost savings.
+- **Real-time mode** (``--realtime``): Uses ``client.messages.create()`` with
+  async concurrency — the original behavior.
+
 Usage:
     python -m scripts.augment_crosslingual
     python -m scripts.augment_crosslingual --count 200
     python -m scripts.augment_crosslingual --dry-run
     python -m scripts.augment_crosslingual --resume
+    python -m scripts.augment_crosslingual --realtime
 """
 
 import argparse
@@ -26,6 +34,7 @@ import anthropic
 from tqdm import tqdm
 
 from scripts.common import (
+    get_anthropic_client,
     get_data_dir,
     load_env,
     load_prompt_template,
@@ -72,7 +81,12 @@ def parse_args() -> argparse.Namespace:
         "--max-concurrent",
         type=int,
         default=None,
-        help="Max concurrent API calls (default: from env or 5)",
+        help="Max concurrent API calls (default: from env or 5; ignored in batch mode)",
+    )
+    parser.add_argument(
+        "--realtime",
+        action="store_true",
+        help="Use real-time API calls instead of the batch API (for debugging/small runs)",
     )
     return parser.parse_args()
 
@@ -97,14 +111,7 @@ def select_best_labels(
     labels: list[dict],
     count: int,
 ) -> list[dict]:
-    """Select the highest-quality French labels for cross-lingual alignment.
-
-    Selection criteria:
-    - Sort by fewest retries (better quality)
-    - At least 50 SAUV cases
-    - At least 50 per acuity level (emergent/urgent/routine)
-    - Balanced across categories
-    """
+    """Select the highest-quality French labels for cross-lingual alignment."""
     # Pre-sort by quality: fewest retries, then most pathologies
     labels_sorted = sorted(
         labels,
@@ -158,7 +165,6 @@ def select_best_labels(
     remaining = count - len(selected)
     if remaining > 0 and category_pools:
         cats = sorted(category_pools.keys())
-        per_cat = max(1, remaining // len(cats))
         cat_indices: dict[str, int] = {c: 0 for c in cats}
 
         # Round-robin fill
@@ -200,14 +206,58 @@ Input patient (French):
 
 Output the translated patient as a JSON object. Keep field names exactly as: chiefComplaint, age, sex, vitals, abcdeFindings, scores, medicalHistory, allergies, expectedESI, expectedOrientation, category."""
 
+# System portion of the translate prompt (for batch caching)
+TRANSLATE_SYSTEM_TEXT = (
+    "You are a medical translator. Translate the following French emergency "
+    "patient profile to English.\n\n"
+    "RULES:\n"
+    "- Keep all vital signs, scores, and numeric values EXACTLY as-is\n"
+    "- Translate the chief complaint, medical history, allergies, and ABCDE findings\n"
+    "- Keep the same structure and field names but in English format\n"
+    "- Output ONLY a valid JSON object with the same schema as the input\n"
+    "- Keep field names exactly as: chiefComplaint, age, sex, vitals, "
+    "abcdeFindings, scores, medicalHistory, allergies, expectedESI, "
+    "expectedOrientation, category."
+)
+
+
+def _build_translate_user_content(patient: dict) -> str:
+    """Build the user message for a translation request."""
+    patient_json = json.dumps(patient, ensure_ascii=False, indent=2)
+    return (
+        f"Input patient (French):\n```json\n{patient_json}\n```\n\n"
+        "Output the translated patient as a JSON object."
+    )
+
+
+def _fixup_translated_patient(translated: dict, original: dict) -> dict:
+    """Ensure numeric/structural fields are preserved from the original patient.
+
+    The LLM may omit or mistranslate numeric values, vitals, scores, etc.
+    We unconditionally overwrite these from the original to guarantee correctness.
+    Text fields like chiefComplaint are kept from the translation if present.
+    """
+    if not translated.get("chiefComplaint"):
+        translated["chiefComplaint"] = original.get("chiefComplaint", "")
+
+    # Preserve numeric/structural fields exactly from original
+    translated["age"] = original.get("age")
+    translated["sex"] = original.get("sex")
+    translated["vitals"] = original.get("vitals", {})
+    translated["scores"] = original.get("scores", {})
+    translated["abcdeFindings"] = original.get("abcdeFindings", {})
+    translated["expectedESI"] = original.get("expectedESI")
+    translated["expectedOrientation"] = original.get("expectedOrientation")
+    translated["category"] = original.get("category")
+    return translated
+
 
 async def translate_patient(
     client: anthropic.AsyncAnthropic,
     patient: dict,
     patient_id: str,
 ) -> dict | None:
-    """Call Claude to translate a French patient profile to English."""
-    # Build the prompt with the French patient data
+    """Call Claude to translate a French patient profile to English (real-time mode)."""
     patient_json = json.dumps(patient, ensure_ascii=False, indent=2)
     prompt = TRANSLATE_PROMPT.replace("{patient_json}", patient_json)
 
@@ -219,7 +269,7 @@ async def translate_patient(
             response = await client.messages.create(
                 model=MODEL,
                 max_tokens=MAX_TOKENS,
-                temperature=0.2,  # Low temperature for faithful translation
+                temperature=0.2,
                 messages=messages,
             )
             text = response.content[0].text
@@ -248,26 +298,7 @@ async def translate_patient(
                     continue
                 return None
 
-            # Basic sanity checks: must have chiefComplaint and vitals
-            if not translated.get("chiefComplaint"):
-                translated["chiefComplaint"] = patient.get("chiefComplaint", "")
-            if not translated.get("vitals"):
-                translated["vitals"] = patient.get("vitals", {})
-            if not translated.get("scores"):
-                translated["scores"] = patient.get("scores", {})
-            if not translated.get("abcdeFindings"):
-                translated["abcdeFindings"] = patient.get("abcdeFindings", {})
-
-            # Preserve numeric fields exactly from original
-            translated["age"] = patient.get("age")
-            translated["sex"] = patient.get("sex")
-            translated["vitals"] = patient.get("vitals", {})
-            translated["scores"] = patient.get("scores", {})
-            translated["expectedESI"] = patient.get("expectedESI")
-            translated["expectedOrientation"] = patient.get("expectedOrientation")
-            translated["category"] = patient.get("category")
-
-            return translated
+            return _fixup_translated_patient(translated, patient)
 
         except anthropic.RateLimitError:
             backoff = 2 ** (2 * attempt + 1)
@@ -297,7 +328,7 @@ async def translate_patient(
 
 
 # ---------------------------------------------------------------------------
-# Core processing: translate + distill for one patient
+# Real-time mode: translate + distill for one patient
 # ---------------------------------------------------------------------------
 
 
@@ -365,6 +396,312 @@ def _log_error(error_log_path: Path, pair_id: str, message: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Batch mode: 2-phase pipeline
+# ---------------------------------------------------------------------------
+
+
+def _save_translations_temp(
+    translations: dict[str, dict],
+    data_dir: Path,
+) -> None:
+    """Save completed translations to a temp file for crash recovery."""
+    path = data_dir / ".batch_state" / "crosslingual_translations.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(translations, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    logger.info("Saved %d translations to checkpoint", len(translations))
+
+
+def _load_translations_temp(data_dir: Path) -> dict[str, dict] | None:
+    """Load previously saved translations, or return None."""
+    path = data_dir / ".batch_state" / "crosslingual_translations.json"
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        logger.info("Loaded %d translations from checkpoint", len(data))
+        return data
+    except (json.JSONDecodeError, OSError) as e:
+        logger.warning("Failed to load translations checkpoint: %s", e)
+        return None
+
+
+def _clear_translations_temp(data_dir: Path) -> None:
+    """Remove translations temp file."""
+    path = data_dir / ".batch_state" / "crosslingual_translations.json"
+    if path.exists():
+        path.unlink()
+
+
+def run_crosslingual_batch(
+    client: anthropic.Anthropic,
+    selected: list[dict],
+    prompt_template_en: str,
+    schema: dict,
+    existing_pair_ids: set[str],
+    output_path: Path,
+    error_log_path: Path,
+    data_dir: Path,
+) -> tuple[int, int]:
+    """Run 2-phase cross-lingual batch pipeline.
+
+    Phase 1: Translate FR patient profiles to EN.
+    Phase 2: Distill EN labels for translated patients.
+
+    Returns:
+        (success, failed)
+    """
+    from scripts.batch_utils import (
+        build_batch_request,
+        build_retry_batch_request,
+        collect_results,
+        clear_batch_checkpoint,
+        load_batch_checkpoint,
+        poll_batch,
+        run_batch_with_retries,
+        save_batch_checkpoint,
+        split_prompt_for_caching,
+        submit_batch,
+    )
+
+    # Build record lookup, filtering already-processed pairs
+    record_lookup: dict[str, dict] = {}  # pair_id -> original record
+    for idx, record in enumerate(selected):
+        pair_id = f"aligned_{idx:03d}"
+        if pair_id in existing_pair_ids:
+            continue
+        record_lookup[pair_id] = record
+
+    if not record_lookup:
+        logger.info("All pairs already processed. Nothing to do.")
+        return 0, 0
+
+    # ================================================================
+    # PHASE 1: Translation batch
+    # ================================================================
+
+    # Check for completed Phase 1 checkpoint
+    translations = _load_translations_temp(data_dir)
+    translate_failed_ids: set[str] = set()
+
+    if translations is None:
+        translations = {}
+
+        # Build translation requests
+        translate_requests: list[dict[str, Any]] = []
+        for pair_id, record in record_lookup.items():
+            patient_fr = record.get("patient", {})
+            user_content = _build_translate_user_content(patient_fr)
+
+            translate_requests.append(build_batch_request(
+                custom_id=pair_id,
+                model=MODEL,
+                system_text=TRANSLATE_SYSTEM_TEXT,
+                user_content=user_content,
+                max_tokens=MAX_TOKENS,
+                temperature=0.2,
+            ))
+
+        logger.info("Phase 1: Submitting %d translation requests", len(translate_requests))
+
+        # Validate translation: just need valid JSON with chiefComplaint
+        def validate_translate(custom_id: str, response_text: str) -> tuple[Any | None, str | None]:
+            try:
+                translated = extract_json_object(response_text)
+            except (json.JSONDecodeError, TypeError) as e:
+                return None, f"JSON parse error: {str(e)[:200]}"
+
+            if not isinstance(translated, dict):
+                return None, "Response is not a JSON object"
+
+            # Fix up the translated patient
+            original = record_lookup[custom_id].get("patient", {})
+            translated = _fixup_translated_patient(translated, original)
+            return translated, None
+
+        def build_translate_retry(custom_id: str, response_text: str | None, error_msg: str) -> dict[str, Any]:
+            record = record_lookup[custom_id]
+            patient_fr = record.get("patient", {})
+            user_content = _build_translate_user_content(patient_fr)
+
+            if response_text is None:
+                return build_batch_request(
+                    custom_id=custom_id,
+                    model=MODEL,
+                    system_text=TRANSLATE_SYSTEM_TEXT,
+                    user_content=user_content,
+                    max_tokens=MAX_TOKENS,
+                    temperature=0.2,
+                )
+
+            return build_retry_batch_request(
+                custom_id=custom_id,
+                model=MODEL,
+                system_text=TRANSLATE_SYSTEM_TEXT,
+                original_user_content=user_content,
+                bad_response=response_text,
+                fix_instruction=(
+                    "The previous response could not be parsed as JSON. "
+                    "Please respond with ONLY a valid JSON object, "
+                    "no markdown, no extra text."
+                ),
+                max_tokens=MAX_TOKENS,
+                temperature=0.2,
+            )
+
+        translate_outcome = run_batch_with_retries(
+            client=client,
+            requests=translate_requests,
+            validate_fn=validate_translate,
+            build_retry_fn=build_translate_retry,
+            description="crosslingual_translate",
+            max_rounds=MAX_RETRIES,
+            checkpoint_name="crosslingual_translate",
+            checkpoint_dir=data_dir,
+        )
+
+        for pid, (patient_en, _) in translate_outcome.succeeded.items():
+            translations[pid] = patient_en
+
+        for failure in translate_outcome.failures:
+            translate_failed_ids.add(failure["custom_id"])
+            _log_error(error_log_path, failure["custom_id"], f"Translation failed: {failure.get('error')}")
+
+        # Save translations checkpoint for crash recovery before Phase 2
+        _save_translations_temp(translations, data_dir)
+
+        logger.info(
+            "Phase 1 complete: %d translated, %d failed",
+            len(translations), len(translate_failed_ids),
+        )
+
+    # ================================================================
+    # PHASE 2: English label distillation batch
+    # ================================================================
+
+    # Build distillation requests for successfully translated patients
+    # Filter translations to only include pair_ids in record_lookup (handles crash
+    # recovery where translations checkpoint may contain stale entries)
+    translations = {pid: t for pid, t in translations.items() if pid in record_lookup}
+
+    distill_requests: list[dict[str, Any]] = []
+    for pair_id, patient_en in translations.items():
+        patient_data = format_patient_prompt(patient_en, "en")
+        system_text, user_text = split_prompt_for_caching(prompt_template_en, patient_data)
+
+        distill_requests.append(build_batch_request(
+            custom_id=pair_id,
+            model=MODEL,
+            system_text=system_text,
+            user_content=user_text,
+            max_tokens=MAX_TOKENS,
+            temperature=TEMPERATURE,
+        ))
+
+    if not distill_requests:
+        logger.warning("No translations succeeded — nothing to distill.")
+        _clear_translations_temp(data_dir)
+        return 0, len(record_lookup)
+
+    logger.info("Phase 2: Submitting %d distillation requests", len(distill_requests))
+
+    def validate_distill(custom_id: str, response_text: str) -> tuple[Any | None, str | None]:
+        try:
+            label = extract_json_object(response_text)
+        except (json.JSONDecodeError, TypeError) as e:
+            return None, f"JSON parse error: {str(e)[:200]}"
+
+        patient_en = translations[custom_id]
+        validation_errors = validate_label(label, patient_en, schema, "en")
+        if validation_errors:
+            return None, "; ".join(validation_errors[:5])
+        return label, None
+
+    def build_distill_retry(custom_id: str, response_text: str | None, error_msg: str) -> dict[str, Any]:
+        patient_en = translations[custom_id]
+        patient_data = format_patient_prompt(patient_en, "en")
+        system_text, user_text = split_prompt_for_caching(prompt_template_en, patient_data)
+
+        if response_text is None:
+            return build_batch_request(
+                custom_id=custom_id,
+                model=MODEL,
+                system_text=system_text,
+                user_content=user_text,
+                max_tokens=MAX_TOKENS,
+                temperature=TEMPERATURE,
+            )
+
+        if error_msg.startswith("JSON parse error"):
+            fix_instruction = (
+                "The previous response could not be parsed as JSON. "
+                "Please respond with ONLY a valid JSON object, "
+                "no markdown, no extra text."
+            )
+        else:
+            fix_instruction = (
+                f"The previous response had validation errors:\n{error_msg}\n\n"
+                "Please fix and respond with valid JSON only."
+            )
+
+        return build_retry_batch_request(
+            custom_id=custom_id,
+            model=MODEL,
+            system_text=system_text,
+            original_user_content=user_text,
+            bad_response=response_text,
+            fix_instruction=fix_instruction,
+            max_tokens=MAX_TOKENS,
+            temperature=TEMPERATURE,
+        )
+
+    distill_outcome = run_batch_with_retries(
+        client=client,
+        requests=distill_requests,
+        validate_fn=validate_distill,
+        build_retry_fn=build_distill_retry,
+        description="crosslingual_distill",
+        max_rounds=MAX_RETRIES,
+        checkpoint_name="crosslingual_distill",
+        checkpoint_dir=data_dir,
+    )
+
+    # Assemble final aligned pairs
+    records: list[dict] = []
+    for pair_id, (label_en, _) in distill_outcome.succeeded.items():
+        record = record_lookup[pair_id]
+        records.append({
+            "pair_id": pair_id,
+            "fr": {
+                "patient": record.get("patient", {}),
+                "label": record.get("label", {}),
+            },
+            "en": {
+                "patient": translations[pair_id],
+                "label": label_en,
+            },
+        })
+
+    if records:
+        save_jsonl(records, str(output_path))
+
+    for failure in distill_outcome.failures:
+        _log_error(error_log_path, failure["custom_id"], f"Distillation failed: {failure.get('error')}")
+
+    # Clean up
+    _clear_translations_temp(data_dir)
+
+    success = len(records)
+    failed = len(translate_failed_ids) + len(distill_outcome.failures)
+
+    logger.info("Phase 2 complete: %d aligned pairs, %d total failures", success, failed)
+
+    return success, failed
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -411,7 +748,6 @@ async def main() -> None:
 
     # Load schema and English prompt template
     schema = load_unified_schema()
-    # Use the unified labels template but for English distillation
     prompt_template_en = load_prompt_template("distill_unified_labels")
 
     # Dry run: show a translation prompt and exit
@@ -426,11 +762,26 @@ async def main() -> None:
         print("DRY RUN — Cross-lingual Alignment")
         print(f"Selected {len(selected)} patients for alignment")
         print(f"SAUV cases: {orientations.get('SAUV', 0)}")
+        print(f"Mode: {'realtime' if args.realtime else 'batch'}")
         print("=" * 80)
         print("\n--- STEP 1: Translation Prompt ---\n")
         print(translate_prompt[:2000])
         print("\n--- STEP 2: English Label Prompt ---\n")
         print(label_prompt[:2000])
+
+        if not args.realtime:
+            print("\n--- Batch request preview (translation) ---\n")
+            from scripts.batch_utils import build_batch_request
+            req = build_batch_request(
+                custom_id="aligned_000",
+                model=MODEL,
+                system_text=TRANSLATE_SYSTEM_TEXT,
+                user_content=_build_translate_user_content(record.get("patient", {})),
+                max_tokens=MAX_TOKENS,
+                temperature=0.2,
+            )
+            print(json.dumps(req, indent=2, ensure_ascii=False)[:3000])
+
         print("=" * 80)
         return
 
@@ -441,78 +792,94 @@ async def main() -> None:
         existing_pair_ids = {r.get("pair_id") for r in existing_records if r.get("pair_id")}
         logger.info("Resume: found %d existing aligned pairs", len(existing_pair_ids))
 
-    # Setup concurrency
-    max_concurrent = args.max_concurrent or int(os.getenv("MAX_CONCURRENT", "5"))
-    semaphore = asyncio.Semaphore(max_concurrent)
-    client = anthropic.AsyncAnthropic()
+    if args.realtime:
+        # ---- Real-time mode (original behavior) ----
+        max_concurrent = args.max_concurrent or int(os.getenv("MAX_CONCURRENT", "5"))
+        semaphore = asyncio.Semaphore(max_concurrent)
+        async_client = anthropic.AsyncAnthropic()
 
-    # Build tasks (skip already-processed pairs when resuming)
-    tasks: list[tuple[int, dict]] = []
-    for idx, record in enumerate(selected):
-        pair_id = f"aligned_{idx:03d}"
-        if args.resume and pair_id in existing_pair_ids:
-            continue
-        tasks.append((idx, record))
+        # Build tasks (skip already-processed pairs when resuming)
+        tasks: list[tuple[int, dict]] = []
+        for idx, record in enumerate(selected):
+            pair_id = f"aligned_{idx:03d}"
+            if args.resume and pair_id in existing_pair_ids:
+                continue
+            tasks.append((idx, record))
 
-    if not tasks:
-        logger.info("All %d pairs already processed. Nothing to do.", len(selected))
-        return
+        if not tasks:
+            logger.info("All %d pairs already processed. Nothing to do.", len(selected))
+            return
 
-    logger.info(
-        "Processing %d pairs (%d skipped from resume)",
-        len(tasks), len(selected) - len(tasks),
-    )
+        logger.info(
+            "Processing %d pairs (%d skipped from resume)",
+            len(tasks), len(selected) - len(tasks),
+        )
 
-    # Process in batches
-    batch_size = 10
-    success = 0
-    failed = 0
-    pbar = tqdm(total=len(tasks), desc="cross-lingual", unit="pair")
+        # Process in batches
+        batch_size = 10
+        success = 0
+        failed = 0
+        pbar = tqdm(total=len(tasks), desc="cross-lingual", unit="pair")
 
-    for batch_start in range(0, len(tasks), batch_size):
-        batch = tasks[batch_start : batch_start + batch_size]
-        coros = [
-            process_aligned_pair(
-                client, record, idx, prompt_template_en, schema,
-                semaphore, error_log_path,
-            )
-            for idx, record in batch
-        ]
+        for batch_start in range(0, len(tasks), batch_size):
+            batch = tasks[batch_start : batch_start + batch_size]
+            coros = [
+                process_aligned_pair(
+                    async_client, record, idx, prompt_template_en, schema,
+                    semaphore, error_log_path,
+                )
+                for idx, record in batch
+            ]
 
-        results = await asyncio.gather(*coros)
+            results = await asyncio.gather(*coros)
 
-        batch_records: list[dict] = []
-        for result in results:
-            if result is not None:
-                batch_records.append(result)
-                success += 1
-            else:
-                failed += 1
+            batch_records: list[dict] = []
+            for result in results:
+                if result is not None:
+                    batch_records.append(result)
+                    success += 1
+                else:
+                    failed += 1
 
-        if batch_records:
-            save_jsonl(batch_records, str(output_path))
+            if batch_records:
+                save_jsonl(batch_records, str(output_path))
 
-        pbar.update(len(batch))
+            pbar.update(len(batch))
 
-    pbar.close()
+        pbar.close()
+
+        total_calls = success * 2 + failed
+        est_input_tokens = total_calls * 1500
+        est_output_tokens = total_calls * 500
+        est_cost = (est_input_tokens * 3 + est_output_tokens * 15) / 1_000_000
+
+    else:
+        # ---- Batch mode (default — 50% cost savings) ----
+        sync_client = get_anthropic_client()
+
+        success, failed = run_crosslingual_batch(
+            sync_client, selected, prompt_template_en, schema,
+            existing_pair_ids, output_path, error_log_path, data_dir,
+        )
+
+        total_calls = success * 2 + failed
+        est_input_tokens = total_calls * 1500
+        est_output_tokens = total_calls * 500
+        est_cost = (est_input_tokens * 1.5 + est_output_tokens * 7.5) / 1_000_000
 
     # Summary
+    mode_label = "realtime" if args.realtime else "batch"
     print("\n" + "=" * 80)
-    print("CROSS-LINGUAL ALIGNMENT SUMMARY")
+    print(f"CROSS-LINGUAL ALIGNMENT SUMMARY [{mode_label}]")
     print("=" * 80)
     print(f"Selected patients:     {len(selected)}")
-    print(f"Processed:             {len(tasks)}")
+    print(f"Processed:             {len(selected) - len(existing_pair_ids)}")
     print(f"Success:               {success}")
     print(f"Failed:                {failed}")
     print(f"Output:                {output_path}")
 
-    # Cost estimate: ~2 API calls per pair (translate + label)
-    total_calls = success * 2 + failed
-    est_input_tokens = total_calls * 1500
-    est_output_tokens = total_calls * 500
-    est_cost = (est_input_tokens * 3 + est_output_tokens * 15) / 1_000_000
     print(f"Estimated API calls:   {total_calls}")
-    print(f"Estimated cost:        ~${est_cost:.2f}")
+    print(f"Estimated cost:        ~${est_cost:.2f} ({mode_label})")
 
     if failed > 0:
         print(f"\nErrors logged to: {error_log_path}")

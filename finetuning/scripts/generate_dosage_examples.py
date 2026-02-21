@@ -4,11 +4,19 @@ Generates 500 training examples where the distillation prompt emphasizes
 correct posologies. Selects patients where dosage accuracy matters most:
 ESI 1-2, sepsis/infectious, pediatric, and toxicology cases.
 
+Supports two modes:
+- **Batch mode** (default): Uses the Anthropic Message Batches API for ~50%
+  cost savings.  Schema failures and dosage-insufficient results are merged
+  into a single retry batch.
+- **Real-time mode** (``--realtime``): Uses ``client.messages.create()`` with
+  async concurrency — the original behavior.
+
 Usage:
     python -m scripts.generate_dosage_examples
     python -m scripts.generate_dosage_examples --count 200
     python -m scripts.generate_dosage_examples --dry-run
     python -m scripts.generate_dosage_examples --resume
+    python -m scripts.generate_dosage_examples --realtime
 """
 
 import argparse
@@ -26,6 +34,7 @@ import anthropic
 from tqdm import tqdm
 
 from scripts.common import (
+    get_anthropic_client,
     get_data_dir,
     load_env,
     load_prompt_template,
@@ -37,6 +46,7 @@ from scripts.common import (
 )
 from scripts.distill_labels import (
     distill_label,
+    extract_json_object,
     format_patient_prompt,
     load_patients_file,
     validate_label,
@@ -98,7 +108,12 @@ def parse_args() -> argparse.Namespace:
         "--max-concurrent",
         type=int,
         default=None,
-        help="Max concurrent API calls (default: from env or 5)",
+        help="Max concurrent API calls (default: from env or 5; ignored in batch mode)",
+    )
+    parser.add_argument(
+        "--realtime",
+        action="store_true",
+        help="Use real-time API calls instead of the batch API (for debugging/small runs)",
     )
     return parser.parse_args()
 
@@ -128,15 +143,7 @@ def select_dosage_patients(
     all_patients: list[dict],
     count: int,
 ) -> list[dict]:
-    """Select patients where dosage accuracy matters most.
-
-    Priority pools:
-    1. ESI 1-2 patients (emergency drugs)
-    2. Sepsis/infectious cases (antibiotics with dosages)
-    3. Pediatric cases (weight-adjusted dosing)
-    4. Toxicology cases (antidote dosages)
-    5. At least 100 pediatric patients
-    """
+    """Select patients where dosage accuracy matters most."""
     # Build priority pools
     esi_1_2: list[dict] = []
     sepsis: list[dict] = []
@@ -260,7 +267,7 @@ def count_dosage_interventions(label: dict) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Core processing: distill with dosage emphasis + dosage validation
+# Real-time mode: distill with dosage emphasis + dosage validation
 # ---------------------------------------------------------------------------
 
 
@@ -322,8 +329,6 @@ async def _retry_for_dosages(
     patient_id: str,
 ) -> dict | None:
     """Retry label generation with explicit dosage instructions."""
-    from scripts.distill_labels import extract_json_object
-
     patient_data = format_patient_prompt(patient, language)
     original_prompt = prompt_template.replace("{PATIENT_DATA}", patient_data)
     previous_json = json.dumps(previous_label, ensure_ascii=False, indent=2)
@@ -405,6 +410,298 @@ def load_all_patients(patients_dir: Path) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Batch mode helpers
+# ---------------------------------------------------------------------------
+
+
+def run_dosage_batch(
+    client: anthropic.Anthropic,
+    selected: list[dict],
+    prompt_template: str,
+    schema: dict,
+    existing_patient_ids: set[str],
+    output_path: Path,
+    error_log_path: Path,
+    data_dir: Path,
+) -> tuple[int, int, int]:
+    """Run dosage-focused distillation via batch API with dosage-aware retries.
+
+    The retry logic merges two kinds of failures into a single retry batch:
+    - Schema/validation failures -> standard retry (3-message with error feedback)
+    - Dosage-insufficient -> dosage retry (3-message with DOSAGE_RETRY_INSTRUCTION)
+
+    Returns:
+        (success, failed, total_dosage_hits)
+    """
+    from scripts.batch_utils import (
+        BatchOutcome,
+        build_batch_request,
+        build_retry_batch_request,
+        collect_results,
+        poll_batch,
+        save_batch_checkpoint,
+        load_batch_checkpoint,
+        clear_batch_checkpoint,
+        split_prompt_for_caching,
+        submit_batch,
+    )
+
+    # Build initial batch requests
+    patient_lookup: dict[str, tuple[dict, str]] = {}  # patient_id -> (patient, language)
+    batch_requests: list[dict[str, Any]] = []
+
+    for idx, patient in enumerate(selected):
+        category = patient.get("category", "unknown")
+        language = patient.get("_language", "fr")
+        patient_id = f"dosage_{category}_{language}_{idx:03d}"
+
+        if patient_id in existing_patient_ids:
+            continue
+
+        patient_lookup[patient_id] = (patient, language)
+        patient_data = format_patient_prompt(patient, language)
+        system_text, user_text = split_prompt_for_caching(prompt_template, patient_data)
+
+        batch_requests.append(build_batch_request(
+            custom_id=patient_id,
+            model=MODEL,
+            system_text=system_text,
+            user_content=user_text,
+            max_tokens=MAX_TOKENS,
+            temperature=0.3,
+        ))
+
+    if not batch_requests:
+        logger.info("All patients already processed. Nothing to do.")
+        return 0, 0, 0
+
+    logger.info("Submitting %d dosage requests via batch API", len(batch_requests))
+
+    # ---- Phase 1: Initial batch ----
+    ckpt = load_batch_checkpoint("dosage_r0", data_dir)
+    if ckpt:
+        batch_id = ckpt["batch_id"]
+        logger.info("Resuming from checkpoint: batch %s", batch_id[:12])
+    else:
+        batch_id = submit_batch(client, batch_requests, "dosage round 0")
+        id_map = {r["custom_id"]: True for r in batch_requests}
+        save_batch_checkpoint(batch_id, 0, id_map, "dosage_r0", data_dir)
+
+    poll_batch(client, batch_id)
+    results = collect_results(client, batch_id)
+    clear_batch_checkpoint("dosage_r0", data_dir)
+
+    # Triage results: validate schema + check dosage counts
+    succeeded: dict[str, tuple[dict, int]] = {}  # patient_id -> (label, dosage_count)
+    schema_retry: list[str] = []  # patient_ids needing schema retry
+    dosage_retry: list[str] = []  # patient_ids needing dosage retry
+    schema_retry_data: dict[str, tuple[str | None, str]] = {}  # pid -> (response_text, error)
+    dosage_retry_labels: dict[str, dict] = {}  # pid -> parsed label (needs more dosages)
+    final_failures: list[dict[str, Any]] = []
+
+    for req in batch_requests:
+        pid = req["custom_id"]
+        result = results.get(pid)
+
+        if result is None or result.status != "succeeded":
+            error_msg = result.error if result else "no result returned"
+            schema_retry.append(pid)
+            schema_retry_data[pid] = (None, error_msg)
+            continue
+
+        # Try parsing
+        try:
+            label = extract_json_object(result.response_text)
+        except (json.JSONDecodeError, TypeError) as e:
+            schema_retry.append(pid)
+            schema_retry_data[pid] = (result.response_text, f"JSON parse error: {str(e)[:200]}")
+            continue
+
+        # Validate
+        patient, language = patient_lookup[pid]
+        validation_errors = validate_label(label, patient, schema, language)
+        if validation_errors:
+            schema_retry.append(pid)
+            schema_retry_data[pid] = (result.response_text, "; ".join(validation_errors[:5]))
+            continue
+
+        # Check dosage count
+        dosage_count = count_dosage_interventions(label)
+        if dosage_count < MIN_DOSAGE_INTERVENTIONS:
+            dosage_retry.append(pid)
+            dosage_retry_labels[pid] = label
+        else:
+            succeeded[pid] = (label, dosage_count)
+
+    logger.info(
+        "Phase 1: succeeded=%d, schema_retry=%d, dosage_retry=%d",
+        len(succeeded), len(schema_retry), len(dosage_retry),
+    )
+
+    # ---- Phase 2: Merged retry batch (schema failures + dosage-insufficient) ----
+    retry_requests: list[dict[str, Any]] = []
+
+    for pid in schema_retry:
+        patient, language = patient_lookup[pid]
+        patient_data = format_patient_prompt(patient, language)
+        system_text, user_text = split_prompt_for_caching(prompt_template, patient_data)
+        response_text, error_msg = schema_retry_data[pid]
+
+        if response_text is None:
+            # API-level failure — resend original
+            retry_requests.append(build_batch_request(
+                custom_id=pid,
+                model=MODEL,
+                system_text=system_text,
+                user_content=user_text,
+                max_tokens=MAX_TOKENS,
+                temperature=0.3,
+            ))
+        else:
+            if (error_msg or "").startswith("JSON parse error"):
+                fix_instruction = (
+                    "The previous response could not be parsed as JSON. "
+                    "Please respond with ONLY a valid JSON object, "
+                    "no markdown, no extra text."
+                )
+            else:
+                fix_instruction = (
+                    f"The previous response had validation errors:\n{error_msg}\n\n"
+                    "Please fix and respond with valid JSON only."
+                )
+            retry_requests.append(build_retry_batch_request(
+                custom_id=pid,
+                model=MODEL,
+                system_text=system_text,
+                original_user_content=user_text,
+                bad_response=response_text,
+                fix_instruction=fix_instruction,
+                max_tokens=MAX_TOKENS,
+                temperature=0.3,
+            ))
+
+    for pid in dosage_retry:
+        patient, language = patient_lookup[pid]
+        patient_data = format_patient_prompt(patient, language)
+        system_text, user_text = split_prompt_for_caching(prompt_template, patient_data)
+        previous_label = dosage_retry_labels[pid]
+        previous_json = json.dumps(previous_label, ensure_ascii=False, indent=2)
+
+        retry_requests.append(build_retry_batch_request(
+            custom_id=pid,
+            model=MODEL,
+            system_text=system_text,
+            original_user_content=user_text,
+            bad_response=previous_json,
+            fix_instruction=DOSAGE_RETRY_INSTRUCTION,
+            max_tokens=MAX_TOKENS,
+            temperature=0.3,
+        ))
+
+    if retry_requests:
+        logger.info("Phase 2: submitting %d retry requests", len(retry_requests))
+
+        ckpt = load_batch_checkpoint("dosage_r1", data_dir)
+        if ckpt:
+            batch_id_r1 = ckpt["batch_id"]
+        else:
+            batch_id_r1 = submit_batch(client, retry_requests, "dosage round 1")
+            id_map = {r["custom_id"]: True for r in retry_requests}
+            save_batch_checkpoint(batch_id_r1, 1, id_map, "dosage_r1", data_dir)
+
+        poll_batch(client, batch_id_r1)
+        retry_results = collect_results(client, batch_id_r1)
+        clear_batch_checkpoint("dosage_r1", data_dir)
+
+        for req in retry_requests:
+            pid = req["custom_id"]
+            result = retry_results.get(pid)
+
+            if result is None or result.status != "succeeded":
+                # For dosage retries that failed at API level, keep original label if we have one
+                if pid in dosage_retry_labels:
+                    original_label = dosage_retry_labels[pid]
+                    dosage_count = count_dosage_interventions(original_label)
+                    succeeded[pid] = (original_label, dosage_count)
+                else:
+                    final_failures.append({
+                        "custom_id": pid,
+                        "error": result.error if result else "no result",
+                        "last_response": None,
+                    })
+                continue
+
+            try:
+                label = extract_json_object(result.response_text)
+            except (json.JSONDecodeError, TypeError) as e:
+                if pid in dosage_retry_labels:
+                    original_label = dosage_retry_labels[pid]
+                    dosage_count = count_dosage_interventions(original_label)
+                    succeeded[pid] = (original_label, dosage_count)
+                else:
+                    final_failures.append({
+                        "custom_id": pid,
+                        "error": f"JSON parse error on retry: {str(e)[:200]}",
+                        "last_response": (result.response_text or "")[:500],
+                    })
+                continue
+
+            patient, language = patient_lookup[pid]
+            validation_errors = validate_label(label, patient, schema, language)
+            if validation_errors:
+                if pid in dosage_retry_labels:
+                    original_label = dosage_retry_labels[pid]
+                    dosage_count = count_dosage_interventions(original_label)
+                    succeeded[pid] = (original_label, dosage_count)
+                else:
+                    final_failures.append({
+                        "custom_id": pid,
+                        "error": "; ".join(validation_errors[:5]),
+                        "last_response": (result.response_text or "")[:500],
+                    })
+                continue
+
+            dosage_count = count_dosage_interventions(label)
+
+            # For dosage retries, only use new label if it has more dosages
+            if pid in dosage_retry_labels:
+                original_count = count_dosage_interventions(dosage_retry_labels[pid])
+                if dosage_count >= original_count:
+                    succeeded[pid] = (label, dosage_count)
+                else:
+                    succeeded[pid] = (dosage_retry_labels[pid], original_count)
+            else:
+                succeeded[pid] = (label, dosage_count)
+
+    # Dosage retry patients that we didn't retry (shouldn't happen) or weren't retried
+    for pid in dosage_retry:
+        if pid not in succeeded:
+            succeeded[pid] = (dosage_retry_labels[pid], count_dosage_interventions(dosage_retry_labels[pid]))
+
+    # Write output
+    records: list[dict] = []
+    total_dosage_hits = 0
+    for pid, (label, dosage_count) in succeeded.items():
+        patient, _ = patient_lookup[pid]
+        records.append({
+            "patient_id": pid,
+            "patient": patient,
+            "label": label,
+            "dosage_mode": True,
+            "dosage_interventions_count": dosage_count,
+        })
+        total_dosage_hits += dosage_count
+
+    if records:
+        save_jsonl(records, str(output_path))
+
+    for failure in final_failures:
+        _log_error(error_log_path, failure["custom_id"], failure.get("error", "unknown"))
+
+    return len(succeeded), len(final_failures), total_dosage_hits
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -456,9 +753,25 @@ async def main() -> None:
         print(f"Selected {len(selected)} patients")
         print(f"Pediatric: {peds_count}")
         print(f"Categories: {dict(categories)}")
+        print(f"Mode: {'realtime' if args.realtime else 'batch'}")
         print("=" * 80)
         print(f"\n--- Dosage Prompt (patient: {patient.get('chiefComplaint', 'N/A')}) ---\n")
         print(filled)
+
+        if not args.realtime:
+            print("\n--- Batch request preview ---\n")
+            from scripts.batch_utils import build_batch_request, split_prompt_for_caching
+            system_text, user_text = split_prompt_for_caching(prompt_template, patient_data)
+            req = build_batch_request(
+                custom_id="dosage_test_fr_000",
+                model=MODEL,
+                system_text=system_text,
+                user_content=user_text,
+                max_tokens=MAX_TOKENS,
+                temperature=0.3,
+            )
+            print(json.dumps(req, indent=2, ensure_ascii=False)[:3000])
+
         print("=" * 80)
         return
 
@@ -471,85 +784,101 @@ async def main() -> None:
         }
         logger.info("Resume: found %d existing dosage examples", len(existing_patient_ids))
 
-    # Setup concurrency
-    max_concurrent = args.max_concurrent or int(os.getenv("MAX_CONCURRENT", "5"))
-    semaphore = asyncio.Semaphore(max_concurrent)
-    client = anthropic.AsyncAnthropic()
+    if args.realtime:
+        # ---- Real-time mode (original behavior) ----
+        max_concurrent = args.max_concurrent or int(os.getenv("MAX_CONCURRENT", "5"))
+        semaphore = asyncio.Semaphore(max_concurrent)
+        client = anthropic.AsyncAnthropic()
 
-    # Build tasks with stable IDs
-    tasks: list[tuple[str, dict, str]] = []
-    for idx, patient in enumerate(selected):
-        category = patient.get("category", "unknown")
-        language = patient.get("_language", "fr")
-        patient_id = f"dosage_{category}_{language}_{idx:03d}"
+        # Build tasks with stable IDs
+        tasks: list[tuple[str, dict, str]] = []
+        for idx, patient in enumerate(selected):
+            category = patient.get("category", "unknown")
+            language = patient.get("_language", "fr")
+            patient_id = f"dosage_{category}_{language}_{idx:03d}"
 
-        if args.resume and patient_id in existing_patient_ids:
-            continue
-        tasks.append((patient_id, patient, language))
+            if args.resume and patient_id in existing_patient_ids:
+                continue
+            tasks.append((patient_id, patient, language))
 
-    if not tasks:
-        logger.info("All patients already processed. Nothing to do.")
-        return
+        if not tasks:
+            logger.info("All patients already processed. Nothing to do.")
+            return
 
-    logger.info(
-        "Processing %d patients (%d skipped from resume)",
-        len(tasks), len(selected) - len(tasks),
-    )
+        logger.info(
+            "Processing %d patients (%d skipped from resume)",
+            len(tasks), len(selected) - len(tasks),
+        )
 
-    # Process in batches
-    batch_size = 10
-    success = 0
-    failed = 0
-    total_dosage_hits = 0
-    pbar = tqdm(total=len(tasks), desc="dosage", unit="pt")
+        # Process in batches
+        batch_size = 10
+        success = 0
+        failed = 0
+        total_dosage_hits = 0
+        pbar = tqdm(total=len(tasks), desc="dosage", unit="pt")
 
-    for batch_start in range(0, len(tasks), batch_size):
-        batch = tasks[batch_start : batch_start + batch_size]
-        coros = [
-            process_dosage_patient(
-                client, patient, patient_id, prompt_template, schema,
-                language, semaphore, error_log_path,
-            )
-            for patient_id, patient, language in batch
-        ]
+        for batch_start in range(0, len(tasks), batch_size):
+            batch = tasks[batch_start : batch_start + batch_size]
+            coros = [
+                process_dosage_patient(
+                    client, patient, patient_id, prompt_template, schema,
+                    language, semaphore, error_log_path,
+                )
+                for patient_id, patient, language in batch
+            ]
 
-        results = await asyncio.gather(*coros)
+            results = await asyncio.gather(*coros)
 
-        batch_records: list[dict] = []
-        for result in results:
-            if result is not None:
-                batch_records.append(result)
-                success += 1
-                total_dosage_hits += result.get("dosage_interventions_count", 0)
-            else:
-                failed += 1
+            batch_records: list[dict] = []
+            for result in results:
+                if result is not None:
+                    batch_records.append(result)
+                    success += 1
+                    total_dosage_hits += result.get("dosage_interventions_count", 0)
+                else:
+                    failed += 1
 
-        if batch_records:
-            save_jsonl(batch_records, str(output_path))
+            if batch_records:
+                save_jsonl(batch_records, str(output_path))
 
-        pbar.update(len(batch))
+            pbar.update(len(batch))
 
-    pbar.close()
+        pbar.close()
+
+        total_calls = int(success * 1.5) + failed
+        est_input_tokens = total_calls * 1800
+        est_output_tokens = total_calls * 600
+        est_cost = (est_input_tokens * 3 + est_output_tokens * 15) / 1_000_000
+
+    else:
+        # ---- Batch mode (default — 50% cost savings) ----
+        sync_client = get_anthropic_client()
+
+        success, failed, total_dosage_hits = run_dosage_batch(
+            sync_client, selected, prompt_template, schema,
+            existing_patient_ids, output_path, error_log_path, data_dir,
+        )
+
+        total_calls = int(success * 1.5) + failed
+        est_input_tokens = total_calls * 1800
+        est_output_tokens = total_calls * 600
+        est_cost = (est_input_tokens * 1.5 + est_output_tokens * 7.5) / 1_000_000
 
     # Summary
+    mode_label = "realtime" if args.realtime else "batch"
     avg_dosage = total_dosage_hits / max(success, 1)
     print("\n" + "=" * 80)
-    print("DOSAGE-FOCUSED EXAMPLES SUMMARY")
+    print(f"DOSAGE-FOCUSED EXAMPLES SUMMARY [{mode_label}]")
     print("=" * 80)
     print(f"Selected patients:         {len(selected)}")
-    print(f"Processed:                 {len(tasks)}")
+    print(f"Processed:                 {len(selected) - len(existing_patient_ids)}")
     print(f"Success:                   {success}")
     print(f"Failed:                    {failed}")
     print(f"Avg dosage interventions:  {avg_dosage:.1f}")
     print(f"Output:                    {output_path}")
 
-    # Cost estimate: ~1.5 API calls per patient (dosage retries)
-    total_calls = int(success * 1.5) + failed
-    est_input_tokens = total_calls * 1800  # Dosage prompts are longer
-    est_output_tokens = total_calls * 600
-    est_cost = (est_input_tokens * 3 + est_output_tokens * 15) / 1_000_000
     print(f"Estimated API calls:       {total_calls}")
-    print(f"Estimated cost:            ~${est_cost:.2f}")
+    print(f"Estimated cost:            ~${est_cost:.2f} ({mode_label})")
 
     if failed > 0:
         print(f"\nErrors logged to: {error_log_path}")
