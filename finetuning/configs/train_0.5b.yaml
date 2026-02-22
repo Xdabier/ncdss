@@ -1,0 +1,31 @@
+# NCDSS Fine-Tuning Configuration — Apollo2-0.5B (Primary)
+#
+# Target hardware: RTX 3050 Laptop GPU (4GB VRAM)
+# Training method: QLoRA (4-bit quantized base + LoRA adapters)
+# Estimated VRAM usage: ~3.4 GB
+# Estimated training time: 2-3 hours (6 epochs, ~6,460 examples)
+#
+# Usage:
+#   python -m scripts.train --config configs/train_0.5b.yaml
+#   python -m scripts.train --config configs/train_0.5b.yaml --dry-run
+#   python -m scripts.train --config configs/train_0.5b.yaml --export-gguf
+
+# Model
+model_name: "FreedomIntelligence/Apollo2-0.5B"
+
+# Training hyperparameters
+num_train_epochs: 6
+per_device_train_batch_size: 2       # 4GB VRAM constraint
+gradient_accumulation_steps: 8       # Effective batch size = 16
+learning_rate: 2.0e-4                # Lower for medical pre-trained model
+max_seq_length: 2048
+
+# LoRA configuration
+lora_rank: 64                        # High rank for maximum adapter capacity
+# lora_alpha is auto-computed as 2 * lora_rank = 128
+# lora_dropout: 0.05 (hardcoded in train.py)
+# target_modules: q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj
+
+# Output
+output_dir: "./ncdss-apollo-0.5B"
+gguf_output: "ncdss-apollo-0.5B-v1-Q8_0.gguf"
