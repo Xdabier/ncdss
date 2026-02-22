@@ -4,3 +4,9 @@ jsonschema>=4.20
 tqdm>=4.66
 pandas>=2.1
 python-dotenv>=1.0
+
+# Evaluation dependencies (evaluate_model.py)
+# For GPU support: CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python
+llama-cpp-python>=0.2.0
+Levenshtein>=0.25
+unidecode>=1.3
