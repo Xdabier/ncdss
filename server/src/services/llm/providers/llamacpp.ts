@@ -99,6 +99,7 @@ export class LlamaCppProvider implements LLMProvider {
   private enableThinking: boolean;
   private initialized: boolean = false;
   private initPromise: Promise<void> | null = null;
+  private isFineTuned: boolean = false;
 
   constructor() {
     this.modelsDir = process.env.LLAMA_MODELS_DIR || path.join(process.cwd(), 'models');
@@ -135,6 +136,12 @@ export class LlamaCppProvider implements LLMProvider {
 
       // Resolve model path
       let resolvedPath = this.modelPath;
+
+      // LLAMA_MODEL_FILE: resolve a filename against the models directory
+      if (!resolvedPath && process.env.LLAMA_MODEL_FILE) {
+        resolvedPath = path.join(this.modelsDir, process.env.LLAMA_MODEL_FILE);
+      }
+
       if (!resolvedPath) {
         // Search directories in priority order:
         // 1. Env-configured or cwd-based modelsDir
@@ -167,10 +174,24 @@ export class LlamaCppProvider implements LLMProvider {
       console.log(`[LlamaCpp] Loading model: ${resolvedPath}`);
       this.resolvedModelPath = resolvedPath;
 
-      // Load model with GPU auto-configuration
+      // Detect fine-tuned model by filename convention
+      this.isFineTuned = resolvedPath.includes('ncdss-apollo')
+        || resolvedPath.includes('ncdss-medical')
+        || resolvedPath.includes('finetuned');
+      if (this.isFineTuned) {
+        console.log('[LlamaCpp] Fine-tuned model detected — using optimized prompt and parameters');
+      }
+
+      // Resolve GPU layers from env or auto-detect
+      const gpuLayersEnv = process.env.LLAMA_GPU_LAYERS;
+      const gpuLayers: number | 'auto' = gpuLayersEnv !== undefined
+        ? (gpuLayersEnv === '-1' ? 'auto' : parseInt(gpuLayersEnv, 10))
+        : 'auto';
+
+      // Load model with GPU configuration
       this.model = await this.llama.loadModel({
         modelPath: resolvedPath,
-        gpuLayers: 'auto', // Automatically use GPU layers based on VRAM
+        gpuLayers,
         onLoadProgress: (progress: number) => {
           if (progress === 1) {
             console.log('[LlamaCpp] Model loaded successfully');
@@ -641,6 +662,44 @@ Reponds UNIQUEMENT avec un objet JSON valide.`;
   }
 
   /**
+   * Build compact prompt for fine-tuned Apollo2-0.5B model.
+   * No instructions, no JSON example, no thinking prefix — just raw patient data.
+   * The model learned the task from training examples.
+   */
+  private buildUnifiedPromptFinetuned(context: UnifiedAnalysisContext): string {
+    const sex = context.sex === 'MALE' ? 'Homme' : context.sex === 'FEMALE' ? 'Femme' : context.sex;
+
+    const vitalsLines: string[] = [];
+    vitalsLines.push(`- T: ${context.vitals.temperature ?? 'NM'} °C`);
+    vitalsLines.push(`- FC: ${context.vitals.heartRate ?? 'NM'} bpm`);
+    vitalsLines.push(`- FR: ${context.vitals.respiratoryRate ?? 'NM'} /min`);
+    vitalsLines.push(`- TA: ${context.vitals.bloodPressure || 'NM'}`);
+    vitalsLines.push(`- SpO2: ${context.vitals.oxygenSaturation ?? 'NM'} %`);
+    if (context.vitals.painLevel !== undefined && context.vitals.painLevel !== null) {
+      vitalsLines.push(`- EVA: ${context.vitals.painLevel}/10`);
+    }
+
+    const scoresText = [
+      `- NEWS: ${context.scores.news ?? 'NC'}`,
+      `- GCS: ${context.scores.gcs ?? 'NC'}/15`,
+      `- qSOFA: ${context.scores.qsofa ?? 'NC'}/3`
+    ].join('\n');
+
+    const abcdeText = this.serializeAbcdeFindings(context.abcdeFindings);
+
+    let prompt = `PATIENT:\n- Age: ${context.age} ans\n- Sexe: ${sex}\n- Motif: ${context.chiefComplaint}\n\nCONSTANTES:\n${vitalsLines.join('\n')}\n\nSCORES:\n${scoresText}\n\nABCDE:\n${abcdeText}`;
+
+    if (context.medicalHistory?.length) {
+      prompt += `\n\nATCD: ${context.medicalHistory.join(', ')}`;
+    }
+    if (context.allergies) {
+      prompt += `\nALLERGIES: ${context.allergies}`;
+    }
+
+    return prompt;
+  }
+
+  /**
    * Serialize ABCDE findings from Record objects into French clinical descriptions
    */
   private serializeAbcdeFindings(findings: UnifiedAnalysisContext['abcdeFindings']): string {
@@ -813,22 +872,31 @@ Reponds UNIQUEMENT avec un objet JSON valide.`;
     }
 
     try {
-      const prompt = this.buildUnifiedPrompt(context);
+      const prompt = this.isFineTuned
+        ? this.buildUnifiedPromptFinetuned(context)
+        : this.buildUnifiedPrompt(context);
       const grammar = this.unifiedResponseGrammar;
 
+      const contextSize = process.env.LLAMA_CONTEXT_SIZE
+        ? parseInt(process.env.LLAMA_CONTEXT_SIZE, 10)
+        : (this.isFineTuned ? 2048 : 4096);
+
       const ctx = await this.model!.createContext({
-        contextSize: 4096
+        contextSize
       });
 
       const session = new this.LlamaChatSession!({
-        contextSequence: ctx.getSequence()
+        contextSequence: ctx.getSequence(),
+        ...(this.isFineTuned
+          ? { systemPrompt: 'Tu es un assistant medical d\'urgence experimente.' }
+          : {})
       });
 
       let fullResponse = '';
 
       await session.prompt(prompt, {
-        maxTokens: 2048,
-        temperature: 0.3,
+        maxTokens: this.isFineTuned ? 800 : 2048,
+        temperature: this.isFineTuned ? 0.1 : 0.3,
         ...(grammar ? { grammar } : {}),
         onTextChunk: (chunk: string) => {
           fullResponse += chunk;
@@ -883,15 +951,24 @@ Reponds UNIQUEMENT avec un objet JSON valide.`;
     }
 
     try {
-      const prompt = this.buildUnifiedPrompt(context);
+      const prompt = this.isFineTuned
+        ? this.buildUnifiedPromptFinetuned(context)
+        : this.buildUnifiedPrompt(context);
       const grammar = this.unifiedResponseGrammar;
 
+      const contextSize = process.env.LLAMA_CONTEXT_SIZE
+        ? parseInt(process.env.LLAMA_CONTEXT_SIZE, 10)
+        : (this.isFineTuned ? 2048 : 4096);
+
       const ctx = await this.model!.createContext({
-        contextSize: 4096
+        contextSize
       });
 
       const session = new this.LlamaChatSession!({
-        contextSequence: ctx.getSequence()
+        contextSequence: ctx.getSequence(),
+        ...(this.isFineTuned
+          ? { systemPrompt: 'Tu es un assistant medical d\'urgence experimente.' }
+          : {})
       });
 
       let fullResponse = '';
@@ -899,8 +976,8 @@ Reponds UNIQUEMENT avec un objet JSON valide.`;
       let inThinkingBlock = false;
 
       await session.prompt(prompt, {
-        maxTokens: 2048,
-        temperature: 0.3,
+        maxTokens: this.isFineTuned ? 800 : 2048,
+        temperature: this.isFineTuned ? 0.1 : 0.3,
         ...(grammar ? { grammar } : {}),
         onTextChunk: (chunk: string) => {
           if (chunk.includes('<think>')) {
