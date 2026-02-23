@@ -45,11 +45,10 @@ const PRE_DIAGNOSIS_JSON_SCHEMA = {
 };
 
 /**
- * JSON schema for unified clinical analysis response.
- * Constrains model output to a single JSON object combining orientation,
- * pathologies, interventions, tests, and warnings.
+ * JSON schema for unified clinical analysis response (base model).
+ * Original field order for non-fine-tuned models.
  */
-const UNIFIED_ANALYSIS_JSON_SCHEMA = {
+const UNIFIED_ANALYSIS_JSON_SCHEMA_BASE = {
   type: 'object' as const,
   properties: {
     orientation: {
@@ -85,6 +84,50 @@ const UNIFIED_ANALYSIS_JSON_SCHEMA = {
   },
   required: ['orientation', 'orientationReason', 'criticalAlerts', 'pathologies',
              'nursingInterventions', 'medicalInterventions', 'recommendedTests', 'warnings'] as const
+};
+
+/**
+ * JSON schema for unified clinical analysis response (fine-tuned model).
+ * Field order optimized so interventions come BEFORE pathologies.
+ * This ensures that if the model runs out of tokens, the actionable fields
+ * (interventions, tests) are already generated. Pathologies (verbose) come last.
+ */
+const UNIFIED_ANALYSIS_JSON_SCHEMA_FINETUNED = {
+  type: 'object' as const,
+  properties: {
+    orientation: {
+      type: 'string' as const,
+      enum: ['SAUV', 'MEDICAL', 'SURGICAL', 'TRAUMA', 'PEDIATRIC']
+    },
+    orientationReason: { type: 'string' as const },
+    nursingInterventions: { type: 'array' as const, items: { type: 'string' as const } },
+    medicalInterventions: { type: 'array' as const, items: { type: 'string' as const } },
+    recommendedTests: { type: 'array' as const, items: { type: 'string' as const } },
+    criticalAlerts: {
+      type: 'array' as const,
+      items: { type: 'string' as const }
+    },
+    warnings: { type: 'array' as const, items: { type: 'string' as const } },
+    pathologies: {
+      type: 'array' as const,
+      items: {
+        type: 'object' as const,
+        properties: {
+          name: { type: 'string' as const },
+          confidence: { type: 'number' as const },
+          signs: { type: 'array' as const, items: { type: 'string' as const } },
+          reasoning: { type: 'string' as const },
+          urgency: { type: 'string' as const, enum: ['routine', 'urgent', 'emergent'] },
+          icd10Code: { type: 'string' as const }
+        },
+        required: ['name', 'confidence', 'signs', 'reasoning', 'urgency'] as const
+      },
+      minItems: 1,
+      maxItems: 3
+    }
+  },
+  required: ['orientation', 'orientationReason', 'nursingInterventions', 'medicalInterventions',
+             'recommendedTests', 'criticalAlerts', 'warnings', 'pathologies'] as const
 };
 
 export class LlamaCppProvider implements LLMProvider {
@@ -176,6 +219,7 @@ export class LlamaCppProvider implements LLMProvider {
 
       // Detect fine-tuned model by filename convention
       this.isFineTuned = resolvedPath.includes('ncdss-apollo')
+        || resolvedPath.includes('ncdss-qwen')
         || resolvedPath.includes('ncdss-medical')
         || resolvedPath.includes('finetuned');
       if (this.isFineTuned) {
@@ -202,8 +246,11 @@ export class LlamaCppProvider implements LLMProvider {
       // Pre-create JSON schema grammars for constrained decoding
       try {
         this.responseGrammar = await this.llama.createGrammarForJsonSchema(PRE_DIAGNOSIS_JSON_SCHEMA);
-        this.unifiedResponseGrammar = await this.llama.createGrammarForJsonSchema(UNIFIED_ANALYSIS_JSON_SCHEMA);
-        console.log('[LlamaCpp] JSON schema grammars created for constrained output');
+        const unifiedSchema = this.isFineTuned
+          ? UNIFIED_ANALYSIS_JSON_SCHEMA_FINETUNED
+          : UNIFIED_ANALYSIS_JSON_SCHEMA_BASE;
+        this.unifiedResponseGrammar = await this.llama.createGrammarForJsonSchema(unifiedSchema);
+        console.log(`[LlamaCpp] JSON schema grammars created (${this.isFineTuned ? 'fine-tuned' : 'base'} field order)`);
       } catch (grammarError) {
         console.warn('[LlamaCpp] Failed to create JSON grammar, will use unconstrained generation:', grammarError);
         this.responseGrammar = null;
@@ -885,17 +932,25 @@ Reponds UNIQUEMENT avec un objet JSON valide.`;
         contextSize
       });
 
+      const fineTunedSystemPrompt = `Tu es un assistant medical d'urgence experimente. Reponds en JSON.
+Regles:
+- orientationReason: 1 phrase courte maximum
+- nursingInterventions et medicalInterventions: specifiques avec posologies
+- criticalAlerts: phrases courtes
+- pathologies: maximum 3, reasoning 1-2 phrases courtes chacune
+- Ordre des champs: orientation, orientationReason, nursingInterventions, medicalInterventions, recommendedTests, criticalAlerts, warnings, pathologies`;
+
       const session = new this.LlamaChatSession!({
         contextSequence: ctx.getSequence(),
         ...(this.isFineTuned
-          ? { systemPrompt: 'Tu es un assistant medical d\'urgence experimente.' }
+          ? { systemPrompt: fineTunedSystemPrompt }
           : {})
       });
 
       let fullResponse = '';
 
       await session.prompt(prompt, {
-        maxTokens: this.isFineTuned ? 800 : 2048,
+        maxTokens: this.isFineTuned ? 1500 : 2048,
         temperature: this.isFineTuned ? 0.1 : 0.3,
         ...(grammar ? { grammar } : {}),
         onTextChunk: (chunk: string) => {
@@ -964,10 +1019,18 @@ Reponds UNIQUEMENT avec un objet JSON valide.`;
         contextSize
       });
 
+      const fineTunedSystemPrompt = `Tu es un assistant medical d'urgence experimente. Reponds en JSON.
+Regles:
+- orientationReason: 1 phrase courte maximum
+- nursingInterventions et medicalInterventions: specifiques avec posologies
+- criticalAlerts: phrases courtes
+- pathologies: maximum 3, reasoning 1-2 phrases courtes chacune
+- Ordre des champs: orientation, orientationReason, nursingInterventions, medicalInterventions, recommendedTests, criticalAlerts, warnings, pathologies`;
+
       const session = new this.LlamaChatSession!({
         contextSequence: ctx.getSequence(),
         ...(this.isFineTuned
-          ? { systemPrompt: 'Tu es un assistant medical d\'urgence experimente.' }
+          ? { systemPrompt: fineTunedSystemPrompt }
           : {})
       });
 
@@ -976,7 +1039,7 @@ Reponds UNIQUEMENT avec un objet JSON valide.`;
       let inThinkingBlock = false;
 
       await session.prompt(prompt, {
-        maxTokens: this.isFineTuned ? 800 : 2048,
+        maxTokens: this.isFineTuned ? 1500 : 2048,
         temperature: this.isFineTuned ? 0.1 : 0.3,
         ...(grammar ? { grammar } : {}),
         onTextChunk: (chunk: string) => {
@@ -1197,24 +1260,27 @@ Reponds UNIQUEMENT avec un objet JSON valide.`;
           };
         }
 
-        // Normalize pathologies
-        const pathologies = parsed.pathologies.map((p: Record<string, unknown>) => {
-          // Validate required fields
-          if (!p.name || !p.reasoning) {
-            return null;
-          }
-          const confidence = typeof p.confidence === 'number'
-            ? Math.max(0, Math.min(100, p.confidence))
-            : 50;
-          return {
-            name: String(p.name),
-            confidence,
-            signs: Array.isArray(p.signs) ? p.signs.map(String) : [],
-            reasoning: String(p.reasoning),
-            urgency: this.normalizeUrgency(p.urgency),
-            ...(p.icd10Code ? { icd10Code: String(p.icd10Code) } : {})
-          };
-        }).filter((p: unknown) => p !== null);
+        // Normalize pathologies (limit to top 3 for fine-tuned models)
+        const maxPathologies = this.isFineTuned ? 3 : 5;
+        const pathologies = parsed.pathologies
+          .slice(0, maxPathologies)
+          .map((p: Record<string, unknown>) => {
+            // Validate required fields
+            if (!p.name || !p.reasoning) {
+              return null;
+            }
+            const confidence = typeof p.confidence === 'number'
+              ? Math.max(0, Math.min(100, p.confidence))
+              : 50;
+            return {
+              name: String(p.name),
+              confidence,
+              signs: Array.isArray(p.signs) ? p.signs.map(String) : [],
+              reasoning: String(p.reasoning),
+              urgency: this.normalizeUrgency(p.urgency),
+              ...(p.icd10Code ? { icd10Code: String(p.icd10Code) } : {})
+            };
+          }).filter((p: unknown) => p !== null);
 
         if (pathologies.length === 0) {
           console.warn('[LlamaCpp] Unified analysis: all pathologies failed validation');
