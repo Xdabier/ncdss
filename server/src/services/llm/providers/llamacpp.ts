@@ -100,14 +100,15 @@ const UNIFIED_ANALYSIS_JSON_SCHEMA_FINETUNED = {
       enum: ['SAUV', 'MEDICAL', 'SURGICAL', 'TRAUMA', 'PEDIATRIC']
     },
     orientationReason: { type: 'string' as const },
-    nursingInterventions: { type: 'array' as const, items: { type: 'string' as const } },
+    nursingInterventions: { type: 'array' as const, items: { type: 'string' as const }, minItems: 2 },
     medicalInterventions: { type: 'array' as const, items: { type: 'string' as const } },
     recommendedTests: { type: 'array' as const, items: { type: 'string' as const } },
     criticalAlerts: {
       type: 'array' as const,
-      items: { type: 'string' as const }
+      items: { type: 'string' as const },
+      maxItems: 5
     },
-    warnings: { type: 'array' as const, items: { type: 'string' as const } },
+    warnings: { type: 'array' as const, items: { type: 'string' as const }, maxItems: 6 },
     pathologies: {
       type: 'array' as const,
       items: {
@@ -122,7 +123,7 @@ const UNIFIED_ANALYSIS_JSON_SCHEMA_FINETUNED = {
         },
         required: ['name', 'confidence', 'signs', 'reasoning', 'urgency'] as const
       },
-      minItems: 1,
+      minItems: 2,
       maxItems: 3
     }
   },
@@ -697,9 +698,9 @@ Analyse l'ensemble des donnees cliniques et reponds avec un objet JSON contenant
   - "reasoning": justification basee sur les signes
   - "urgency": "routine", "urgent", ou "emergent"
   - "icd10Code": code CIM-10 si connu (optionnel)
-- "nursingInterventions": soins infirmiers specifiques et actionnables
-- "medicalInterventions": interventions medicales (inclure posologies si pertinent)
-- "recommendedTests": examens complementaires recommandes
+- "nursingInterventions": soins infirmiers specifiques et actionnables, adaptes a la pratique hospitaliere tunisienne avec posologies
+- "medicalInterventions": interventions medicales selon les protocoles tunisiens (DCI et posologies disponibles en Tunisie)
+- "recommendedTests": examens complementaires recommandes et disponibles en Tunisie
 - "warnings": mises en garde cliniques
 
 Exemple de structure attendue:
@@ -932,13 +933,18 @@ Reponds UNIQUEMENT avec un objet JSON valide.`;
         contextSize
       });
 
-      const fineTunedSystemPrompt = `Tu es un assistant medical d'urgence experimente. Reponds en JSON.
+      const fineTunedSystemPrompt = `Tu es un assistant medical d'urgence experimente travaillant dans un service d'accueil des urgences en Tunisie. Reponds en JSON.
+Contexte:
+- Adapte tes suggestions a la pratique hospitaliere tunisienne (protocoles, medicaments et equipements disponibles en Tunisie)
+- Utilise les DCI des medicaments courants en Tunisie avec posologies standard tunisiennes
 Regles:
 - orientationReason: 1 phrase courte maximum
-- nursingInterventions et medicalInterventions: specifiques avec posologies
-- criticalAlerts: phrases courtes
-- pathologies: maximum 3, reasoning 1-2 phrases courtes chacune
-- Ordre des champs: orientation, orientationReason, nursingInterventions, medicalInterventions, recommendedTests, criticalAlerts, warnings, pathologies`;
+- nursingInterventions: minimum 2, specifiques et actionnables avec posologies adaptees au contexte tunisien
+- medicalInterventions: essentielles uniquement, avec posologies selon les protocoles tunisiens
+- criticalAlerts: maximum 5, uniquement si urgence vitale
+- pathologies: minimum 2, maximum 3, reasoning 1-2 phrases courtes chacune
+- warnings: maximum 6, phrases courtes
+- Ordre: orientation, orientationReason, nursingInterventions, medicalInterventions, recommendedTests, criticalAlerts, warnings, pathologies`;
 
       const session = new this.LlamaChatSession!({
         contextSequence: ctx.getSequence(),
@@ -1019,13 +1025,18 @@ Regles:
         contextSize
       });
 
-      const fineTunedSystemPrompt = `Tu es un assistant medical d'urgence experimente. Reponds en JSON.
+      const fineTunedSystemPrompt = `Tu es un assistant medical d'urgence experimente travaillant dans un service d'accueil des urgences en Tunisie. Reponds en JSON.
+Contexte:
+- Adapte tes suggestions a la pratique hospitaliere tunisienne (protocoles, medicaments et equipements disponibles en Tunisie)
+- Utilise les DCI des medicaments courants en Tunisie avec posologies standard tunisiennes
 Regles:
 - orientationReason: 1 phrase courte maximum
-- nursingInterventions et medicalInterventions: specifiques avec posologies
-- criticalAlerts: phrases courtes
-- pathologies: maximum 3, reasoning 1-2 phrases courtes chacune
-- Ordre des champs: orientation, orientationReason, nursingInterventions, medicalInterventions, recommendedTests, criticalAlerts, warnings, pathologies`;
+- nursingInterventions: minimum 2, specifiques et actionnables avec posologies adaptees au contexte tunisien
+- medicalInterventions: essentielles uniquement, avec posologies selon les protocoles tunisiens
+- criticalAlerts: maximum 5, uniquement si urgence vitale
+- pathologies: minimum 2, maximum 3, reasoning 1-2 phrases courtes chacune
+- warnings: maximum 6, phrases courtes
+- Ordre: orientation, orientationReason, nursingInterventions, medicalInterventions, recommendedTests, criticalAlerts, warnings, pathologies`;
 
       const session = new this.LlamaChatSession!({
         contextSequence: ctx.getSequence(),

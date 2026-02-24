@@ -166,10 +166,10 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
       scores: {},
     };
     setSuggestion(newSuggestion);
-    if (!selectedOrientation) {
-      setSelectedOrientation(analysis.orientation as OrientationType);
-    }
-  }, [selectedOrientation]);
+    // AI suggestion becomes the authoritative orientation — no override reason needed
+    setSelectedOrientation(analysis.orientation as OrientationType);
+    setOverrideReason('');
+  }, []);
 
   // Per-section dirty tracking
   const dirtyRef = useRef<Record<string, boolean>>({

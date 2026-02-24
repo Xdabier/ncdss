@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   CheckCircle2,
   AlertCircle,
@@ -8,6 +8,7 @@ import {
   Loader2,
   Shield,
   MapPin,
+  Bot,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -131,6 +132,12 @@ export function DecisionPanel({
   onUnifiedAnalysisReady,
 }: DecisionPanelProps): React.ReactElement {
   const [isOpen, setIsOpen] = useState(false);
+  const [unifiedLoading, setUnifiedLoading] = useState(false);
+  const regenerateRef = useRef<(() => void) | null>(null);
+
+  const handleUnifiedReady = useCallback((handle: { regenerate: () => void }) => {
+    regenerateRef.current = handle.regenerate;
+  }, []);
 
   const isOrientationOverride =
     selectedOrientation !== null &&
@@ -155,21 +162,43 @@ export function DecisionPanel({
       >
         {/* Header with close button */}
         <div className="flex items-center justify-between px-4 py-3 border-b bg-white shrink-0">
-          <h2 className="text-lg font-semibold text-gray-800">
-            {useUnifiedAnalysis ? 'Analyse IA' : 'Decision clinique'}
-          </h2>
-          <button
-            onClick={() => setIsOpen(false)}
-            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
-          >
-            <ChevronDown className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-gray-800">
+              Decision clinique
+            </h2>
+            {useUnifiedAnalysis && (
+              <span className="inline-flex items-center gap-1 text-xs text-purple-500">
+                <Bot className="h-3.5 w-3.5" />
+                IA
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            {useUnifiedAnalysis && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => regenerateRef.current?.()}
+                disabled={unifiedLoading}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <RefreshCw className={`h-4 w-4 mr-1 ${unifiedLoading ? 'animate-spin' : ''}`} />
+                Re-analyser
+              </Button>
+            )}
+            <button
+              onClick={() => setIsOpen(false)}
+              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
+            >
+              <ChevronDown className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto pb-14">
           {/* Controls section */}
           <div className="border-b bg-gray-50">
-            <div className="px-4 py-4 max-w-4xl mx-auto space-y-4">
+            <div className="px-4 py-4 max-w-6xl mx-auto space-y-4">
               {/* Recommendation line (hidden in unified mode — UnifiedAnalysisPanel has its own) */}
               {!useUnifiedAnalysis && (
                 <div className="flex items-center justify-between gap-2">
@@ -263,6 +292,8 @@ export function DecisionPanel({
             <UnifiedAnalysisPanel
               patientId={patient.id}
               onAnalysisReady={onUnifiedAnalysisReady}
+              onReady={handleUnifiedReady}
+              onLoadingChange={setUnifiedLoading}
             />
           ) : (
             <SuggestionsDetail
@@ -279,7 +310,7 @@ export function DecisionPanel({
       {/* Bar — fixed at viewport bottom, always on top (z-50 > z-40)       */}
       {/* ================================================================= */}
       <div className="fixed bottom-0 left-0 right-0 lg:left-64 z-50 bg-white border-t-2 border-blue-200 shadow-[0_-2px_8px_rgba(0,0,0,0.08)]">
-        <div className="px-4 py-2.5 flex items-center justify-between max-w-4xl mx-auto w-full">
+        <div className="px-4 py-2.5 flex items-center justify-between max-w-6xl mx-auto w-full">
           {/* Left: toggle + summary badges */}
           <button
             onClick={() => setIsOpen(!isOpen)}

@@ -7,6 +7,7 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import {
   UnifiedClinicalAnalysis,
+  UnifiedPathology,
   GetUnifiedAnalysisResponse,
   API_ROUTES,
 } from '@ncdss/shared';
@@ -27,10 +28,20 @@ import {
   CheckSquare,
   StopCircle,
 } from 'lucide-react';
+import {
+  parseIncremental,
+  IncrementalParseResult,
+  FieldStatus,
+  AnalysisFieldKey,
+} from '../../utils/incremental-json-parser';
 
 interface UnifiedAnalysisPanelProps {
   patientId: string;
   onAnalysisReady?: (analysis: UnifiedClinicalAnalysis) => void;
+  /** Called when loading state changes (for parent to show spinner on re-analyze button) */
+  onLoadingChange?: (loading: boolean) => void;
+  /** Called once on mount with a stable handle to trigger regeneration from parent */
+  onReady?: (handle: { regenerate: () => void }) => void;
 }
 
 const orientationColors: Record<string, string> = {
@@ -74,20 +85,397 @@ function normalizeAnalysis(raw: UnifiedClinicalAnalysis): UnifiedClinicalAnalysi
   };
 }
 
-export function UnifiedAnalysisPanel({ patientId, onAnalysisReady }: UnifiedAnalysisPanelProps): React.ReactElement {
+/** Section display configuration */
+interface SectionConfig {
+  key: AnalysisFieldKey;
+  /** Some sections combine multiple field keys */
+  extraKeys?: AnalysisFieldKey[];
+  icon: React.ElementType;
+  iconColor: string;
+  title: string;
+}
+
+const SECTION_ORDER: SectionConfig[] = [
+  { key: 'criticalAlerts', icon: AlertTriangle, iconColor: 'text-red-600', title: 'Alertes critiques' },
+  { key: 'orientation', extraKeys: ['orientationReason'], icon: MapPin, iconColor: 'text-purple-600', title: 'Orientation' },
+  { key: 'nursingInterventions', icon: ListChecks, iconColor: 'text-green-600', title: 'Actions infirmieres' },
+  { key: 'medicalInterventions', icon: Stethoscope, iconColor: 'text-blue-600', title: 'Pour le medecin' },
+  { key: 'recommendedTests', icon: FlaskConical, iconColor: 'text-indigo-600', title: 'Examens recommandes' },
+  { key: 'pathologies', icon: Brain, iconColor: 'text-purple-600', title: 'Hypotheses diagnostiques' },
+  { key: 'warnings', icon: AlertTriangle, iconColor: 'text-amber-600', title: 'Mises en garde' },
+];
+
+const PRIMARY_KEYS: AnalysisFieldKey[] = ['criticalAlerts', 'orientation', 'recommendedTests', 'medicalInterventions'];
+const SECONDARY_KEYS: AnalysisFieldKey[] = ['warnings', 'nursingInterventions', 'pathologies'];
+
+const sectionByKey = new Map(SECTION_ORDER.map(s => [s.key, s]));
+const PRIMARY_SECTIONS = PRIMARY_KEYS.map(k => sectionByKey.get(k)!);
+const SECONDARY_SECTIONS = SECONDARY_KEYS.map(k => sectionByKey.get(k)!);
+
+/** Throttle interval for incremental parsing (ms) */
+const PARSE_THROTTLE_MS = 200;
+
+/** Bouncing dots indicator for active sections */
+function BouncingDots(): React.ReactElement {
+  return (
+    <span className="inline-flex items-center gap-0.5 ml-2">
+      <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+      <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+      <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+    </span>
+  );
+}
+
+/** Skeleton placeholder for a section being generated or not yet started */
+function SectionSkeleton({
+  config,
+  status,
+}: {
+  config: SectionConfig;
+  status: FieldStatus;
+}): React.ReactElement {
+  const Icon = config.icon;
+  const isActive = status === 'active';
+
+  return (
+    <div
+      className={`border rounded-lg p-3 transition-all ${
+        isActive ? 'border-purple-200 bg-purple-50/30' : 'border-gray-100 bg-gray-50/30'
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <Icon className={`h-5 w-5 ${isActive ? config.iconColor : 'text-gray-300'}`} />
+        <span className={`font-semibold text-sm ${isActive ? 'text-gray-700' : 'text-gray-300'}`}>
+          {config.title}
+        </span>
+        {isActive && <BouncingDots />}
+      </div>
+      {isActive && (
+        <div className="mt-2 space-y-2">
+          <div className="h-3 bg-purple-100 rounded animate-pulse w-3/4" />
+          <div className="h-3 bg-purple-100 rounded animate-pulse w-1/2" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Section render helpers (shared between streaming & final views) ──────────
+
+function renderCriticalAlerts(alerts: string[], streaming: boolean): React.ReactElement | null {
+  if (alerts.length === 0) return null;
+  return (
+    <div className={`bg-red-50 border-l-4 border-red-500 rounded-r-lg p-3 ${streaming ? 'animate-in fade-in slide-in-from-bottom-2 duration-300' : ''}`}>
+      <div className="flex items-center gap-2 mb-2">
+        <AlertTriangle className="h-5 w-5 text-red-600" />
+        <span className="font-bold text-red-800 text-sm">Alertes critiques</span>
+      </div>
+      <div className="space-y-1">
+        {alerts.map((alert, i) => (
+          <p key={i} className="text-sm text-red-700 flex items-start gap-2">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 flex-shrink-0" />
+            {alert}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function renderOrientationBlock(
+  data: Record<string, unknown>,
+  fieldStatuses: Record<AnalysisFieldKey, FieldStatus>,
+  streaming: boolean,
+): React.ReactElement {
+  const orientation = data.orientation as string | undefined;
+  const orientationReason = data.orientationReason as string | undefined;
+  const orientationComplete = fieldStatuses.orientation === 'complete';
+  const reasonComplete = fieldStatuses.orientationReason === 'complete';
+
+  return (
+    <div className={`border rounded-lg border-purple-200 bg-gradient-to-br from-purple-50 to-white p-3 ${streaming ? 'animate-in fade-in slide-in-from-bottom-2 duration-300' : ''}`}>
+      <div className="flex items-center gap-2 mb-2">
+        <MapPin className="h-5 w-5 text-purple-600" />
+        <span className="font-semibold text-sm">Orientation</span>
+      </div>
+      <div className="flex items-center gap-2 p-2.5 bg-white rounded-lg border border-gray-100">
+        {orientationComplete && orientation ? (
+          <Badge className={orientationColors[orientation] || 'bg-gray-500 text-white'}>
+            {orientationLabels[orientation] || orientation}
+          </Badge>
+        ) : (
+          <div className="h-5 w-20 bg-purple-100 rounded animate-pulse" />
+        )}
+        {reasonComplete && orientationReason ? (
+          <span className="text-sm text-gray-700">{orientationReason}</span>
+        ) : (
+          <div className="h-3 bg-gray-100 rounded animate-pulse flex-1" />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function renderNursingInterventions(
+  interventions: string[],
+  checkedInterventions: Set<number>,
+  toggleIntervention: (index: number) => void,
+  streaming: boolean,
+): React.ReactElement | null {
+  if (interventions.length === 0) return null;
+  return (
+    <div className={`border rounded-lg p-3 ${streaming ? 'animate-in fade-in slide-in-from-bottom-2 duration-300' : ''}`}>
+      <div className="flex items-center gap-2 mb-2">
+        <ListChecks className="h-5 w-5 text-green-600" />
+        <span className="font-semibold text-sm">Actions infirmieres</span>
+        <Badge variant="secondary" className="text-xs">
+          {interventions.length}
+        </Badge>
+      </div>
+      <div className="space-y-1.5">
+        {interventions.map((intervention, index) => (
+          <button
+            key={index}
+            onClick={() => toggleIntervention(index)}
+            className={`w-full flex items-center gap-3 p-2.5 rounded-lg border text-left transition-all ${
+              checkedInterventions.has(index)
+                ? 'bg-green-50 border-green-300'
+                : 'bg-white border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            {checkedInterventions.has(index) ? (
+              <CheckSquare className="h-4 w-4 text-green-600 flex-shrink-0" />
+            ) : (
+              <Square className="h-4 w-4 text-gray-400 flex-shrink-0" />
+            )}
+            <span
+              className={`text-sm ${
+                checkedInterventions.has(index)
+                  ? 'text-green-800 line-through'
+                  : 'text-gray-700'
+              }`}
+            >
+              {intervention}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function renderBulletList(
+  items: string[],
+  icon: React.ElementType,
+  iconColor: string,
+  title: string,
+  dotColor: string,
+  textColor: string,
+  collapsible: boolean,
+  expanded: boolean,
+  onToggle: () => void,
+  streaming: boolean,
+): React.ReactElement | null {
+  if (items.length === 0) return null;
+  const Icon = icon;
+
+  if (!collapsible) {
+    return (
+      <div className={`border rounded-lg p-3 ${streaming ? 'animate-in fade-in slide-in-from-bottom-2 duration-300' : ''}`}>
+        <div className="flex items-center gap-2 mb-2">
+          <Icon className={`h-5 w-5 ${iconColor}`} />
+          <span className="font-semibold text-sm">{title}</span>
+          <Badge variant="secondary" className="text-xs">{items.length}</Badge>
+        </div>
+        <div className="space-y-1">
+          {items.map((item, i) => (
+            <p key={i} className={`text-sm ${textColor} flex items-start gap-2`}>
+              <span className={`inline-block w-1.5 h-1.5 rounded-full ${dotColor} mt-1.5 flex-shrink-0`} />
+              {item}
+            </p>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`border rounded-lg ${streaming ? 'animate-in fade-in slide-in-from-bottom-2 duration-300' : ''}`}>
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors rounded-lg"
+      >
+        <div className="flex items-center gap-2">
+          <Icon className={`h-5 w-5 ${iconColor}`} />
+          <span className="font-semibold text-sm">{title}</span>
+          <Badge variant="secondary" className="text-xs">{items.length}</Badge>
+        </div>
+        {expanded ? (
+          <ChevronUp className="h-4 w-4 text-gray-400" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-gray-400" />
+        )}
+      </button>
+      {expanded && (
+        <div className="px-3 pb-3 space-y-1">
+          {items.map((item, i) => (
+            <p key={i} className={`text-sm ${textColor} flex items-start gap-2`}>
+              <span className={`inline-block w-1.5 h-1.5 rounded-full ${dotColor} mt-1.5 flex-shrink-0`} />
+              {item}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function renderTestBadges(
+  tests: string[],
+  expanded: boolean,
+  onToggle: () => void,
+  streaming: boolean,
+): React.ReactElement | null {
+  if (tests.length === 0) return null;
+  return (
+    <div className={`border rounded-lg ${streaming ? 'animate-in fade-in slide-in-from-bottom-2 duration-300' : ''}`}>
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors rounded-lg"
+      >
+        <div className="flex items-center gap-2">
+          <FlaskConical className="h-5 w-5 text-indigo-600" />
+          <span className="font-semibold text-sm">Examens recommandes</span>
+          <Badge variant="secondary" className="text-xs">{tests.length}</Badge>
+        </div>
+        {expanded ? (
+          <ChevronUp className="h-4 w-4 text-gray-400" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-gray-400" />
+        )}
+      </button>
+      {expanded && (
+        <div className="px-3 pb-3 flex flex-wrap gap-2">
+          {tests.map((test, i) => (
+            <Badge key={i} variant="secondary" className="text-xs">{test}</Badge>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function renderPathologies(
+  pathologies: UnifiedPathology[],
+  expanded: boolean,
+  onToggle: () => void,
+  getConfidenceColor: (c: number) => string,
+  streaming: boolean,
+): React.ReactElement | null {
+  if (pathologies.length === 0) return null;
+  return (
+    <div className={`border rounded-lg ${streaming ? 'animate-in fade-in slide-in-from-bottom-2 duration-300' : ''}`}>
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors rounded-lg"
+      >
+        <div className="flex items-center gap-2">
+          <Brain className="h-5 w-5 text-purple-600" />
+          <span className="font-semibold text-sm">Hypotheses diagnostiques</span>
+          <Badge variant="secondary" className="text-xs">{pathologies.length}</Badge>
+        </div>
+        {expanded ? (
+          <ChevronUp className="h-4 w-4 text-gray-400" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-gray-400" />
+        )}
+      </button>
+      {expanded && (
+        <div className="px-3 pb-3 space-y-3">
+          {pathologies.map((pathology, i) => (
+            <div key={i} className="p-3 bg-white rounded-lg border border-gray-200">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex-1">
+                  <p className="font-semibold text-gray-900 text-sm">{pathology.name}</p>
+                  {pathology.icd10Code && (
+                    <p className="text-xs text-gray-400">{pathology.icd10Code}</p>
+                  )}
+                </div>
+                <Badge className={urgencyColors[pathology.urgency]}>
+                  {urgencyLabels[pathology.urgency]}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full ${getConfidenceColor(pathology.confidence)}`}
+                    style={{ width: `${pathology.confidence}%` }}
+                  />
+                </div>
+                <span className="text-sm font-medium text-gray-700 w-12 text-right">
+                  {pathology.confidence}%
+                </span>
+              </div>
+              {pathology.signs.length > 0 && (
+                <p className="text-sm text-gray-500 mb-1">{pathology.signs.join(', ')}</p>
+              )}
+              {pathology.reasoning && (
+                <p className="text-sm italic text-gray-600">{pathology.reasoning}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function renderWarnings(warnings: string[], streaming: boolean): React.ReactElement | null {
+  if (warnings.length === 0) return null;
+  return (
+    <div className={`bg-amber-50 border-l-4 border-amber-500 rounded-r-lg p-3 ${streaming ? 'animate-in fade-in slide-in-from-bottom-2 duration-300' : ''}`}>
+      <div className="flex items-center gap-2 mb-2">
+        <AlertTriangle className="h-5 w-5 text-amber-600" />
+        <span className="font-semibold text-amber-800 text-sm">Mises en garde</span>
+      </div>
+      <div className="space-y-1">
+        {warnings.map((warning, i) => (
+          <p key={i} className="text-sm text-amber-700 flex items-start gap-2">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
+            {warning}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ──────────────────────────────────────────────────────────
+
+export function UnifiedAnalysisPanel({
+  patientId,
+  onAnalysisReady,
+  onLoadingChange,
+  onReady,
+}: UnifiedAnalysisPanelProps): React.ReactElement {
   const [status, setStatus] = useState<string | null>(null);
   const [result, setResult] = useState<UnifiedClinicalAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
-  const [streamActivity, setStreamActivity] = useState(0);
+  const [incrementalResult, setIncrementalResult] = useState<IncrementalParseResult | null>(null);
   const [checkedInterventions, setCheckedInterventions] = useState<Set<number>>(new Set());
   const [showMedical, setShowMedical] = useState(false);
   const [showTests, setShowTests] = useState(false);
   const [showPathologies, setShowPathologies] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
 
+  const rawJsonRef = useRef<string>('');
+  const lastParseTimeRef = useRef<number>(0);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const completedFieldsRef = useRef<Set<string>>(new Set());
+  const lastPartialRef = useRef<Record<string, unknown> | null>(null);
+  const generateStreamRef = useRef<() => Promise<void>>();
   const onAnalysisReadyRef = useRef(onAnalysisReady);
   onAnalysisReadyRef.current = onAnalysisReady;
 
@@ -138,6 +526,16 @@ export function UnifiedAnalysisPanel({ patientId, onAnalysisReady }: UnifiedAnal
     };
   }, [checkAiStatus, loadSaved]);
 
+  // Expose regenerate handle to parent
+  useEffect(() => {
+    onReady?.({ regenerate: () => { generateStreamRef.current?.(); } });
+  }, [onReady]);
+
+  // Notify parent of loading state changes
+  useEffect(() => {
+    onLoadingChange?.(loading);
+  }, [loading, onLoadingChange]);
+
   // Poll when generating
   useEffect(() => {
     if (status !== 'generating' || loading) {
@@ -187,8 +585,13 @@ export function UnifiedAnalysisPanel({ patientId, onAnalysisReady }: UnifiedAnal
     try {
       setLoading(true);
       setError(null);
-      setStreamActivity(0);
+      setResult(null);
+      setIncrementalResult(null);
       setCheckedInterventions(new Set());
+      rawJsonRef.current = '';
+      lastParseTimeRef.current = 0;
+      completedFieldsRef.current = new Set();
+      lastPartialRef.current = null;
 
       const serverUrl = await getServerUrl();
       if (!serverUrl) {
@@ -217,6 +620,7 @@ export function UnifiedAnalysisPanel({ patientId, onAnalysisReady }: UnifiedAnal
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let thinkingPhase = true;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -232,21 +636,37 @@ export function UnifiedAnalysisPanel({ patientId, onAnalysisReady }: UnifiedAnal
               const data = JSON.parse(line.slice(6));
 
               if (data.type === 'response') {
-                setStreamActivity(prev => prev + 1);
+                thinkingPhase = false;
+                rawJsonRef.current += data.content;
+
+                // Throttled incremental parse
+                const now = Date.now();
+                if (now - lastParseTimeRef.current >= PARSE_THROTTLE_MS) {
+                  lastParseTimeRef.current = now;
+                  setIncrementalResult(parseIncremental(rawJsonRef.current));
+                }
               } else if (data.type === 'thinking') {
-                setStreamActivity(prev => prev + 1);
+                // Still in thinking phase — no JSON yet
               } else if (data.type === 'done') {
                 const raw = data.unifiedResult?.analysis as UnifiedClinicalAnalysis | undefined;
+
+                // All state updates are batched by React 18, so clearing
+                // incrementalResult and setting result happen in the same
+                // render — no flash back to the loading spinner.
                 if (raw) {
                   const normalized = normalizeAnalysis(raw);
                   setResult(normalized);
                   setStatus('completed');
                   onAnalysisReadyRef.current?.(normalized);
                 }
+                setIncrementalResult(null);
+                rawJsonRef.current = '';
                 setLoading(false);
                 return;
               } else if (data.type === 'error') {
                 setError(data.error);
+                setIncrementalResult(null);
+                rawJsonRef.current = '';
                 setLoading(false);
                 return;
               }
@@ -257,11 +677,29 @@ export function UnifiedAnalysisPanel({ patientId, onAnalysisReady }: UnifiedAnal
         }
       }
 
+      // Stream ended without done event — connection interrupted
+      setError('L\'analyse a ete interrompue. Veuillez relancer.');
+      setIncrementalResult(null);
+      rawJsonRef.current = '';
+      lastPartialRef.current = null;
       setLoading(false);
     } catch {
       setError('Erreur lors de la generation de l\'analyse');
+      setIncrementalResult(null);
+      rawJsonRef.current = '';
+      lastPartialRef.current = null;
       setLoading(false);
     }
+  };
+  generateStreamRef.current = generateStream;
+
+  const handleStop = (): void => {
+    setLoading(false);
+    setIncrementalResult(null);
+    rawJsonRef.current = '';
+    lastPartialRef.current = null;
+    // Restore previous saved result from database
+    loadSaved();
   };
 
   const toggleIntervention = (index: number): void => {
@@ -278,6 +716,100 @@ export function UnifiedAnalysisPanel({ patientId, onAnalysisReady }: UnifiedAnal
     if (confidence >= 50) return 'bg-yellow-500';
     return 'bg-orange-500';
   };
+
+  // ─── Render helpers for progressive streaming view ─────────────────────────
+
+  const renderStreamingSection = (
+    config: SectionConfig,
+    fieldStatuses: Record<AnalysisFieldKey, FieldStatus>,
+    partial: Record<string, unknown> | null,
+  ): React.ReactElement | null => {
+    // Monotonic: once a field reaches 'complete', prevent regression to 'active'
+    // (the incremental parser can oscillate due to nested closing braces)
+    let primaryStatus = fieldStatuses[config.key];
+    if (completedFieldsRef.current.has(config.key)) {
+      primaryStatus = 'complete';
+    }
+
+    // Use cached partial as fallback when current parse failed
+    const effectivePartial = partial ?? lastPartialRef.current;
+
+    if (primaryStatus === 'not_started') {
+      return <SectionSkeleton key={config.key} config={config} status="not_started" />;
+    }
+
+    if (primaryStatus === 'active') {
+      // Special case: orientation block — show partial data while active
+      if (config.key === 'orientation' && effectivePartial) {
+        return (
+          <div key={config.key}>
+            {renderOrientationBlock(effectivePartial, fieldStatuses, true)}
+          </div>
+        );
+      }
+      return <SectionSkeleton key={config.key} config={config} status="active" />;
+    }
+
+    // Status is 'complete'
+    if (!effectivePartial) {
+      return <SectionSkeleton key={config.key} config={config} status="active" />;
+    }
+
+    // Only animate entry the first time a field transitions to 'complete'
+    const shouldAnimate = !completedFieldsRef.current.has(config.key);
+    if (shouldAnimate) {
+      completedFieldsRef.current.add(config.key);
+    }
+
+    switch (config.key) {
+      case 'criticalAlerts': {
+        const alerts = (effectivePartial.criticalAlerts as string[]) ?? [];
+        return alerts.length > 0
+          ? <div key={config.key}>{renderCriticalAlerts(alerts, shouldAnimate)}</div>
+          : null;
+      }
+      case 'orientation':
+        return (
+          <div key={config.key}>
+            {renderOrientationBlock(effectivePartial, fieldStatuses, shouldAnimate)}
+          </div>
+        );
+      case 'nursingInterventions': {
+        const interventions = (effectivePartial.nursingInterventions as string[]) ?? [];
+        return interventions.length > 0
+          ? <div key={config.key}>{renderNursingInterventions(interventions, checkedInterventions, toggleIntervention, shouldAnimate)}</div>
+          : null;
+      }
+      case 'medicalInterventions': {
+        const items = (effectivePartial.medicalInterventions as string[]) ?? [];
+        return items.length > 0
+          ? <div key={config.key}>{renderBulletList(items, Stethoscope, 'text-blue-600', 'Pour le medecin', 'bg-blue-400', 'text-gray-700', true, showMedical, () => setShowMedical(!showMedical), shouldAnimate)}</div>
+          : null;
+      }
+      case 'recommendedTests': {
+        const tests = (effectivePartial.recommendedTests as string[]) ?? [];
+        return tests.length > 0
+          ? <div key={config.key}>{renderTestBadges(tests, showTests, () => setShowTests(!showTests), shouldAnimate)}</div>
+          : null;
+      }
+      case 'pathologies': {
+        const pathologies = (effectivePartial.pathologies as UnifiedPathology[]) ?? [];
+        return pathologies.length > 0
+          ? <div key={config.key}>{renderPathologies(pathologies, showPathologies, () => setShowPathologies(!showPathologies), getConfidenceColor, shouldAnimate)}</div>
+          : null;
+      }
+      case 'warnings': {
+        const warnings = (effectivePartial.warnings as string[]) ?? [];
+        return warnings.length > 0
+          ? <div key={config.key}>{renderWarnings(warnings, shouldAnimate)}</div>
+          : null;
+      }
+      default:
+        return null;
+    }
+  };
+
+  // ─── Render ────────────────────────────────────────────────────────────────
 
   // Initial loading state
   if (initialLoading) {
@@ -331,27 +863,68 @@ export function UnifiedAnalysisPanel({ patientId, onAnalysisReady }: UnifiedAnal
     );
   }
 
-  // Loading state (streaming)
-  if (loading && !result) {
-    return (
-      <div className="border rounded-lg border-purple-200 bg-gradient-to-br from-purple-50 to-white p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Bot className="h-5 w-5 text-purple-600" />
-          <span className="font-semibold text-sm">Analyse IA</span>
-          <Badge variant="outline" className="text-xs text-purple-600 border-purple-300">
-            Generation
-          </Badge>
+  // Loading state (streaming) with progressive rendering
+  if (loading) {
+    // Thinking phase or no incremental data yet — show the animated spinner
+    if (!incrementalResult || !incrementalResult.started) {
+      return (
+        <div className="border rounded-lg border-purple-200 bg-gradient-to-br from-purple-50 to-white p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Bot className="h-5 w-5 text-purple-600" />
+            <span className="font-semibold text-sm">Analyse IA</span>
+            <Badge variant="outline" className="text-xs text-purple-600 border-purple-300">
+              Generation
+            </Badge>
+          </div>
+          <AILoadingAnimation
+            streamActivity={rawJsonRef.current.length > 0 ? 10 : 0}
+            thinkingActive={true}
+            responseActive={rawJsonRef.current.length > 0}
+          />
+          <div className="flex justify-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleStop}
+              className="text-gray-500"
+            >
+              <StopCircle className="h-4 w-4 mr-2" />
+              Arreter
+            </Button>
+          </div>
         </div>
-        <AILoadingAnimation
-          streamActivity={streamActivity}
-          thinkingActive={streamActivity > 0}
-          responseActive={streamActivity > 5}
-        />
-        <div className="flex justify-center">
+      );
+    }
+
+    // Progressive rendering — JSON generation has started
+    const { partial, fieldStatuses } = incrementalResult;
+
+    // Cache latest successful partial data for stability
+    if (partial) {
+      lastPartialRef.current = partial;
+    }
+
+    return (
+      <div className="px-4 lg:px-8 py-2 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:items-start">
+          <div className="space-y-3">
+            {PRIMARY_SECTIONS.map((config) =>
+              renderStreamingSection(config, fieldStatuses, partial)
+            )}
+          </div>
+          <div className="space-y-3">
+            {SECONDARY_SECTIONS.map((config) =>
+              renderStreamingSection(config, fieldStatuses, partial)
+            )}
+          </div>
+        </div>
+
+        {/* Stop button */}
+        <div className="flex justify-center pt-3">
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setLoading(false)}
+            onClick={handleStop}
             className="text-gray-500"
           >
             <StopCircle className="h-4 w-4 mr-2" />
@@ -401,258 +974,60 @@ export function UnifiedAnalysisPanel({ patientId, onAnalysisReady }: UnifiedAnal
     );
   }
 
-  // Result display
+  // Final result display
   return (
-    <div className="space-y-3 px-8 py-2">
-      {/* 1. Critical Alerts */}
-      {result.criticalAlerts.length > 0 && (
-        <div className="bg-red-50 border-l-4 border-red-500 rounded-r-lg p-3">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="h-5 w-5 text-red-600" />
-            <span className="font-bold text-red-800 text-sm">Alertes critiques</span>
-          </div>
-          <div className="space-y-1">
-            {result.criticalAlerts.map((alert, i) => (
-              <p key={i} className="text-sm text-red-700 flex items-start gap-2">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 flex-shrink-0" />
-                {alert}
-              </p>
-            ))}
-          </div>
-        </div>
-      )}
+    <div className="px-4 lg:px-8 py-2 max-w-6xl mx-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:items-start">
+        {/* Primary column: critical alerts, orientation, recommended tests, medical interventions */}
+        <div className="space-y-3">
+          {renderCriticalAlerts(result.criticalAlerts, false)}
 
-      {/* 2. AI Header + Orientation */}
-      <div className="border rounded-lg border-purple-200 bg-gradient-to-br from-purple-50 to-white p-3">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-purple-600" />
-            <span className="font-semibold text-sm">Analyse IA</span>
+          {/* Orientation */}
+          <div className="border rounded-lg border-purple-200 bg-gradient-to-br from-purple-50 to-white p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-purple-600" />
+                <span className="font-semibold text-sm">Orientation</span>
+              </div>
+              {result.analysisTimestamp && (
+                <span className="text-xs text-gray-400">
+                  {new Date(result.analysisTimestamp).toLocaleString('fr-FR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 p-2.5 bg-white rounded-lg border border-gray-100">
+              <Badge className={orientationColors[result.orientation] || 'bg-gray-500 text-white'}>
+                {orientationLabels[result.orientation] || result.orientation}
+              </Badge>
+              <span className="text-sm text-gray-700">{result.orientationReason}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            {result.analysisTimestamp && (
-              <span className="text-xs text-gray-400">
-                {new Date(result.analysisTimestamp).toLocaleString('fr-FR', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </span>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={generateStream}
-              disabled={loading}
-              title="Re-analyser"
-              className="h-7 w-7 p-0"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
+
+          {renderTestBadges(result.recommendedTests, showTests, () => setShowTests(!showTests), false)}
+
+          {renderBulletList(
+            result.medicalInterventions,
+            Stethoscope, 'text-blue-600', 'Pour le medecin',
+            'bg-blue-400', 'text-gray-700',
+            true, showMedical, () => setShowMedical(!showMedical),
+            false,
+          )}
         </div>
 
-        {/* Orientation card */}
-        <div className="flex items-center gap-2 p-2.5 bg-white rounded-lg border border-gray-100">
-          <Badge className={orientationColors[result.orientation] || 'bg-gray-500 text-white'}>
-            {orientationLabels[result.orientation] || result.orientation}
-          </Badge>
-          <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
-          <span className="text-sm text-gray-700">{result.orientationReason}</span>
+        {/* Secondary column: warnings, nursing interventions, pathologies */}
+        <div className="space-y-3">
+          {renderWarnings(result.warnings, false)}
+
+          {renderNursingInterventions(result.nursingInterventions, checkedInterventions, toggleIntervention, false)}
+
+          {renderPathologies(result.pathologies, showPathologies, () => setShowPathologies(!showPathologies), getConfidenceColor, false)}
         </div>
       </div>
-
-      {/* 3. Nursing Interventions (always expanded) */}
-      {result.nursingInterventions.length > 0 && (
-        <div className="border rounded-lg p-3">
-          <div className="flex items-center gap-2 mb-2">
-            <ListChecks className="h-5 w-5 text-green-600" />
-            <span className="font-semibold text-sm">Actions infirmieres</span>
-            <Badge variant="secondary" className="text-xs">
-              {result.nursingInterventions.length}
-            </Badge>
-          </div>
-          <div className="space-y-1.5">
-            {result.nursingInterventions.map((intervention, index) => (
-              <button
-                key={index}
-                onClick={() => toggleIntervention(index)}
-                className={`w-full flex items-center gap-3 p-2.5 rounded-lg border text-left transition-all ${
-                  checkedInterventions.has(index)
-                    ? 'bg-green-50 border-green-300'
-                    : 'bg-white border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                {checkedInterventions.has(index) ? (
-                  <CheckSquare className="h-4 w-4 text-green-600 flex-shrink-0" />
-                ) : (
-                  <Square className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                )}
-                <span
-                  className={`text-sm ${
-                    checkedInterventions.has(index)
-                      ? 'text-green-800 line-through'
-                      : 'text-gray-700'
-                  }`}
-                >
-                  {intervention}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 4. Medical Interventions (collapsible, default collapsed) */}
-      {result.medicalInterventions.length > 0 && (
-        <div className="border rounded-lg">
-          <button
-            onClick={() => setShowMedical(!showMedical)}
-            className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors rounded-lg"
-          >
-            <div className="flex items-center gap-2">
-              <Stethoscope className="h-5 w-5 text-blue-600" />
-              <span className="font-semibold text-sm">Pour le medecin</span>
-              <Badge variant="secondary" className="text-xs">
-                {result.medicalInterventions.length}
-              </Badge>
-            </div>
-            {showMedical ? (
-              <ChevronUp className="h-4 w-4 text-gray-400" />
-            ) : (
-              <ChevronDown className="h-4 w-4 text-gray-400" />
-            )}
-          </button>
-          {showMedical && (
-            <div className="px-3 pb-3 space-y-1">
-              {result.medicalInterventions.map((intervention, i) => (
-                <p key={i} className="text-sm text-gray-700 flex items-start gap-2">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
-                  {intervention}
-                </p>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 5. Recommended Tests (collapsible, default collapsed) */}
-      {result.recommendedTests.length > 0 && (
-        <div className="border rounded-lg">
-          <button
-            onClick={() => setShowTests(!showTests)}
-            className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors rounded-lg"
-          >
-            <div className="flex items-center gap-2">
-              <FlaskConical className="h-5 w-5 text-indigo-600" />
-              <span className="font-semibold text-sm">Examens recommandes</span>
-              <Badge variant="secondary" className="text-xs">
-                {result.recommendedTests.length}
-              </Badge>
-            </div>
-            {showTests ? (
-              <ChevronUp className="h-4 w-4 text-gray-400" />
-            ) : (
-              <ChevronDown className="h-4 w-4 text-gray-400" />
-            )}
-          </button>
-          {showTests && (
-            <div className="px-3 pb-3 flex flex-wrap gap-2">
-              {result.recommendedTests.map((test, i) => (
-                <Badge key={i} variant="secondary" className="text-xs">
-                  {test}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 6. Diagnostic Hypotheses (collapsible, default collapsed) */}
-      {result.pathologies.length > 0 && (
-        <div className="border rounded-lg">
-          <button
-            onClick={() => setShowPathologies(!showPathologies)}
-            className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors rounded-lg"
-          >
-            <div className="flex items-center gap-2">
-              <Brain className="h-5 w-5 text-purple-600" />
-              <span className="font-semibold text-sm">Hypotheses diagnostiques</span>
-              <Badge variant="secondary" className="text-xs">
-                {result.pathologies.length}
-              </Badge>
-            </div>
-            {showPathologies ? (
-              <ChevronUp className="h-4 w-4 text-gray-400" />
-            ) : (
-              <ChevronDown className="h-4 w-4 text-gray-400" />
-            )}
-          </button>
-          {showPathologies && (
-            <div className="px-3 pb-3 space-y-3">
-              {result.pathologies.map((pathology, i) => (
-                <div key={i} className="p-3 bg-white rounded-lg border border-gray-200">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900 text-sm">{pathology.name}</p>
-                      {pathology.icd10Code && (
-                        <p className="text-xs text-gray-400">{pathology.icd10Code}</p>
-                      )}
-                    </div>
-                    <Badge className={urgencyColors[pathology.urgency]}>
-                      {urgencyLabels[pathology.urgency]}
-                    </Badge>
-                  </div>
-
-                  {/* Confidence bar */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="flex-1 bg-gray-200 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full ${getConfidenceColor(pathology.confidence)}`}
-                        style={{ width: `${pathology.confidence}%` }}
-                      />
-                    </div>
-                    <span className="text-sm font-medium text-gray-700 w-12 text-right">
-                      {pathology.confidence}%
-                    </span>
-                  </div>
-
-                  {/* Signs */}
-                  {pathology.signs.length > 0 && (
-                    <p className="text-sm text-gray-500 mb-1">
-                      {pathology.signs.join(', ')}
-                    </p>
-                  )}
-
-                  {/* Reasoning */}
-                  {pathology.reasoning && (
-                    <p className="text-sm italic text-gray-600">{pathology.reasoning}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 7. Warnings */}
-      {result.warnings.length > 0 && (
-        <div className="bg-amber-50 border-l-4 border-amber-500 rounded-r-lg p-3">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="h-5 w-5 text-amber-600" />
-            <span className="font-semibold text-amber-800 text-sm">Mises en garde</span>
-          </div>
-          <div className="space-y-1">
-            {result.warnings.map((warning, i) => (
-              <p key={i} className="text-sm text-amber-700 flex items-start gap-2">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
-                {warning}
-              </p>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
