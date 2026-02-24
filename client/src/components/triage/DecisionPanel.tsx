@@ -106,6 +106,8 @@ export interface DecisionPanelProps {
   canConfirm: boolean;
   useUnifiedAnalysis?: boolean;
   onUnifiedAnalysisReady?: (analysis: UnifiedClinicalAnalysis) => void;
+  onPanelOpen?: () => void;
+  onUnifiedHandle?: (handle: { regenerate: () => void; stop: () => void }) => void;
 }
 
 // =============================================================================
@@ -130,14 +132,17 @@ export function DecisionPanel({
   canConfirm,
   useUnifiedAnalysis,
   onUnifiedAnalysisReady,
+  onPanelOpen,
+  onUnifiedHandle,
 }: DecisionPanelProps): React.ReactElement {
   const [isOpen, setIsOpen] = useState(false);
   const [unifiedLoading, setUnifiedLoading] = useState(false);
-  const regenerateRef = useRef<(() => void) | null>(null);
+  const unifiedHandleRef = useRef<{ regenerate: () => void; stop: () => void } | null>(null);
 
-  const handleUnifiedReady = useCallback((handle: { regenerate: () => void }) => {
-    regenerateRef.current = handle.regenerate;
-  }, []);
+  const handleUnifiedReady = useCallback((handle: { regenerate: () => void; stop: () => void }) => {
+    unifiedHandleRef.current = handle;
+    onUnifiedHandle?.(handle);
+  }, [onUnifiedHandle]);
 
   const isOrientationOverride =
     selectedOrientation !== null &&
@@ -178,7 +183,7 @@ export function DecisionPanel({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => regenerateRef.current?.()}
+                onClick={() => unifiedHandleRef.current?.regenerate()}
                 disabled={unifiedLoading}
                 className="text-gray-500 hover:text-gray-700"
               >
@@ -313,7 +318,11 @@ export function DecisionPanel({
         <div className="px-4 py-2.5 flex items-center justify-between max-w-6xl mx-auto w-full">
           {/* Left: toggle + summary badges */}
           <button
-            onClick={() => setIsOpen(!isOpen)}
+            onClick={() => {
+              const opening = !isOpen;
+              setIsOpen(opening);
+              if (opening) onPanelOpen?.();
+            }}
             className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors"
           >
             {isOpen ? (

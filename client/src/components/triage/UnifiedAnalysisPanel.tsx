@@ -40,8 +40,8 @@ interface UnifiedAnalysisPanelProps {
   onAnalysisReady?: (analysis: UnifiedClinicalAnalysis) => void;
   /** Called when loading state changes (for parent to show spinner on re-analyze button) */
   onLoadingChange?: (loading: boolean) => void;
-  /** Called once on mount with a stable handle to trigger regeneration from parent */
-  onReady?: (handle: { regenerate: () => void }) => void;
+  /** Called once on mount with a stable handle to trigger regeneration or stop from parent */
+  onReady?: (handle: { regenerate: () => void; stop: () => void }) => void;
 }
 
 const orientationColors: Record<string, string> = {
@@ -476,6 +476,8 @@ export function UnifiedAnalysisPanel({
   const completedFieldsRef = useRef<Set<string>>(new Set());
   const lastPartialRef = useRef<Record<string, unknown> | null>(null);
   const generateStreamRef = useRef<() => Promise<void>>();
+  const stopStreamRef = useRef<() => void>();
+  const abortControllerRef = useRef<AbortController | null>(null);
   const onAnalysisReadyRef = useRef(onAnalysisReady);
   onAnalysisReadyRef.current = onAnalysisReady;
 
@@ -520,15 +522,19 @@ export function UnifiedAnalysisPanel({
     init();
 
     return () => {
+      abortControllerRef.current?.abort();
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
       }
     };
   }, [checkAiStatus, loadSaved]);
 
-  // Expose regenerate handle to parent
+  // Expose regenerate + stop handle to parent
   useEffect(() => {
-    onReady?.({ regenerate: () => { generateStreamRef.current?.(); } });
+    onReady?.({
+      regenerate: () => { generateStreamRef.current?.(); },
+      stop: () => { stopStreamRef.current?.(); },
+    });
   }, [onReady]);
 
   // Notify parent of loading state changes
@@ -582,6 +588,11 @@ export function UnifiedAnalysisPanel({
   }, [status, loading, patientId]);
 
   const generateStream = async (): Promise<void> => {
+    // Abort previous stream if still running
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       setLoading(true);
       setError(null);
@@ -609,6 +620,7 @@ export function UnifiedAnalysisPanel({
           'Authorization': `Bearer ${token}`,
           'Accept': 'text/event-stream',
         },
+        signal: controller.signal,
       });
 
       if (!response.ok || !response.body) {
@@ -683,7 +695,11 @@ export function UnifiedAnalysisPanel({
       rawJsonRef.current = '';
       lastPartialRef.current = null;
       setLoading(false);
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        // Stream was intentionally stopped — don't set error
+        return;
+      }
       setError('Erreur lors de la generation de l\'analyse');
       setIncrementalResult(null);
       rawJsonRef.current = '';
@@ -692,6 +708,16 @@ export function UnifiedAnalysisPanel({
     }
   };
   generateStreamRef.current = generateStream;
+
+  const stopStream = useCallback((): void => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setLoading(false);
+    setIncrementalResult(null);
+    rawJsonRef.current = '';
+    lastPartialRef.current = null;
+  }, []);
+  stopStreamRef.current = stopStream;
 
   const handleStop = (): void => {
     setLoading(false);

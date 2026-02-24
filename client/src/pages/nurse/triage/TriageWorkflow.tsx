@@ -197,6 +197,11 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
   // Auto-save interval
   const autoSaveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Unified analysis debounce refs
+  const unifiedHandleRef = useRef<{ regenerate: () => void; stop: () => void } | null>(null);
+  const unifiedDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveAllDirtyRef = useRef<() => Promise<void>>(() => Promise.resolve());
+
   // -----------------------------------------------------------------------
   // Tab navigation & scroll tracking
   // -----------------------------------------------------------------------
@@ -582,6 +587,59 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
     }
   }, [saveSection, debouncedRunAnalysis]);
 
+  // Keep ref in sync with latest saveAllDirty
+  saveAllDirtyRef.current = saveAllDirty;
+
+  // -----------------------------------------------------------------------
+  // Unified analysis debounce orchestration
+  // -----------------------------------------------------------------------
+
+  const handleUnifiedHandle = useCallback((handle: { regenerate: () => void; stop: () => void }) => {
+    unifiedHandleRef.current = handle;
+  }, []);
+
+  const scheduleUnifiedAnalysis = useCallback(() => {
+    if (!useUnifiedAnalysis) return;
+
+    // Stop any running stream immediately (stale data)
+    unifiedHandleRef.current?.stop();
+
+    // Clear existing debounce timer
+    if (unifiedDebounceRef.current) {
+      clearTimeout(unifiedDebounceRef.current);
+    }
+
+    // Schedule new analysis after 5 seconds
+    unifiedDebounceRef.current = setTimeout(async () => {
+      unifiedDebounceRef.current = null;
+      // Save all dirty sections first so the server has fresh data
+      await saveAllDirtyRef.current();
+      // Start fresh analysis stream
+      unifiedHandleRef.current?.regenerate();
+    }, 5000);
+  }, [useUnifiedAnalysis]);
+
+  const handlePanelOpen = useCallback(async () => {
+    if (!useUnifiedAnalysis) return;
+
+    // If debounce is pending, clear it and run immediately
+    if (unifiedDebounceRef.current) {
+      clearTimeout(unifiedDebounceRef.current);
+      unifiedDebounceRef.current = null;
+      // Save dirty data and start analysis immediately
+      await saveAllDirtyRef.current();
+      unifiedHandleRef.current?.regenerate();
+    }
+    // If no debounce pending, the stream is either already running or completed — do nothing
+  }, [useUnifiedAnalysis]);
+
+  // Cleanup unified debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (unifiedDebounceRef.current) clearTimeout(unifiedDebounceRef.current);
+    };
+  }, []);
+
   // -----------------------------------------------------------------------
   // Accordion collapse handler (auto-save)
   // -----------------------------------------------------------------------
@@ -610,12 +668,14 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
   const handleHistoryChange = useCallback((data: Partial<MedicalHistoryData>) => {
     setMedicalHistoryData(data);
     dirtyRef.current['antecedents'] = true;
-  }, []);
+    scheduleUnifiedAnalysis();
+  }, [scheduleUnifiedAnalysis]);
 
   const handleVitalsChange = useCallback((data: Partial<VitalsData>) => {
     setVitalsData(data);
     dirtyRef.current['signes-vitaux'] = true;
-  }, []);
+    scheduleUnifiedAnalysis();
+  }, [scheduleUnifiedAnalysis]);
 
   const handleAbcdeChange = useCallback(
     (category: string, data: any) => {
@@ -623,14 +683,16 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
       if (category === 'E') {
         dirtyRef.current['etat-general'] = true;
       }
+      scheduleUnifiedAnalysis();
     },
-    [],
+    [scheduleUnifiedAnalysis],
   );
 
   const handleSymptomsChange = useCallback((data: Partial<SymptomsFormData>) => {
     setSymptomsData(data);
     dirtyRef.current['symptomes'] = true;
-  }, []);
+    scheduleUnifiedAnalysis();
+  }, [scheduleUnifiedAnalysis]);
 
   // -----------------------------------------------------------------------
   // Manual save
@@ -907,10 +969,12 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
             onChiefComplaintChange={(v) => {
               setMedicalHistoryData(prev => ({ ...prev, chiefComplaint: v }));
               dirtyRef.current['etat-general'] = true;
+              scheduleUnifiedAnalysis();
             }}
             onSymptomOnsetChange={(v) => {
               setMedicalHistoryData(prev => ({ ...prev, symptomOnset: v }));
               dirtyRef.current['etat-general'] = true;
+              scheduleUnifiedAnalysis();
             }}
           />
         </TriageAccordionSection>
@@ -963,6 +1027,8 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
         canConfirm={canConfirm}
         useUnifiedAnalysis={useUnifiedAnalysis}
         onUnifiedAnalysisReady={handleUnifiedAnalysisReady}
+        onPanelOpen={handlePanelOpen}
+        onUnifiedHandle={handleUnifiedHandle}
       />
     )}
 
