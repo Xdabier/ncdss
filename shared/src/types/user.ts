@@ -19,8 +19,31 @@ export interface User {
   fullName: string;
   role: UserRole;
   isActive: boolean;
+  profileCompleted: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface UserProfile {
+  userId: string;
+  cin: string | null;
+  address: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  birthDate: string | null;
+}
+
+export interface UpdateProfileRequest {
+  cin: string;
+  address: string;
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
 }
 
 export interface LoginRequest {

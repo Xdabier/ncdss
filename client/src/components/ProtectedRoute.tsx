@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth.store';
 import { CLIENT_ROUTES } from '../routes';
 
@@ -8,7 +8,8 @@ interface Props {
 }
 
 export function ProtectedRoute({ children }: Props) {
-  const { isAuthenticated, loadAuth } = useAuthStore();
+  const { isAuthenticated, user, loadAuth } = useAuthStore();
+  const location = useLocation();
 
   useEffect(() => {
     loadAuth();
@@ -16,6 +17,11 @@ export function ProtectedRoute({ children }: Props) {
 
   if (!isAuthenticated) {
     return <Navigate to={CLIENT_ROUTES.login} replace />;
+  }
+
+  // Redirect to profile page if profile not completed (unless already there)
+  if (user && !user.profileCompleted && location.pathname !== CLIENT_ROUTES.profile) {
+    return <Navigate to={CLIENT_ROUTES.profile} replace />;
   }
 
   return <>{children}</>;

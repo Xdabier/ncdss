@@ -41,6 +41,7 @@ interface AuthState {
   getRefreshToken: () => Promise<string | null>;
   setTodayAssignment: (assignment: NurseAssignment, shiftInfo?: NurseShiftInfo) => Promise<void>;
   setDoctorBoxAssignment: (assignment: DoctorBoxAssignment | null) => Promise<void>;
+  updateUser: (user: User) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -172,5 +173,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await Preferences.remove({ key: 'ncdss_doctor_assignment' });
     }
     set({ doctorBoxAssignment: assignment });
+  },
+
+  updateUser: async (user) => {
+    await Preferences.set({ key: 'ncdss_user', value: JSON.stringify(user) });
+    set({ user });
   },
 }));

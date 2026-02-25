@@ -142,5 +142,10 @@ export const API_ROUTES = {
     stats: '/clinical-data/stats',
   },
 
+  profile: {
+    me: '/profile/me',
+    changePassword: '/profile/change-password',
+  },
+
   health: '/health',
 } as const;

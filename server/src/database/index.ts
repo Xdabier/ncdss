@@ -70,6 +70,11 @@ export async function initDatabase() {
   addColumnIfMissing(sqlite, 'patients', 'hold_by', 'TEXT');
   addColumnIfMissing(sqlite, 'patients', 'consultation_notes', 'TEXT');
 
+  // User profile completion feature
+  addColumnIfMissing(sqlite, 'users', 'profile_completed', 'INTEGER NOT NULL DEFAULT 0');
+  createUserProfilesTable(sqlite);
+  syncProfileCompletedFlag(sqlite);
+
   // Create patient_identities table and migrate existing data
   createPatientIdentitiesTable(sqlite);
   addColumnIfMissing(sqlite, 'patients', 'patient_identity_id', 'TEXT');
@@ -117,6 +122,7 @@ export async function seedDefaultAdmin() {
         fullName: 'Administrateur Système',
         role: 'SUPER_ADMIN',
         isActive: true,
+        profileCompleted: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -196,6 +202,44 @@ async function createRefreshTokensTable() {
     }
   } catch (error) {
     console.error('Error creating refresh_tokens table:', error);
+  }
+}
+
+function syncProfileCompletedFlag(sqliteDb: Database.Database): void {
+  // Ensure profile_completed accurately reflects whether a user_profiles row exists.
+  // Fixes users incorrectly marked as completed without an actual profile.
+  const fixed = sqliteDb.prepare(`
+    UPDATE users SET profile_completed = 0
+    WHERE profile_completed = 1
+      AND id NOT IN (SELECT user_id FROM user_profiles)
+  `).run();
+  if (fixed.changes > 0) {
+    console.log(`✓ Reset profile_completed for ${fixed.changes} user(s) without a profile`);
+  }
+}
+
+function createUserProfilesTable(sqliteDb: Database.Database): void {
+  const tableExists = sqliteDb
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='user_profiles'")
+    .get();
+
+  if (!tableExists) {
+    sqliteDb.exec(`
+      CREATE TABLE user_profiles (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        cin TEXT,
+        address TEXT,
+        first_name TEXT,
+        last_name TEXT,
+        birth_date TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE UNIQUE INDEX idx_user_profiles_user_id ON user_profiles(user_id);
+    `);
+    console.log('✓ user_profiles table created');
   }
 }
 
