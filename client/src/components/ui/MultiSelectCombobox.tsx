@@ -28,6 +28,7 @@ export function MultiSelectCombobox({
 }: MultiSelectComboboxProps): React.ReactElement {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
+  const [dropUp, setDropUp] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
   // Close on click outside
@@ -41,6 +42,16 @@ export function MultiSelectCombobox({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Determine if dropdown should open upward when space below is limited
+  React.useEffect(() => {
+    if (open && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const dropdownHeight = 280; // max-h-60 (240px) + search bar (~40px)
+      setDropUp(spaceBelow < dropdownHeight);
+    }
+  }, [open]);
 
   const filteredOptions = React.useMemo(() => {
     if (!search) return options;
@@ -96,7 +107,10 @@ export function MultiSelectCombobox({
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md animate-in fade-in-0 zoom-in-95">
+        <div className={cn(
+          'absolute z-50 w-full rounded-md border bg-popover shadow-md animate-in fade-in-0 zoom-in-95',
+          dropUp ? 'bottom-full mb-1' : 'top-full mt-1'
+        )}>
           {searchable && (
             <div className="p-2 border-b">
               <Input

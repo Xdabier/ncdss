@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Pin, ChevronUp, ChevronDown } from 'lucide-react';
 import { useTriageAccordion } from './TriageAccordion';
 import type { LucideIcon } from 'lucide-react';
@@ -24,8 +24,20 @@ export function TriageAccordionSection({
   const isOpen = openSections.has(id);
   const isPinned = pinnedSections.has(id);
 
+  // After expand animation completes, allow overflow so dropdowns aren't clipped
+  const [expanded, setExpanded] = useState(isOpen);
+  useEffect(() => {
+    if (!isOpen) {
+      setExpanded(false);
+    }
+  }, [isOpen]);
+
+  const handleTransitionEnd = (): void => {
+    if (isOpen) setExpanded(true);
+  };
+
   return (
-    <div ref={sectionRef} className="border rounded-lg bg-white shadow-sm overflow-hidden">
+    <div ref={sectionRef} className={`border rounded-lg bg-white shadow-sm ${expanded ? '' : 'overflow-hidden'}`}>
       {/* Header */}
       <button
         type="button"
@@ -54,8 +66,9 @@ export function TriageAccordionSection({
           display: 'grid',
           gridTemplateRows: isOpen ? '1fr' : '0fr',
         }}
+        onTransitionEnd={handleTransitionEnd}
       >
-        <div className="overflow-hidden">
+        <div className={expanded ? '' : 'overflow-hidden'}>
           <div className="px-4 pb-4 pt-2 border-t border-gray-100">
             {children}
           </div>

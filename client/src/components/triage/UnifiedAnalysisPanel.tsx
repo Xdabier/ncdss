@@ -98,21 +98,19 @@ interface SectionConfig {
 }
 
 const SECTION_ORDER: SectionConfig[] = [
-  { key: 'criticalAlerts', icon: AlertTriangle, iconColor: 'text-red-600', title: 'Alertes critiques' },
   { key: 'orientation', extraKeys: ['orientationReason'], icon: MapPin, iconColor: 'text-purple-600', title: 'Orientation' },
-  { key: 'nursingInterventions', icon: ListChecks, iconColor: 'text-green-600', title: 'Actions infirmieres' },
-  { key: 'medicalInterventions', icon: Stethoscope, iconColor: 'text-blue-600', title: 'Pour le medecin' },
+  { key: 'nursingInterventions', icon: ListChecks, iconColor: 'text-green-600', title: 'Interventions infirmieres' },
+  { key: 'medicalInterventions', icon: Stethoscope, iconColor: 'text-blue-600', title: 'Interventions medicales' },
   { key: 'recommendedTests', icon: FlaskConical, iconColor: 'text-indigo-600', title: 'Examens recommandes' },
-  { key: 'pathologies', icon: Brain, iconColor: 'text-purple-600', title: 'Hypotheses diagnostiques' },
+  { key: 'criticalAlerts', icon: AlertTriangle, iconColor: 'text-red-600', title: 'Alertes critiques' },
   { key: 'warnings', icon: AlertTriangle, iconColor: 'text-amber-600', title: 'Mises en garde' },
+  { key: 'pathologies', icon: Brain, iconColor: 'text-purple-600', title: 'Hypotheses diagnostiques' },
 ];
 
-const PRIMARY_KEYS: AnalysisFieldKey[] = ['criticalAlerts', 'orientation', 'recommendedTests', 'medicalInterventions'];
-const SECONDARY_KEYS: AnalysisFieldKey[] = ['warnings', 'nursingInterventions', 'pathologies'];
-
-const sectionByKey = new Map(SECTION_ORDER.map(s => [s.key, s]));
-const PRIMARY_SECTIONS = PRIMARY_KEYS.map(k => sectionByKey.get(k)!);
-const SECONDARY_SECTIONS = SECONDARY_KEYS.map(k => sectionByKey.get(k)!);
+/** Interleaved split for desktop masonry: even indices → left column, odd → right column.
+ *  Reading left-to-right per row gives the same order as SECTION_ORDER. */
+const LEFT_COLUMN = SECTION_ORDER.filter((_, i) => i % 2 === 0);
+const RIGHT_COLUMN = SECTION_ORDER.filter((_, i) => i % 2 !== 0);
 
 /** Throttle interval for incremental parsing (ms) */
 const PARSE_THROTTLE_MS = 200;
@@ -229,7 +227,7 @@ function renderNursingInterventions(
     <div className={`border rounded-lg p-3 ${streaming ? 'animate-in fade-in slide-in-from-bottom-2 duration-300' : ''}`}>
       <div className="flex items-center gap-2 mb-2">
         <ListChecks className="h-5 w-5 text-green-600" />
-        <span className="font-semibold text-sm">Actions infirmieres</span>
+        <span className="font-semibold text-sm">Interventions infirmieres</span>
         <Badge variant="secondary" className="text-xs">
           {interventions.length}
         </Badge>
@@ -830,7 +828,7 @@ export function UnifiedAnalysisPanel({
       case 'medicalInterventions': {
         const items = (effectivePartial.medicalInterventions as string[]) ?? [];
         return items.length > 0
-          ? <div key={config.key}>{renderBulletList(items, Stethoscope, 'text-blue-600', 'Pour le medecin', 'bg-blue-400', 'text-gray-700', true, showMedical, () => setShowMedical(!showMedical), shouldAnimate)}</div>
+          ? <div key={config.key}>{renderBulletList(items, Stethoscope, 'text-blue-600', 'Interventions medicales', 'bg-blue-400', 'text-gray-700', true, showMedical, () => setShowMedical(!showMedical), shouldAnimate)}</div>
           : null;
       }
       case 'recommendedTests': {
@@ -953,14 +951,22 @@ export function UnifiedAnalysisPanel({
 
     return (
       <div className="px-4 lg:px-8 py-2 max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:items-start">
+        {/* Mobile: single column in stream order */}
+        <div className="flex flex-col gap-3 lg:hidden">
+          {SECTION_ORDER.map((config) =>
+            renderStreamingSection(config, fieldStatuses, partial)
+          )}
+        </div>
+
+        {/* Desktop: masonry two-column (interleaved for L→R row reading) */}
+        <div className="hidden lg:grid lg:grid-cols-2 gap-3 items-start">
           <div className="space-y-3">
-            {PRIMARY_SECTIONS.map((config) =>
+            {LEFT_COLUMN.map((config) =>
               renderStreamingSection(config, fieldStatuses, partial)
             )}
           </div>
           <div className="space-y-3">
-            {SECONDARY_SECTIONS.map((config) =>
+            {RIGHT_COLUMN.map((config) =>
               renderStreamingSection(config, fieldStatuses, partial)
             )}
           </div>
@@ -1021,15 +1027,12 @@ export function UnifiedAnalysisPanel({
     );
   }
 
-  // Final result display
-  return (
-    <div className="px-4 lg:px-8 py-2 max-w-6xl mx-auto">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:items-start">
-        {/* Primary column: critical alerts, orientation, recommended tests, medical interventions */}
-        <div className="space-y-3">
-          {renderCriticalAlerts(result.criticalAlerts, false)}
+  // ─── Final section renderer (shared by mobile & desktop layouts) ─────────────
 
-          {/* Orientation */}
+  const renderFinalSection = (config: SectionConfig): React.ReactElement | null => {
+    switch (config.key) {
+      case 'orientation':
+        return (
           <div className="border rounded-lg border-purple-200 bg-gradient-to-br from-purple-50 to-white p-3">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
@@ -1054,25 +1057,57 @@ export function UnifiedAnalysisPanel({
               <span className="text-sm text-gray-700">{result.orientationReason}</span>
             </div>
           </div>
+        );
+      case 'nursingInterventions':
+        return renderNursingInterventions(result.nursingInterventions, checkedInterventions, toggleIntervention, false);
+      case 'medicalInterventions':
+        return renderBulletList(
+          result.medicalInterventions,
+          Stethoscope, 'text-blue-600', 'Interventions medicales',
+          'bg-blue-400', 'text-gray-700',
+          true, showMedical, () => setShowMedical(!showMedical),
+          false,
+        );
+      case 'recommendedTests':
+        return renderTestBadges(result.recommendedTests, showTests, () => setShowTests(!showTests), false);
+      case 'criticalAlerts':
+        return renderCriticalAlerts(result.criticalAlerts, false);
+      case 'warnings':
+        return renderWarnings(result.warnings, false);
+      case 'pathologies':
+        return renderPathologies(result.pathologies, showPathologies, () => setShowPathologies(!showPathologies), getConfidenceColor, false);
+      default:
+        return null;
+    }
+  };
 
-          {renderTestBadges(result.recommendedTests, showTests, () => setShowTests(!showTests), false)}
+  // Final result display
+  return (
+    <div className="px-4 lg:px-8 py-2 max-w-6xl mx-auto">
+      {/* Mobile: single column in stream order */}
+      <div className="flex flex-col gap-3 lg:hidden">
+        {SECTION_ORDER.map((config) => (
+          <React.Fragment key={config.key}>
+            {renderFinalSection(config)}
+          </React.Fragment>
+        ))}
+      </div>
 
-          {renderBulletList(
-            result.medicalInterventions,
-            Stethoscope, 'text-blue-600', 'Pour le medecin',
-            'bg-blue-400', 'text-gray-700',
-            true, showMedical, () => setShowMedical(!showMedical),
-            false,
-          )}
-        </div>
-
-        {/* Secondary column: warnings, nursing interventions, pathologies */}
+      {/* Desktop: masonry two-column (interleaved for L→R row reading) */}
+      <div className="hidden lg:grid lg:grid-cols-2 gap-3 items-start">
         <div className="space-y-3">
-          {renderWarnings(result.warnings, false)}
-
-          {renderNursingInterventions(result.nursingInterventions, checkedInterventions, toggleIntervention, false)}
-
-          {renderPathologies(result.pathologies, showPathologies, () => setShowPathologies(!showPathologies), getConfidenceColor, false)}
+          {LEFT_COLUMN.map((config) => (
+            <React.Fragment key={config.key}>
+              {renderFinalSection(config)}
+            </React.Fragment>
+          ))}
+        </div>
+        <div className="space-y-3">
+          {RIGHT_COLUMN.map((config) => (
+            <React.Fragment key={config.key}>
+              {renderFinalSection(config)}
+            </React.Fragment>
+          ))}
         </div>
       </div>
     </div>
