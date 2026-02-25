@@ -296,7 +296,7 @@ export function ReassignBoxModal({
                     </Badge>
                   )}
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {recommendedBoxes.map((box) => renderBoxCard(box, true))}
                 </div>
               </div>
@@ -309,7 +309,7 @@ export function ReassignBoxModal({
                   <BedDouble className="h-4 w-4 text-gray-400" />
                   Autres boxes
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {otherBoxes.map((box) => renderBoxCard(box, false))}
                 </div>
               </div>

@@ -208,6 +208,7 @@ export default function TriageQueue() {
       key: 'createdAt',
       header: "Heure d'arrivée",
       width: '15%',
+      hiddenOnMobile: true,
       render: (p) => formatDateTime(p.createdAt).split(' ')[1]
     },
     {
@@ -301,9 +302,9 @@ export default function TriageQueue() {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">File de Triage</h1>
+      <div className="p-3 sm:p-4 md:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-2">
+          <h1 className="text-lg sm:text-xl md:text-2xl font-bold">File de Triage</h1>
           <div className="flex gap-2">
             <Badge variant="outline" className="text-sm px-3 py-1">
               {patients.filter(p => p.status === PatientStatus.REGISTERED).length} en attente

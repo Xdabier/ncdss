@@ -170,7 +170,7 @@ export function AssignmentSelector({
             {/* Role grid */}
             <div>
               <Label className="text-sm font-medium text-gray-700 mb-2 block">Rôle</Label>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {selectableAssignments.map((assignment) => (
                   <button
                     key={assignment}

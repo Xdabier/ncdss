@@ -80,11 +80,11 @@ export default function UserManagement() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Gestion des Utilisateurs</h1>
+            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Gestion des Utilisateurs</h1>
             <p className="text-gray-600 mt-1">Gérez les comptes utilisateurs du système</p>
           </div>
           <Button onClick={() => navigate(CLIENT_ROUTES.admin.userNew)}>
@@ -158,7 +158,7 @@ export default function UserManagement() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Nom complet
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
                         Identifiant
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -178,7 +178,7 @@ export default function UserManagement() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{user.fullName}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4 whitespace-nowrap hidden sm:table-cell">
                           <div className="text-sm text-gray-500">{user.username}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">

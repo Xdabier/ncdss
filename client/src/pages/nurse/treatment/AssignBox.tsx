@@ -432,7 +432,7 @@ export default function AssignBox() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {recommendedBoxes.map((box) => renderBoxCard(box, true))}
               </div>
             </CardContent>
@@ -449,7 +449,7 @@ export default function AssignBox() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {(showAllBoxes ? boxes : otherBoxes).map((box) => renderBoxCard(box, false))}
               </div>
             </CardContent>

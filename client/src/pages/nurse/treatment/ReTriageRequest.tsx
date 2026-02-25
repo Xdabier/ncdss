@@ -268,7 +268,7 @@ export default function ReTriageRequest() {
               </div>
 
               {/* Scores */}
-              <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 pt-4 border-t">
                 <div className="text-center">
                   <div
                     className={`text-lg font-bold ${
@@ -358,7 +358,7 @@ export default function ReTriageRequest() {
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="Décrivez les changements observés chez le patient qui justifient une réévaluation..."
-                  className="w-full border rounded-lg p-3 min-h-[150px] focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                  className="w-full border rounded-lg p-3 min-h-[100px] sm:min-h-[150px] focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
                   disabled={submitting}
                 />
                 <p className="text-xs text-gray-500">

@@ -255,7 +255,7 @@ export default function ClinicalDataPage(): React.ReactElement {
 
         {/* Stats Summary */}
         {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
             <Card>
               <CardContent className="pt-4 pb-3">
                 <div className="flex items-center gap-3">
@@ -436,7 +436,7 @@ export default function ClinicalDataPage(): React.ReactElement {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Nom (Fr)
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
                           Catégorie
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -478,7 +478,7 @@ export default function ClinicalDataPage(): React.ReactElement {
                                   {pathology.nameFr}
                                 </span>
                               </td>
-                              <td className="px-4 py-4">
+                              <td className="px-4 py-4 hidden sm:table-cell">
                                 <span
                                   className={`px-2 py-1 rounded-full text-xs font-medium ${
                                     abcdeCategoryColors[pathology.abcdeCategory] || 'bg-gray-100 text-gray-800'

@@ -310,7 +310,7 @@ export function DoctorAssignmentSelector({
 
                     {/* Accordion Content */}
                     {isExpanded && (
-                      <div className="p-2 bg-gray-50 grid grid-cols-2 gap-2">
+                      <div className="p-2 bg-gray-50 grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {typeBoxes.map((box) => (
                           <button
                             key={box.id}
@@ -338,7 +338,7 @@ export function DoctorAssignmentSelector({
           {/* Preset Selection */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-700">Durée</Label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {selectablePresets.map((preset) => {
                 const config = ASSIGNMENT_PRESETS[preset];
                 return (
@@ -376,7 +376,7 @@ export function DoctorAssignmentSelector({
           {selectedPreset === AssignmentPreset.CUSTOM && (
             <div className="space-y-3 p-4 bg-gray-50 rounded-lg">
               <Label className="text-sm font-medium text-gray-700">Fin de garde</Label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="endDate" className="text-xs text-gray-500">Date</Label>
                   <Input

@@ -120,7 +120,7 @@ function QueueCard({ title, icon, queue, color, onPatientClick, emptyMessage }: 
         {queue.patients.length === 0 ? (
           <p className="text-gray-500 text-sm text-center py-4">{emptyMessage}</p>
         ) : (
-          <div className="space-y-2 max-h-[300px] overflow-y-auto">
+          <div className="space-y-2 max-h-[200px] sm:max-h-[300px] overflow-y-auto">
             {sortedPatients.map((patient) => (
               <div
                 key={patient.id}
@@ -148,7 +148,7 @@ function QueueCard({ title, icon, queue, color, onPatientClick, emptyMessage }: 
                         </Badge>
                       )}
                       {patient.chiefComplaint && (
-                        <span className="truncate max-w-[150px]">{patient.chiefComplaint}</span>
+                        <span className="truncate max-w-[100px] sm:max-w-[150px]">{patient.chiefComplaint}</span>
                       )}
                     </div>
                   </div>
@@ -221,7 +221,7 @@ export default function QueueManagement() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-3 sm:p-4 md:p-6 space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -291,7 +291,7 @@ export default function QueueManagement() {
 
         {/* Queue Cards */}
         {data && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             <QueueCard
               title="File d'Inscription"
               icon={<ClipboardList className="h-5 w-5" />}

@@ -309,7 +309,7 @@ export default function SupervisorPatientDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="text-center p-3 bg-gray-50 rounded-lg">
                   <Thermometer className="h-5 w-5 mx-auto text-blue-500" />
                   <p className="text-xs text-gray-500 mt-1">Température</p>

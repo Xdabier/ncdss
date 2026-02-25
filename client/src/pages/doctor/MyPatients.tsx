@@ -277,7 +277,7 @@ export default function MyPatients() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6">
         {/* Toast notifications */}
         {toasts.length > 0 && (
           <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">
@@ -300,9 +300,9 @@ export default function MyPatients() {
         )}
 
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center items-start gap-2 justify-between mb-4 sm:mb-6 md:mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Mes Patients</h1>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Mes Patients</h1>
             <p className="text-gray-600 mt-1">
               Gestion des patients assignés et en attente
             </p>
@@ -320,7 +320,7 @@ export default function MyPatients() {
 
         {/* Critical Alert Banner */}
         {criticalPatients.length > 0 && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+          <div className="mb-4 sm:mb-6 md:mb-8 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-red-600 flex-shrink-0" />
             <div>
               <h3 className="font-semibold text-red-800">
@@ -334,7 +334,7 @@ export default function MyPatients() {
         )}
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
           <Card
             className="cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-l-blue-500"
             onClick={() => setActiveTab('mine')}
@@ -346,7 +346,7 @@ export default function MyPatients() {
               <Users className="h-5 w-5 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-blue-600">
+              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-blue-600">
                 {myPatients.length}
               </div>
             </CardContent>
@@ -363,7 +363,7 @@ export default function MyPatients() {
               <Clock className="h-5 w-5 text-yellow-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-yellow-600">
+              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-yellow-600">
                 {waitingPatients.length}
               </div>
             </CardContent>
@@ -377,7 +377,7 @@ export default function MyPatients() {
               <AlertTriangle className="h-5 w-5 text-red-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-red-600">
+              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-red-600">
                 {criticalPatients.length}
               </div>
             </CardContent>
@@ -385,7 +385,7 @@ export default function MyPatients() {
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mb-4">
           <Button
             variant={activeTab === 'mine' ? 'default' : 'outline'}
             onClick={() => setActiveTab('mine')}
@@ -455,13 +455,13 @@ export default function MyPatients() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Patient
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="hidden sm:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Motif
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="hidden sm:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Orientation
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="hidden sm:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Temps d'attente
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -494,9 +494,9 @@ export default function MyPatients() {
                               {formatPatientInfo(patient)}
                             </div>
                           </td>
-                          <td className="px-4 py-4">
+                          <td className="hidden sm:table-cell px-4 py-4">
                             <div
-                              className="text-sm text-gray-900 max-w-xs truncate"
+                              className="text-sm text-gray-900 max-w-[150px] sm:max-w-xs truncate"
                               title={patient.chiefComplaint || '-'}
                             >
                               {patient.chiefComplaint
@@ -506,12 +506,12 @@ export default function MyPatients() {
                                 : '-'}
                             </div>
                           </td>
-                          <td className="px-4 py-4 whitespace-nowrap">
+                          <td className="hidden sm:table-cell px-4 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
                               {patient.finalOrientation || patient.suggestedOrientation || '-'}
                             </div>
                           </td>
-                          <td className="px-4 py-4 whitespace-nowrap">
+                          <td className="hidden sm:table-cell px-4 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-1">
                               <Clock className={`h-4 w-4 ${getWaitingTimeColor(waitMinutes)}`} />
                               <span className={`text-sm ${getWaitingTimeColor(waitMinutes)}`}>

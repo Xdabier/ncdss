@@ -6,6 +6,7 @@ export interface Column<T> {
   key: keyof T | string;
   header: string;
   width?: string;
+  hiddenOnMobile?: boolean;
   render?: (item: T) => ReactNode;
 }
 
@@ -48,7 +49,7 @@ export function DataTable<T>({
             {columns.map((col) => (
               <th
                 key={String(col.key)}
-                className="px-4 py-3 text-left text-sm font-semibold text-gray-600"
+                className={`px-2 sm:px-4 py-2 sm:py-3 text-left text-sm font-semibold text-gray-600${col.hiddenOnMobile ? ' hidden sm:table-cell' : ''}`}
                 style={{ width: col.width }}
               >
                 {col.header}
@@ -64,7 +65,10 @@ export function DataTable<T>({
               onClick={() => onRowClick?.(item)}
             >
               {columns.map((col) => (
-                <td key={String(col.key)} className="px-4 py-3 text-sm">
+                <td
+                  key={String(col.key)}
+                  className={`px-2 sm:px-4 py-2 sm:py-3 text-sm${col.hiddenOnMobile ? ' hidden sm:table-cell' : ''}`}
+                >
                   {col.render ? col.render(item) : String((item as any)[col.key] ?? '')}
                 </td>
               ))}

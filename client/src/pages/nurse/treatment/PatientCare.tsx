@@ -440,9 +440,9 @@ export default function PatientCare() {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
+      <div className="p-3 sm:p-4 md:p-6">
         {/* Back button and title */}
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-4 mb-4 sm:mb-6">
           <Button variant="ghost" size="sm" onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.queue)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour
@@ -488,7 +488,7 @@ export default function PatientCare() {
         )}
 
         {/* Main 2-column layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
           {/* Left Column - Patient Info & Vitals (2/3 width) */}
           <div className="lg:col-span-2 space-y-4">
             {/* Patient Header */}

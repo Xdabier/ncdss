@@ -266,7 +266,7 @@ export default function AuditLog() {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
+      <div className="p-3 sm:p-4 md:p-6">
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -332,7 +332,7 @@ export default function AuditLog() {
                     </Button>
                   )}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   <div>
                     <Label htmlFor="startDate">Date début</Label>
                     <Input
@@ -435,8 +435,8 @@ export default function AuditLog() {
                         <TableHead>Utilisateur</TableHead>
                         <TableHead>Action</TableHead>
                         <TableHead>Ressource</TableHead>
-                        <TableHead>ID</TableHead>
-                        <TableHead className="w-[80px]">Détails</TableHead>
+                        <TableHead className="hidden sm:table-cell">ID</TableHead>
+                        <TableHead className="w-[80px] hidden sm:table-cell">Détails</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -454,12 +454,12 @@ export default function AuditLog() {
                           <TableCell>
                             {RESOURCE_LABELS[entry.resource] || entry.resource}
                           </TableCell>
-                          <TableCell className="font-mono text-xs text-gray-500">
+                          <TableCell className="font-mono text-xs text-gray-500 hidden sm:table-cell">
                             {entry.resourceId
                               ? entry.resourceId.substring(0, 8) + '...'
                               : '-'}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden sm:table-cell">
                             <Button
                               variant="ghost"
                               size="sm"

@@ -92,9 +92,9 @@ export default function ABCDEReview() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center items-start gap-2 justify-between mb-4 sm:mb-6 md:mb-8">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
@@ -104,7 +104,7 @@ export default function ABCDEReview() {
               Retour au dossier
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{patient.fullName}</h1>
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{patient.fullName}</h1>
               <p className="text-gray-600">
                 {patient.age} ans, {patient.sex === Sex.MALE ? 'Homme' : 'Femme'}
               </p>
@@ -129,7 +129,7 @@ export default function ABCDEReview() {
 
         {/* Allergies Alert */}
         {allergies.length > 0 && (
-          <Alert variant="destructive" className="mb-6">
+          <Alert variant="destructive" className="mb-4 sm:mb-6 md:mb-8">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
               <span className="font-semibold">Allergies :</span>{' '}
@@ -140,7 +140,7 @@ export default function ABCDEReview() {
 
         {/* Chief Complaint */}
         {patient.chiefComplaint && (
-          <Card className="mb-6">
+          <Card className="mb-4 sm:mb-6 md:mb-8">
             <CardContent className="p-4">
               <p className="text-sm text-gray-500 mb-1">Motif de consultation</p>
               <p className="font-medium">{patient.chiefComplaint}</p>

@@ -887,9 +887,9 @@ export default function PatientDetail() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center items-start gap-2 justify-between mb-4 sm:mb-6 md:mb-8">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
@@ -899,7 +899,7 @@ export default function PatientDetail() {
               Retour
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{patient.fullName}</h1>
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{patient.fullName}</h1>
               <p className="text-gray-600">
                 {patient.age} ans, {patient.sex === Sex.MALE ? 'Homme' : 'Femme'}
                 {patient.nationalId && ` | CIN: ${patient.nationalId}`}
@@ -924,7 +924,7 @@ export default function PatientDetail() {
         </div>
 
         {/* Quick Actions Bar */}
-        <div className="flex flex-wrap items-center gap-2 mb-6 p-3 bg-gray-50 rounded-lg">
+        <div className="flex flex-wrap items-center gap-2 mb-4 sm:mb-6 md:mb-8 p-3 bg-gray-50 rounded-lg">
           <Button
             size="sm"
             onClick={() => {
@@ -1090,9 +1090,9 @@ export default function PatientDetail() {
         )}
 
         {/* Main Content - 2 columns on desktop */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
           {/* Left Column - 2/3 width */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-3 sm:space-y-4 md:space-y-6">
             {/* Chief Complaint & Medical History */}
             <Card>
               <CardHeader className="pb-2">
@@ -1236,7 +1236,7 @@ export default function PatientDetail() {
                 </div>
 
                 {/* Scores Row */}
-                <div className="grid grid-cols-3 gap-4 mt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mt-4">
                   <div className={`p-3 rounded-lg border-2 ${
                     patient.newsScore !== undefined
                       ? getScoreColor(patient.newsScore, 'news')
@@ -1293,7 +1293,7 @@ export default function PatientDetail() {
           </div>
 
           {/* Right Column - 1/3 width */}
-          <div className="space-y-6">
+          <div className="space-y-3 sm:space-y-4 md:space-y-6">
             {/* AI Pre-Diagnosis Panel */}
             <AIPreDiagnosisPanel
               patientId={patient.id}

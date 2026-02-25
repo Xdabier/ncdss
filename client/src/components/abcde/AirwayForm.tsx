@@ -67,7 +67,7 @@ export function AirwayForm({ data, onChange, onSave, loading, vitalsData, hideVi
           </div>
         )}
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
           <label className={`flex items-center space-x-3 border p-3 rounded-md cursor-pointer transition-colors ${
             data.patent ? 'bg-green-50 border-green-300' : 'hover:bg-gray-50'
           }`}>

@@ -130,10 +130,10 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
+      <div className="p-3 sm:p-4 md:p-6">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Tableau de bord</h1>
+        <div className="mb-4 sm:mb-6 md:mb-8">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Tableau de bord</h1>
           <p className="text-gray-600 mt-2">
             Bienvenue, {user?.fullName}
             {getRoleLabel() && ` - Affectation: ${getRoleLabel()}`}
@@ -276,7 +276,7 @@ export default function Dashboard() {
         )}
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
           <Card
             className="cursor-pointer hover:shadow-lg transition-shadow"
             onClick={() => navigate(CLIENT_ROUTES.nurse.inscription.home)}
@@ -341,7 +341,7 @@ export default function Dashboard() {
 
         {/* Quick Actions */}
         {getQuickActions().length > 0 && (
-          <div className="mb-8">
+          <div className="mb-4 sm:mb-6 md:mb-8">
             <h2 className="text-lg font-semibold mb-4">Actions rapides</h2>
             <div className="flex flex-wrap gap-3">
               {getQuickActions().map((action, index) => (
@@ -358,12 +358,12 @@ export default function Dashboard() {
         )}
 
         {/* Patient Flow Visualization */}
-        <Card className="mb-8">
+        <Card className="mb-4 sm:mb-6 md:mb-8">
           <CardHeader>
             <CardTitle>Flux des patients</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between text-center py-4">
+            <div className="flex flex-wrap items-center justify-between text-center py-4 gap-1">
               <div
                 className="flex-1 cursor-pointer hover:bg-gray-50 rounded-lg p-3 transition-colors"
                 onClick={() => navigate(CLIENT_ROUTES.nurse.inscription.home)}
@@ -424,7 +424,7 @@ export default function Dashboard() {
 
         {/* Performance Stats (Admin/Supervisor only) */}
         {(isAdmin || isSupervisor) && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-gray-600">

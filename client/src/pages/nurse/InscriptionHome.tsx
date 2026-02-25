@@ -87,6 +87,7 @@ export default function InscriptionHome() {
       key: 'createdAt',
       header: 'Heure',
       width: '15%',
+      hiddenOnMobile: true,
       render: (p) => formatDateTime(p.createdAt).split(' ')[1]
     },
     {
@@ -131,11 +132,11 @@ export default function InscriptionHome() {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-6">Inscription des Patients</h1>
+      <div className="p-3 sm:p-4 md:p-6">
+        <h1 className="text-lg sm:text-xl md:text-2xl font-bold mb-4 sm:mb-6">Inscription des Patients</h1>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
           <Card>
             <CardContent className="p-6 text-center">
               <div className="text-2xl font-bold text-blue-600">{stats.total}</div>

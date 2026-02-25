@@ -123,7 +123,7 @@ export function VitalsForm({ data, onChange, onSave, loading }: Props) {
       </div>
 
       {/* 2. TAS / TAD grouped in a single row */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className={`space-y-2 p-3 rounded-lg border-2 ${getSystolicColor(data.systolicBP)}`}>
           <Label className="font-medium">PAS (mmHg)</Label>
           <Input
@@ -244,7 +244,7 @@ export function VitalsForm({ data, onChange, onSave, loading }: Props) {
               const val = e.target.value === '' ? undefined : Math.min(10, Math.max(0, parseInt(e.target.value)));
               updateField('painLevel', val as number);
             }}
-            className="w-20 text-center text-lg font-bold bg-white"
+            className="w-16 sm:w-20 text-center text-lg font-bold bg-white"
             placeholder="0-10"
           />
           <span className="text-2xl font-bold text-gray-600">/10</span>

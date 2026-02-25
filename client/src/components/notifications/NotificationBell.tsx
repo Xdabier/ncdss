@@ -87,7 +87,7 @@ export function NotificationBell() {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-lg shadow-lg border border-gray-200 z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-[min(20rem,calc(100vw-1rem))] sm:w-96 bg-white rounded-lg shadow-lg border border-gray-200 z-50 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
             <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
@@ -105,7 +105,7 @@ export function NotificationBell() {
           </div>
 
           {/* Notification list */}
-          <div className="max-h-[400px] overflow-y-auto divide-y divide-gray-100">
+          <div className="max-h-[min(400px,60vh)] overflow-y-auto divide-y divide-gray-100">
             {isLoading && notifications.length === 0 ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-5 w-5 animate-spin text-gray-400" />

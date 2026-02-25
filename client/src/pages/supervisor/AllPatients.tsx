@@ -244,7 +244,7 @@ export default function AllPatients() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-3 sm:p-4 md:p-6 space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -413,10 +413,10 @@ export default function AllPatients() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         ESI
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
                         Orientation
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
                         Arrivée
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -447,7 +447,7 @@ export default function AllPatients() {
                                   )}
                                 </div>
                                 {patient.chiefComplaint && (
-                                  <div className="text-sm text-gray-500 truncate max-w-[200px]">
+                                  <div className="text-sm text-gray-500 truncate max-w-[120px] sm:max-w-[200px]">
                                     {patient.chiefComplaint}
                                   </div>
                                 )}
@@ -476,7 +476,7 @@ export default function AllPatients() {
                               <span className="text-gray-400">-</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <td className="px-4 py-3 whitespace-nowrap hidden sm:table-cell">
                             {patient.finalOrientation ? (
                               <span className="text-sm">
                                 {orientationLabels[patient.finalOrientation] || patient.finalOrientation}
@@ -485,7 +485,7 @@ export default function AllPatients() {
                               <span className="text-gray-400">-</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <td className="px-4 py-3 whitespace-nowrap hidden sm:table-cell">
                             <div className="text-sm text-gray-900">
                               {formatTime(patient.createdAt)}
                             </div>

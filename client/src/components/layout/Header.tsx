@@ -37,7 +37,7 @@ export function Header({ onMenuClick }: Props) {
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b shadow-sm">
+    <header className="sticky top-0 z-30 bg-white border-b shadow-sm safe-top">
       <div className="flex items-center justify-between h-16 px-4 lg:px-6">
         {/* Left side - Menu button (mobile only) */}
         <div className="flex items-center space-x-4">

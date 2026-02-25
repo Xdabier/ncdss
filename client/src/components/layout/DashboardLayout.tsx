@@ -22,7 +22,7 @@ export function DashboardLayout({ children }: Props) {
       {/* Sidebar */}
       <div
         className={`
-          fixed inset-y-0 left-0 z-50 w-72 bg-white border-r shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0
+          fixed inset-y-0 left-0 z-50 w-[min(18rem,85vw)] bg-white border-r shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
@@ -30,7 +30,7 @@ export function DashboardLayout({ children }: Props) {
       </div>
 
       {/* Main content area */}
-      <div className="lg:pl-72">
+      <div className="lg:pl-[min(18rem,85vw)]">
         {/* Header */}
         <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 

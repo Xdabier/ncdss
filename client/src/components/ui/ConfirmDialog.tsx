@@ -34,8 +34,8 @@ export function ConfirmDialog({
       />
 
       {/* Dialog Content */}
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 z-10">
-        <div className="p-6">
+      <div className="relative bg-white rounded-lg shadow-xl w-[calc(100%-2rem)] sm:w-full max-w-md mx-auto z-10">
+        <div className="p-4 sm:p-6">
           {/* Icon */}
           <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-red-100">
             <AlertTriangle className="h-6 w-6 text-red-600" />

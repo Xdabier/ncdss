@@ -234,6 +234,7 @@ export default function TrackingBoard() {
       key: 'finalOrientation',
       header: 'Orientation',
       width: '9%',
+      hiddenOnMobile: true,
       render: (p) =>
         p.finalOrientation ? (
           <Badge variant="outline" className="text-xs">
@@ -264,6 +265,7 @@ export default function TrackingBoard() {
       key: 'scores',
       header: 'Scores',
       width: '10%',
+      hiddenOnMobile: true,
       render: (p) => {
         if (p.newsScore == null && p.gcsScore == null) {
           return <span className="text-gray-400 text-xs">—</span>;
@@ -302,6 +304,7 @@ export default function TrackingBoard() {
       key: 'doctorName',
       header: 'Médecin',
       width: '12%',
+      hiddenOnMobile: true,
       render: (p) => {
         if (!p.doctorName) {
           return <span className="text-gray-400 text-xs">Non assigné</span>;
@@ -374,7 +377,7 @@ export default function TrackingBoard() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-6">
           <Card
             className={`cursor-pointer transition-all ${filter === 'waiting' ? 'ring-2 ring-yellow-500' : 'hover:shadow-md'}`}
             onClick={() => setFilter(filter === 'waiting' ? 'all' : 'waiting')}

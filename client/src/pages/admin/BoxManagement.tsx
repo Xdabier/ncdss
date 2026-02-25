@@ -81,11 +81,11 @@ export default function BoxManagement() {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
+      <div className="p-3 sm:p-4 md:p-6">
         <h1 className="text-2xl font-bold mb-6">Gestion des Boxes</h1>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
           {Object.entries(boxTypeLabels).map(([type, label]) => (
             <div
               key={type}

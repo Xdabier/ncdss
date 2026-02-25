@@ -354,7 +354,7 @@ export default function DeteriorationAlert() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <ScoreChange
                   label="NEWS"
                   current={patient.newsScore}
@@ -451,7 +451,7 @@ export default function DeteriorationAlert() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                 {escalationOptions.map((option) => {
                   const Icon = option.icon;
                   return (
@@ -505,7 +505,7 @@ export default function DeteriorationAlert() {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Décrivez la détérioration observée, le contexte, et toute information pertinente..."
-                className="w-full border rounded-lg p-3 min-h-[120px] focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                className="w-full border rounded-lg p-3 min-h-[80px] sm:min-h-[120px] focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
                 disabled={submitting}
               />
 

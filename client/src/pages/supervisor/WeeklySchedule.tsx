@@ -361,7 +361,7 @@ export default function WeeklySchedulePage(): React.ReactElement {
                                 {getRoleLabel(dayData.role)}
                               </div>
                               {!isOff && dayData.shiftStart && dayData.shiftEnd && (
-                                <div className="text-[10px] text-gray-500 mt-0.5 flex items-center justify-center gap-0.5">
+                                <div className="text-[11px] sm:text-xs text-gray-500 mt-0.5 flex items-center justify-center gap-0.5">
                                   <Clock className="h-2.5 w-2.5" />
                                   {formatShiftTime(dayData.shiftStart)} → {formatShiftTime(dayData.shiftEnd)}
                                 </div>
@@ -457,7 +457,7 @@ export default function WeeklySchedulePage(): React.ReactElement {
                             {isCustom ? config.labelFr : config.labelFr.split(' (')[0]}
                           </div>
                           {!isCustom && (
-                            <div className="text-[10px] text-gray-500">
+                            <div className="text-[11px] sm:text-xs text-gray-500">
                               {formatShiftTime(config.startTime)} → {formatShiftTime(config.endTime)}
                             </div>
                           )}
@@ -475,7 +475,7 @@ export default function WeeklySchedulePage(): React.ReactElement {
                     <Label className="text-xs font-medium text-gray-600">Horaires personnalisés</Label>
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
-                        <Label className="text-[10px] text-gray-500">Début</Label>
+                        <Label className="text-[11px] sm:text-xs text-gray-500">Début</Label>
                         <Input
                           type="time"
                           value={dialogShiftStart}
@@ -485,7 +485,7 @@ export default function WeeklySchedulePage(): React.ReactElement {
                       </div>
                       <span className="text-gray-400 mt-4">→</span>
                       <div className="flex-1">
-                        <Label className="text-[10px] text-gray-500">Fin</Label>
+                        <Label className="text-[11px] sm:text-xs text-gray-500">Fin</Label>
                         <Input
                           type="time"
                           value={dialogShiftEnd}

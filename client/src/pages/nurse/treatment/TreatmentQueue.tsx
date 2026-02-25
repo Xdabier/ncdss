@@ -177,7 +177,7 @@ export default function TreatmentQueue() {
       header: 'Motif',
       width: '16%',
       render: (p) => (
-        <div className="truncate max-w-[200px]" title={p.chiefComplaint || ''}>
+        <div className="truncate max-w-[120px] sm:max-w-[200px]" title={p.chiefComplaint || ''}>
           {p.chiefComplaint || <span className="text-gray-400">—</span>}
         </div>
       ),
@@ -186,6 +186,7 @@ export default function TreatmentQueue() {
       key: 'finalOrientation',
       header: 'Orientation',
       width: '10%',
+      hiddenOnMobile: true,
       render: (p) =>
         p.finalOrientation ? (
           <Badge variant="outline">{orientationLabels[p.finalOrientation] || p.finalOrientation}</Badge>
@@ -197,6 +198,7 @@ export default function TreatmentQueue() {
       key: 'newsScore',
       header: 'NEWS',
       width: '6%',
+      hiddenOnMobile: true,
       render: (p) => {
         const score = p.newsScore ?? null;
         if (score === null) return <span className="text-gray-400">—</span>;
@@ -272,10 +274,10 @@ export default function TreatmentQueue() {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
+      <div className="p-3 sm:p-4 md:p-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">File de Soins</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-2">
+          <h1 className="text-lg sm:text-xl md:text-2xl font-bold">File de Soins</h1>
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <span>Actualisation auto: 15s</span>
             <Button variant="ghost" size="sm" onClick={loadPatients} title="Actualiser maintenant">
