@@ -163,7 +163,7 @@ export function DecisionPanel({
       {/* z-40 so the bar (z-50) stays visually on top during animation     */}
       {/* ================================================================= */}
       <div
-        className={`fixed inset-0 lg:left-64 z-40 bg-white flex flex-col
+        className={`fixed inset-0 lg:left-72 z-40 bg-white flex flex-col
           transition-transform duration-300 ease-in-out
           ${isOpen ? 'translate-y-0' : 'translate-y-full pointer-events-none'}`}
       >
@@ -317,7 +317,7 @@ export function DecisionPanel({
       {/* ================================================================= */}
       {/* Bar — fixed at viewport bottom, always on top (z-50 > z-40)       */}
       {/* ================================================================= */}
-      <div className="fixed bottom-0 left-0 right-0 lg:left-64 z-50 bg-white border-t-2 border-blue-200 shadow-[0_-2px_8px_rgba(0,0,0,0.08)]">
+      <div className="fixed bottom-0 left-0 right-0 lg:left-72 z-50 bg-white border-t-2 border-blue-200 shadow-[0_-2px_8px_rgba(0,0,0,0.08)]">
         <div className="px-4 py-2.5 flex items-center justify-between max-w-6xl mx-auto w-full">
           {/* Left: toggle + summary badges */}
           <button
