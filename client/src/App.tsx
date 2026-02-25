@@ -8,10 +8,14 @@ import { CLIENT_ROUTES } from './routes';
 
 // Auth & General
 import Login from './pages/Login';
+import LockScreen from './pages/LockScreen';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Help from './pages/Help';
+
+// Hooks
+import { useInactivityLock } from './hooks/useInactivityLock';
 
 // Admin pages
 import ERConfiguration from './pages/admin/ERConfiguration';
@@ -62,6 +66,11 @@ import PathologyLookup from './pages/shared/PathologyLookup';
 import InterventionsLookup from './pages/shared/InterventionsLookup';
 import TrackingBoard from './pages/shared/TrackingBoard';
 
+function InactivityMonitor() {
+  useInactivityLock();
+  return null;
+}
+
 export default function App() {
   const { loadAuth } = useAuthStore();
 
@@ -71,9 +80,11 @@ export default function App() {
 
   return (
     <HashRouter>
+      <InactivityMonitor />
       <Routes>
         {/* Public routes */}
         <Route path={CLIENT_ROUTES.login} element={<Login />} />
+        <Route path={CLIENT_ROUTES.lock} element={<LockScreen />} />
 
         {/* General routes (all authenticated users) */}
         <Route

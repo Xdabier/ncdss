@@ -1,6 +1,7 @@
 export const CLIENT_ROUTES = {
   home: '/',
   login: '/login',
+  lock: '/lock',
   dashboard: '/dashboard',
   profile: '/profile',
   settings: '/settings',

@@ -72,6 +72,7 @@ export async function initDatabase() {
 
   // User profile completion feature
   addColumnIfMissing(sqlite, 'users', 'profile_completed', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfMissing(sqlite, 'users', 'pin_hash', 'TEXT');
   createUserProfilesTable(sqlite);
   syncProfileCompletedFlag(sqlite);
 

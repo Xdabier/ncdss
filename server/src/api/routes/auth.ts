@@ -113,6 +113,7 @@ router.post('/login', async (req, res) => {
         role: user.role,
         isActive: user.isActive,
         profileCompleted: user.profileCompleted ?? true,
+        hasPin: !!user.pinHash,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -140,7 +141,17 @@ router.post('/verify', async (req, res) => {
       return res.status(401).json({ valid: false });
     }
 
-    res.json({ valid: true, user });
+    res.json({ valid: true, user: {
+      id: user.id,
+      username: user.username,
+      fullName: user.fullName,
+      role: user.role,
+      isActive: user.isActive,
+      profileCompleted: user.profileCompleted ?? true,
+      hasPin: !!user.pinHash,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    } });
   } catch {
     res.status(401).json({ valid: false });
   }
@@ -229,6 +240,7 @@ router.post('/refresh', async (req, res) => {
         role: user.role,
         isActive: user.isActive,
         profileCompleted: user.profileCompleted ?? true,
+        hasPin: !!user.pinHash,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },

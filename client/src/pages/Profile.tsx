@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   User,
   Key,
+  Lock,
   Save,
   CheckCircle2,
   AlertCircle,
@@ -63,7 +64,19 @@ export default function Profile() {
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
+  // PIN form state
+  const [pinValue, setPinValue] = useState('');
+  const [pinConfirm, setPinConfirm] = useState('');
+  const [pinPassword, setPinPassword] = useState('');
+  const [showPinPassword, setShowPinPassword] = useState(false);
+  const [pinLoading, setPinLoading] = useState(false);
+  const [pinSuccess, setPinSuccess] = useState(false);
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [showPinSection, setShowPinSection] = useState(false);
+  const pinSectionRef = React.useRef<HTMLDivElement>(null);
+
   const isFirstTime = !authUser?.profileCompleted;
+  const needsPin = authUser?.profileCompleted && !authUser?.hasPin;
 
   useEffect(() => {
     loadProfile();
@@ -139,11 +152,18 @@ export default function Profile() {
 
       setProfileSuccess(true);
 
-      // If first time, redirect to dashboard after short delay
+      // If first time and no PIN yet, show PIN section instead of redirecting
       if (isFirstTime) {
-        setTimeout(() => {
-          navigate(CLIENT_ROUTES.dashboard, { replace: true });
-        }, 1500);
+        if (!response.data.user.hasPin) {
+          setShowPinSection(true);
+          setTimeout(() => {
+            pinSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+          }, 300);
+        } else {
+          setTimeout(() => {
+            navigate(CLIENT_ROUTES.dashboard, { replace: true });
+          }, 1500);
+        }
       }
     } catch (e: any) {
       if (e.response?.data?.errors) {
@@ -192,6 +212,51 @@ export default function Profile() {
     }
   };
 
+  const handlePinSubmit = async () => {
+    setPinError(null);
+    setPinSuccess(false);
+
+    if (!pinValue || !/^\d{4}$/.test(pinValue)) {
+      setPinError('Le PIN doit contenir exactement 4 chiffres');
+      return;
+    }
+    if (pinValue !== pinConfirm) {
+      setPinError('Les PIN ne correspondent pas');
+      return;
+    }
+    if (!pinPassword) {
+      setPinError('Le mot de passe actuel est requis');
+      return;
+    }
+
+    setPinLoading(true);
+    try {
+      const api = await getApi();
+      const response = await api.post(API_ROUTES.profile.createPin, {
+        pin: pinValue,
+        currentPassword: pinPassword,
+      });
+
+      await updateUser(response.data.user);
+
+      setPinSuccess(true);
+      setPinValue('');
+      setPinConfirm('');
+      setPinPassword('');
+
+      // If this was the first-time flow, redirect to dashboard
+      if (isFirstTime || needsPin) {
+        setTimeout(() => {
+          navigate(CLIENT_ROUTES.dashboard, { replace: true });
+        }, 1500);
+      }
+    } catch (e: any) {
+      setPinError(e.response?.data?.error || 'Erreur de création du PIN');
+    } finally {
+      setPinLoading(false);
+    }
+  };
+
   if (loadingProfile) {
     return (
       <DashboardLayout>
@@ -217,8 +282,17 @@ export default function Profile() {
             <Alert className="border-orange-400 bg-orange-50">
               <AlertTriangle className="h-4 w-4 text-orange-600" />
               <AlertDescription className="text-orange-800">
-                Veuillez compléter votre profil avant de continuer. Vous ne pourrez pas accéder aux
-                autres fonctionnalités tant que votre profil n'est pas rempli.
+                Veuillez compléter votre profil et créer un PIN de verrouillage avant de continuer.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* PIN required banner (profile complete but no PIN) */}
+          {needsPin && !isFirstTime && (
+            <Alert className="border-orange-400 bg-orange-50">
+              <AlertTriangle className="h-4 w-4 text-orange-600" />
+              <AlertDescription className="text-orange-800">
+                Veuillez créer un PIN de verrouillage pour sécuriser votre session.
               </AlertDescription>
             </Alert>
           )}
@@ -271,7 +345,8 @@ export default function Profile() {
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
                   <AlertDescription className="text-green-800">
                     Profil enregistré avec succès.
-                    {isFirstTime && ' Redirection vers le tableau de bord...'}
+                    {isFirstTime && !showPinSection && ' Redirection vers le tableau de bord...'}
+                    {showPinSection && ' Veuillez maintenant créer votre PIN de verrouillage.'}
                   </AlertDescription>
                 </Alert>
               )}
@@ -533,6 +608,131 @@ export default function Profile() {
               </div>
             </CardContent>
           </Card>
+          {/* PIN card - shown when: needsPin, showPinSection (first-time flow), or user wants to change PIN */}
+          {(needsPin || showPinSection || authUser?.hasPin) && (
+            <div ref={pinSectionRef}>
+              <Card className={needsPin || showPinSection ? 'ring-2 ring-blue-400' : ''}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Lock className="h-5 w-5" />
+                    {authUser?.hasPin ? 'Modifier votre PIN de verrouillage' : 'Créer votre PIN de verrouillage'}
+                  </CardTitle>
+                  <CardDescription>
+                    {authUser?.hasPin
+                      ? 'Changez votre PIN à 4 chiffres pour le verrouillage de session'
+                      : 'Créez un PIN à 4 chiffres pour verrouiller votre session automatiquement'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {pinSuccess && (
+                    <Alert className="border-green-500 bg-green-50">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <AlertDescription className="text-green-800">
+                        {authUser?.hasPin ? 'PIN modifié avec succès.' : 'PIN créé avec succès.'}
+                        {(needsPin || showPinSection) && ' Redirection vers le tableau de bord...'}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {pinError && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{pinError}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="pinValue">
+                        Nouveau PIN <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="pinValue"
+                        type="password"
+                        inputMode="numeric"
+                        maxLength={4}
+                        value={pinValue}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                          setPinValue(val);
+                          setPinError(null);
+                        }}
+                        placeholder="4 chiffres"
+                        disabled={pinLoading}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="pinConfirm">
+                        Confirmer le PIN <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="pinConfirm"
+                        type="password"
+                        inputMode="numeric"
+                        maxLength={4}
+                        value={pinConfirm}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                          setPinConfirm(val);
+                          setPinError(null);
+                        }}
+                        placeholder="Retapez le PIN"
+                        disabled={pinLoading}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="pinPassword">
+                      Mot de Passe Actuel <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="pinPassword"
+                        type={showPinPassword ? 'text' : 'password'}
+                        value={pinPassword}
+                        onChange={(e) => setPinPassword(e.target.value)}
+                        placeholder="Confirmez votre identité"
+                        disabled={pinLoading}
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPinPassword(!showPinPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        tabIndex={-1}
+                      >
+                        {showPinPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <Button
+                      onClick={handlePinSubmit}
+                      disabled={pinLoading || !pinValue || !pinConfirm || !pinPassword}
+                    >
+                      {pinLoading ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Lock className="h-4 w-4 mr-2" />
+                      )}
+                      {pinLoading
+                        ? 'Enregistrement...'
+                        : authUser?.hasPin
+                          ? 'Modifier le PIN'
+                          : 'Créer le PIN'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       </div>
     </DashboardLayout>

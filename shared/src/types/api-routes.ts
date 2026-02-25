@@ -145,6 +145,8 @@ export const API_ROUTES = {
   profile: {
     me: '/profile/me',
     changePassword: '/profile/change-password',
+    createPin: '/profile/create-pin',
+    verifyPin: '/profile/verify-pin',
   },
 
   health: '/health',

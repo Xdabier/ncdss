@@ -20,6 +20,7 @@ export interface User {
   role: UserRole;
   isActive: boolean;
   profileCompleted: boolean;
+  hasPin: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -44,6 +45,15 @@ export interface UpdateProfileRequest {
 export interface ChangePasswordRequest {
   currentPassword: string;
   newPassword: string;
+}
+
+export interface CreatePinRequest {
+  pin: string;
+  currentPassword: string;
+}
+
+export interface VerifyPinRequest {
+  pin: string;
 }
 
 export interface LoginRequest {

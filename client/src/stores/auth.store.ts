@@ -26,6 +26,7 @@ interface AuthState {
   nurseShiftInfo: NurseShiftInfo | null;
   doctorBoxAssignment: DoctorBoxAssignment | null;
   isAuthenticated: boolean;
+  isLocked: boolean;
 
   setAuth: (
     user: User,
@@ -42,6 +43,7 @@ interface AuthState {
   setTodayAssignment: (assignment: NurseAssignment, shiftInfo?: NurseShiftInfo) => Promise<void>;
   setDoctorBoxAssignment: (assignment: DoctorBoxAssignment | null) => Promise<void>;
   updateUser: (user: User) => Promise<void>;
+  setLocked: (locked: boolean) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -52,11 +54,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   nurseShiftInfo: null,
   doctorBoxAssignment: null,
   isAuthenticated: false,
+  isLocked: false,
 
   setAuth: async (user, accessToken, refreshToken, assignment, shiftInfo) => {
     await Preferences.set({ key: 'ncdss_access_token', value: accessToken });
     await Preferences.set({ key: 'ncdss_refresh_token', value: refreshToken });
     await Preferences.set({ key: 'ncdss_user', value: JSON.stringify(user) });
+    await Preferences.remove({ key: 'ncdss_locked' });
     if (assignment) {
       await Preferences.set({ key: 'ncdss_assignment', value: assignment });
     }
@@ -71,6 +75,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       todayAssignment: assignment || null,
       nurseShiftInfo: shiftInfo || null,
       isAuthenticated: true,
+      isLocked: false,
     });
   },
 
@@ -86,6 +91,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await Preferences.remove({ key: 'ncdss_assignment' });
     await Preferences.remove({ key: 'ncdss_nurse_shift_info' });
     await Preferences.remove({ key: 'ncdss_doctor_assignment' });
+    await Preferences.remove({ key: 'ncdss_locked' });
 
     set({
       user: null,
@@ -95,6 +101,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       nurseShiftInfo: null,
       doctorBoxAssignment: null,
       isAuthenticated: false,
+      isLocked: false,
     });
   },
 
@@ -125,14 +132,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       }
 
+      const parsedUser = JSON.parse(userStr) as User;
+      const wasAuthenticated = get().isAuthenticated;
+
       set({
         accessToken,
         refreshToken,
-        user: JSON.parse(userStr),
+        user: parsedUser,
         todayAssignment: (assignment as NurseAssignment) || null,
         nurseShiftInfo,
         doctorBoxAssignment,
         isAuthenticated: true,
+        // Only auto-lock on cold start (restoring session from storage).
+        // If already authenticated (after login or unlock), preserve current lock state.
+        isLocked: wasAuthenticated ? get().isLocked : !!parsedUser.hasPin,
       });
     }
   },
@@ -178,5 +191,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   updateUser: async (user) => {
     await Preferences.set({ key: 'ncdss_user', value: JSON.stringify(user) });
     set({ user });
+  },
+
+  setLocked: async (locked) => {
+    if (locked) {
+      await Preferences.set({ key: 'ncdss_locked', value: 'true' });
+    } else {
+      await Preferences.remove({ key: 'ncdss_locked' });
+    }
+    set({ isLocked: locked });
   },
 }));

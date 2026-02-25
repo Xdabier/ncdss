@@ -13,6 +13,7 @@ export const users = sqliteTable('users', {
   role: text('role').notNull(), // NURSE, NURSE_SUPERVISOR, DOCTOR, ADMIN, SUPER_ADMIN
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   profileCompleted: integer('profile_completed', { mode: 'boolean' }).notNull().default(false),
+  pinHash: text('pin_hash'),
   createdAt: text('created_at')
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),

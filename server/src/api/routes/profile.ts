@@ -31,6 +31,7 @@ router.get('/me', async (req, res) => {
         role: user.role,
         isActive: user.isActive,
         profileCompleted: user.profileCompleted,
+        hasPin: !!user.pinHash,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -131,6 +132,7 @@ router.put('/me', async (req, res) => {
         role: updatedUser.role,
         isActive: updatedUser.isActive,
         profileCompleted: updatedUser.profileCompleted,
+        hasPin: !!updatedUser.pinHash,
         createdAt: updatedUser.createdAt,
         updatedAt: updatedUser.updatedAt,
       },
@@ -186,6 +188,94 @@ router.post('/change-password', async (req, res) => {
   } catch (error) {
     console.error('Change password error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// POST /create-pin - Create or update lock screen PIN
+router.post('/create-pin', async (req, res) => {
+  try {
+    const userId = (req as any).user.userId;
+    const { pin, currentPassword } = req.body;
+    const db = getDb();
+
+    // Validate PIN format
+    if (!pin || !/^\d{4}$/.test(pin)) {
+      return res.status(400).json({ error: 'Le PIN doit contenir exactement 4 chiffres' });
+    }
+
+    // Require current password for security
+    if (!currentPassword) {
+      return res.status(400).json({ error: 'Le mot de passe actuel est requis' });
+    }
+
+    // Verify current password
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    if (!user) {
+      return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    }
+
+    const validPassword = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!validPassword) {
+      return res.status(400).json({ error: 'Le mot de passe actuel est incorrect' });
+    }
+
+    // Hash and store PIN
+    const pinHash = await bcrypt.hash(pin, 10);
+    const now = new Date().toISOString();
+
+    await db
+      .update(users)
+      .set({ pinHash, updatedAt: now })
+      .where(eq(users.id, userId));
+
+    res.json({
+      user: {
+        id: user.id,
+        username: user.username,
+        fullName: user.fullName,
+        role: user.role,
+        isActive: user.isActive,
+        profileCompleted: user.profileCompleted,
+        hasPin: true,
+        createdAt: user.createdAt,
+        updatedAt: now,
+      },
+    });
+  } catch (error) {
+    console.error('Create PIN error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// POST /verify-pin - Verify lock screen PIN
+router.post('/verify-pin', async (req, res) => {
+  try {
+    const userId = (req as any).user.userId;
+    const { pin } = req.body;
+    const db = getDb();
+
+    if (!pin || !/^\d{4}$/.test(pin)) {
+      return res.status(400).json({ success: false, error: 'Format de PIN invalide' });
+    }
+
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'Utilisateur non trouvé' });
+    }
+
+    if (!user.pinHash) {
+      return res.status(400).json({ success: false, error: 'Aucun PIN configuré' });
+    }
+
+    const validPin = await bcrypt.compare(pin, user.pinHash);
+    if (!validPin) {
+      return res.status(403).json({ success: false, error: 'PIN incorrect' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Verify PIN error:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
   }
 });
 

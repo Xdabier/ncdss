@@ -256,7 +256,7 @@ const roleLabels: Record<UserRole, string> = {
 export function Sidebar({ onClose }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, todayAssignment, clearAuth, getRefreshToken } = useAuthStore();
+  const { user, todayAssignment, clearAuth, getRefreshToken, setLocked } = useAuthStore();
   const { clearNotifications } = useNotificationStore();
 
   if (!user) return null;
@@ -341,14 +341,29 @@ export function Sidebar({ onClose }: Props) {
         </div>
       </nav>
 
-      {/* Logout button */}
-      <div className="p-4 border-t">
+      {/* Lock & Logout buttons */}
+      <div className="p-4 border-t flex gap-2">
+        {user?.hasPin && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 text-gray-600 hover:text-gray-800"
+            onClick={() => {
+              setLocked(true);
+              navigate(CLIENT_ROUTES.lock, { replace: true });
+            }}
+          >
+            <Lock className="h-4 w-4 mr-2" />
+            Verrouiller
+          </Button>
+        )}
         <Button
-          variant="ghost"
-          className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+          variant="outline"
+          size="sm"
+          className={`${user?.hasPin ? 'flex-1' : 'w-full'} text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200`}
           onClick={handleLogout}
         >
-          <LogOut className="h-5 w-5 mr-3" />
+          <LogOut className="h-4 w-4 mr-2" />
           Déconnexion
         </Button>
       </div>
