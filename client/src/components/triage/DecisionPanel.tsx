@@ -106,6 +106,7 @@ export interface DecisionPanelProps {
   canConfirm: boolean;
   useUnifiedAnalysis?: boolean;
   onUnifiedAnalysisReady?: (analysis: UnifiedClinicalAnalysis) => void;
+  onOrientationSuggested?: (orientation: string, reason?: string) => void;
   onPanelOpen?: () => void;
   onUnifiedHandle?: (handle: { regenerate: () => void; stop: () => void }) => void;
 }
@@ -132,6 +133,7 @@ export function DecisionPanel({
   canConfirm,
   useUnifiedAnalysis,
   onUnifiedAnalysisReady,
+  onOrientationSuggested,
   onPanelOpen,
   onUnifiedHandle,
 }: DecisionPanelProps): React.ReactElement {
@@ -297,6 +299,7 @@ export function DecisionPanel({
             <UnifiedAnalysisPanel
               patientId={patient.id}
               onAnalysisReady={onUnifiedAnalysisReady}
+              onOrientationSuggested={onOrientationSuggested}
               onReady={handleUnifiedReady}
               onLoadingChange={setUnifiedLoading}
             />

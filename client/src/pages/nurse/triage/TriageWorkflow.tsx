@@ -171,6 +171,19 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
     setOverrideReason('');
   }, []);
 
+  // Apply orientation as soon as it's parsed from the stream (before full completion)
+  const handleOrientationSuggested = useCallback((orientation: string, reason?: string) => {
+    const newSuggestion: OrientationSuggestion = {
+      suggestion: orientation as OrientationType,
+      source: OrientationSource.AI_SUGGESTION,
+      reason: reason || '',
+      scores: {},
+    };
+    setSuggestion(newSuggestion);
+    setSelectedOrientation(orientation as OrientationType);
+    setOverrideReason('');
+  }, []);
+
   // Per-section dirty tracking
   const dirtyRef = useRef<Record<string, boolean>>({
     'signes-vitaux': false,
@@ -1027,6 +1040,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
         canConfirm={canConfirm}
         useUnifiedAnalysis={useUnifiedAnalysis}
         onUnifiedAnalysisReady={handleUnifiedAnalysisReady}
+        onOrientationSuggested={handleOrientationSuggested}
         onPanelOpen={handlePanelOpen}
         onUnifiedHandle={handleUnifiedHandle}
       />

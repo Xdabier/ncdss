@@ -38,6 +38,8 @@ import {
 interface UnifiedAnalysisPanelProps {
   patientId: string;
   onAnalysisReady?: (analysis: UnifiedClinicalAnalysis) => void;
+  /** Called as soon as orientation is parsed from the stream (before full completion) */
+  onOrientationSuggested?: (orientation: string, reason?: string) => void;
   /** Called when loading state changes (for parent to show spinner on re-analyze button) */
   onLoadingChange?: (loading: boolean) => void;
   /** Called once on mount with a stable handle to trigger regeneration or stop from parent */
@@ -455,6 +457,7 @@ function renderWarnings(warnings: string[], streaming: boolean): React.ReactElem
 export function UnifiedAnalysisPanel({
   patientId,
   onAnalysisReady,
+  onOrientationSuggested,
   onLoadingChange,
   onReady,
 }: UnifiedAnalysisPanelProps): React.ReactElement {
@@ -480,6 +483,9 @@ export function UnifiedAnalysisPanel({
   const abortControllerRef = useRef<AbortController | null>(null);
   const onAnalysisReadyRef = useRef(onAnalysisReady);
   onAnalysisReadyRef.current = onAnalysisReady;
+  const onOrientationSuggestedRef = useRef(onOrientationSuggested);
+  onOrientationSuggestedRef.current = onOrientationSuggested;
+  const orientationFiredRef = useRef(false);
 
   const checkAiStatus = useCallback(async (): Promise<void> => {
     try {
@@ -603,6 +609,7 @@ export function UnifiedAnalysisPanel({
       lastParseTimeRef.current = 0;
       completedFieldsRef.current = new Set();
       lastPartialRef.current = null;
+      orientationFiredRef.current = false;
 
       const serverUrl = await getServerUrl();
       if (!serverUrl) {
@@ -655,7 +662,21 @@ export function UnifiedAnalysisPanel({
                 const now = Date.now();
                 if (now - lastParseTimeRef.current >= PARSE_THROTTLE_MS) {
                   lastParseTimeRef.current = now;
-                  setIncrementalResult(parseIncremental(rawJsonRef.current));
+                  const parsed = parseIncremental(rawJsonRef.current);
+                  setIncrementalResult(parsed);
+
+                  // Fire early orientation suggestion as soon as the field is complete
+                  if (
+                    !orientationFiredRef.current &&
+                    parsed.fieldStatuses.orientation === 'complete' &&
+                    parsed.partial?.orientation
+                  ) {
+                    orientationFiredRef.current = true;
+                    onOrientationSuggestedRef.current?.(
+                      parsed.partial.orientation as string,
+                      parsed.partial.orientationReason as string | undefined,
+                    );
+                  }
                 }
               } else if (data.type === 'thinking') {
                 // Still in thinking phase — no JSON yet
