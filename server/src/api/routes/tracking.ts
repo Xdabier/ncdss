@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { eq, and, ne, gte, sql, inArray } from 'drizzle-orm';
+import { eq, and, ne, sql, inArray } from 'drizzle-orm';
 import { getDb } from '../../database';
 import { patients, patientIdentities, users, boxes } from '../../database/schema';
 import { calculateAge } from '@ncdss/shared';
@@ -10,11 +10,9 @@ const router = Router();
 router.get('/board', async (req, res) => {
   try {
     const db = getDb();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString();
 
-    // Get all non-discharged patients from today
+    // Show all non-discharged patients regardless of creation date.
+    // Patients still in the ER overnight must remain visible.
     const trackingData = await db
       .select({
         id: patients.id,
@@ -46,12 +44,7 @@ router.get('/board', async (req, res) => {
       .leftJoin(patientIdentities, eq(patients.patientIdentityId, patientIdentities.id))
       .leftJoin(boxes, eq(patients.assignedBoxId, boxes.id))
       .leftJoin(users, eq(patients.assignedDoctorId, users.id))
-      .where(
-        and(
-          ne(patients.status, 'DISCHARGED'),
-          gte(patients.createdAt, todayStr)
-        )
-      )
+      .where(ne(patients.status, 'DISCHARGED'))
       .orderBy(
         sql`CASE
           WHEN ${patients.esiLevel} = 1 THEN 1
@@ -96,18 +89,16 @@ router.get('/board', async (req, res) => {
 router.get('/stats', async (req, res) => {
   try {
     const db = getDb();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString();
 
-    // Count by status
+    // Stats reflect all active (non-discharged) patients, matching the board view.
+    // Count by status (include DISCHARGED for completeness but exclude from totals below)
     const statusCounts = await db
       .select({
         status: patients.status,
         count: sql<number>`count(*)`,
       })
       .from(patients)
-      .where(gte(patients.createdAt, todayStr))
+      .where(ne(patients.status, 'DISCHARGED'))
       .groupBy(patients.status);
 
     // Count critical (ESI 1-2) among non-discharged
@@ -118,7 +109,6 @@ router.get('/stats', async (req, res) => {
       .from(patients)
       .where(
         and(
-          gte(patients.createdAt, todayStr),
           ne(patients.status, 'DISCHARGED'),
           inArray(patients.esiLevel, [1, 2])
         )
@@ -131,12 +121,7 @@ router.get('/stats', async (req, res) => {
         count: sql<number>`count(*)`,
       })
       .from(patients)
-      .where(
-        and(
-          gte(patients.createdAt, todayStr),
-          ne(patients.status, 'DISCHARGED')
-        )
-      )
+      .where(ne(patients.status, 'DISCHARGED'))
       .groupBy(patients.esiLevel);
 
     const byStatus: Record<string, number> = {};
@@ -151,7 +136,7 @@ router.get('/stats', async (req, res) => {
 
     const total = statusCounts.reduce(
       (sum: number, s: { status: string; count: number }) =>
-        sum + (s.status !== 'DISCHARGED' ? Number(s.count) : 0),
+        sum + Number(s.count),
       0
     );
 

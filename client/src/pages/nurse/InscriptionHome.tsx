@@ -43,7 +43,7 @@ export default function InscriptionHome() {
   const loadPatients = async () => {
     try {
       const api = await getApi();
-      const params: Record<string, string> = { today: 'true' };
+      const params: Record<string, string> = {};
       if (search) params.search = search;
 
       const response = await api.get(API_ROUTES.patients.list, { params });

@@ -78,7 +78,6 @@ export default function MyPatients() {
       const api = await getApi();
       const response = await api.get(API_ROUTES.patients.list, { params: {
         status: [PatientStatus.IN_TREATMENT, PatientStatus.WITH_DOCTOR],
-        today: 'true',
         limit: '100',
       } });
       const newPatients: PatientListItem[] = response.data;

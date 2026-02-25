@@ -121,7 +121,7 @@ router.get('/', async (req, res) => {
 
     if (today === 'true') {
       const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
+      todayStart.setUTCHours(0, 0, 0, 0);
       conditions.push(gte(patients.createdAt, todayStart.toISOString()));
     }
 
