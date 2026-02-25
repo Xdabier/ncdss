@@ -48,11 +48,10 @@ export async function getApi(): Promise<AxiosInstance> {
 
       // If error is 401 and we haven't retried yet
       if (error.response?.status === 401 && !originalRequest._retry) {
-        // Skip refresh for login, refresh, and PIN verification endpoints
+        // Skip refresh for login and refresh endpoints
         if (
           originalRequest.url?.includes(API_ROUTES.auth.login) ||
-          originalRequest.url?.includes(API_ROUTES.auth.refresh) ||
-          originalRequest.url?.includes(API_ROUTES.profile.verifyPin)
+          originalRequest.url?.includes(API_ROUTES.auth.refresh)
         ) {
           return Promise.reject(error);
         }
