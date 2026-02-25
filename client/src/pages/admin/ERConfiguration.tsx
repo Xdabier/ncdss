@@ -196,7 +196,7 @@ export default function ERConfigurationPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="sauvBeds">Lits SAUV</Label>
+                      <Label htmlFor="sauvBeds">Boxes SAUV</Label>
                       <Input
                         id="sauvBeds"
                         type="number"
@@ -205,7 +205,7 @@ export default function ERConfigurationPage() {
                         value={config.sauvBeds}
                         onChange={(e) => updateField('sauvBeds', parseInt(e.target.value) || 1)}
                       />
-                      <p className="text-sm text-gray-500">Lits de Surveillance de Courte Durée</p>
+                      <p className="text-sm text-gray-500">Boxes de la Salle d'Accueil des Urgences Vitales</p>
                     </div>
                   </div>
                 </CardContent>

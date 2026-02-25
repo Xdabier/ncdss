@@ -131,7 +131,7 @@ async function regenerateBoxes(config: {
   for (let i = 1; i <= config.sauvBeds; i++) {
     boxesToCreate.push({
       id: randomUUID(),
-      name: `SAUV Lit ${i}`,
+      name: `Box SAUV ${i}`,
       boxType: BoxType.SAUV,
       isActive: true,
     });
