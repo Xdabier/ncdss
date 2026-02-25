@@ -30,7 +30,7 @@ interface BoxOccupancy {
 }
 
 interface BoxWithDoctor extends Box {
-  currentDoctor: { doctorId: string; doctorName: string } | null;
+  currentDoctors: Array<{ doctorId: string; doctorName: string }>;
 }
 
 const orientationLabels: Record<string, string> = {
@@ -102,15 +102,14 @@ export function ReassignBoxModal({
       const boxesWithDoctors: BoxWithDoctor[] = await Promise.all(
         activeBoxes.map(async (box: Box) => {
           try {
-            const doctorRes = await api.get(API_ROUTES.boxAssignments.currentDoctor(box.id));
+            const doctorRes = await api.get(API_ROUTES.boxAssignments.currentDoctors(box.id));
+            const doctors = Array.isArray(doctorRes.data) ? doctorRes.data : [];
             return {
               ...box,
-              currentDoctor: doctorRes.data
-                ? { doctorId: doctorRes.data.doctorId, doctorName: doctorRes.data.doctorName }
-                : null,
+              currentDoctors: doctors.map((d: any) => ({ doctorId: d.doctorId, doctorName: d.doctorName })),
             };
           } catch {
-            return { ...box, currentDoctor: null };
+            return { ...box, currentDoctors: [] };
           }
         })
       );
@@ -233,8 +232,12 @@ export function ReassignBoxModal({
         </div>
         <div className="flex items-center gap-1 mt-2">
           <Stethoscope className="h-3 w-3 flex-shrink-0 text-gray-400" />
-          <span className={`text-xs ${box.currentDoctor ? 'text-green-600 font-medium' : 'text-gray-400'}`}>
-            {box.currentDoctor ? `Dr. ${box.currentDoctor.doctorName}` : 'Aucun médecin'}
+          <span className={`text-xs ${box.currentDoctors.length > 0 ? 'text-green-600 font-medium' : 'text-gray-400'}`}>
+            {box.currentDoctors.length === 0
+              ? 'Aucun médecin'
+              : box.currentDoctors.length <= 2
+                ? box.currentDoctors.map(d => `Dr. ${d.doctorName}`).join(', ')
+                : `${box.currentDoctors.length} médecins`}
           </span>
         </div>
         {occupancy && occupancy.patientCount > 0 && (

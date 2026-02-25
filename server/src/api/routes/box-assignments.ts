@@ -5,8 +5,8 @@ import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
 import { boxAssignments, boxes, users, patients } from '../../database/schema';
 
-// Helper function to get the doctor currently assigned to a box
-export async function getCurrentDoctorForBox(boxId: string): Promise<{ doctorId: string; doctorName: string } | null> {
+// Helper function to get all doctors currently assigned to a box
+export async function getCurrentDoctorsForBox(boxId: string): Promise<Array<{ doctorId: string; doctorName: string }>> {
   const db = getDb();
   const now = new Date().toISOString();
 
@@ -26,14 +26,39 @@ export async function getCurrentDoctorForBox(boxId: string): Promise<{ doctorId:
       )
     );
 
-  if (result.length > 0) {
-    return {
-      doctorId: result[0].doctorId,
-      doctorName: result[0].doctorName,
-    };
+  return result.map((r: { doctorId: string; doctorName: string }) => ({ doctorId: r.doctorId, doctorName: r.doctorName }));
+}
+
+// Pick the doctor with the fewest active patients from a list of doctors
+export async function getLeastLoadedDoctor(
+  doctors: Array<{ doctorId: string; doctorName: string }>
+): Promise<{ doctorId: string; doctorName: string } | null> {
+  if (doctors.length === 0) return null;
+  if (doctors.length === 1) return doctors[0];
+
+  const db = getDb();
+  let bestDoctor = doctors[0];
+  let minCount = Infinity;
+
+  for (const doctor of doctors) {
+    const countResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(patients)
+      .where(
+        and(
+          eq(patients.assignedDoctorId, doctor.doctorId),
+          ne(patients.status, 'DISCHARGED')
+        )
+      );
+
+    const count = countResult[0]?.count ?? 0;
+    if (count < minCount) {
+      minCount = count;
+      bestDoctor = doctor;
+    }
   }
 
-  return null;
+  return bestDoctor;
 }
 
 const router = Router();
@@ -154,7 +179,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get doctor currently assigned to a box (for patient workflow)
+// Get doctors currently assigned to a box (for patient workflow)
+// Returns array of all current doctors for this box
 router.get('/current-doctor/:boxId', async (req, res) => {
   try {
     const db = getDb();
@@ -177,18 +203,14 @@ router.get('/current-doctor/:boxId', async (req, res) => {
         )
       ) as CurrentDoctorRow[];
 
-    // Filter for current time
-    const currentDoctor = result.find(
+    // Filter for current time — return all matching doctors
+    const currentDoctors = result.filter(
       (a: CurrentDoctorRow) => a.startDateTime <= now && a.endDateTime > now
     );
 
-    if (currentDoctor) {
-      res.json(currentDoctor);
-    } else {
-      res.json(null);
-    }
+    res.json(currentDoctors);
   } catch (error) {
-    console.error('Get current doctor error:', error);
+    console.error('Get current doctors error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -286,8 +308,11 @@ router.post('/', async (req, res) => {
 
     const db = getDb();
 
-    // Check for overlapping assignments on the same box
-    const existingAssignments = await db
+    // Check for duplicate: same doctor assigned to same box at overlapping times
+    const startISO = start.toISOString();
+    const endISO = end.toISOString();
+
+    const existingForDoctor = await db
       .select({
         id: boxAssignments.id,
         doctorId: boxAssignments.doctorId,
@@ -300,27 +325,19 @@ router.post('/', async (req, res) => {
       .where(
         and(
           eq(boxAssignments.boxId, boxId),
+          eq(boxAssignments.doctorId, doctorId),
           eq(boxAssignments.isActive, true)
         )
       ) as OverlapCheckRow[];
 
-    // Check for time overlap
-    const startISO = start.toISOString();
-    const endISO = end.toISOString();
-
-    const overlapping = existingAssignments.filter((a: OverlapCheckRow) => {
-      // Two ranges overlap if: start1 < end2 AND start2 < end1
+    const duplicate = existingForDoctor.find((a: OverlapCheckRow) => {
       return a.startDateTime < endISO && startISO < a.endDateTime;
     });
 
-    if (overlapping.length > 0) {
-      const conflictDetails = overlapping.map(
-        (a: OverlapCheckRow) => `${a.doctorName} (${formatDateRange(a.startDateTime, a.endDateTime)})`
-      ).join(', ');
-
+    if (duplicate) {
       return res.status(409).json({
-        error: `Conflit de planning: ${conflictDetails}`,
-        conflicts: overlapping
+        error: `Ce médecin est déjà assigné à ce box pendant cette période`,
+        conflicts: [duplicate]
       });
     }
 
@@ -399,7 +416,7 @@ router.put('/my-assignment', async (req, res) => {
       });
     }
 
-    const { boxId, presetType, endDateTime: customEndDateTime, forceOverride } = req.body;
+    const { boxId, presetType, endDateTime: customEndDateTime } = req.body;
 
     if (!boxId) {
       return res.status(400).json({ error: 'boxId requis' });
@@ -486,51 +503,30 @@ router.put('/my-assignment', async (req, res) => {
         .where(eq(boxAssignments.id, assignment.id));
     }
 
-    // Check for overlapping assignments on the target box (by other doctors)
-    const boxConflicts = await db
+    // Check if this doctor is already assigned to this box (duplicate guard)
+    const existingOnBox = await db
       .select({
         id: boxAssignments.id,
-        doctorId: boxAssignments.doctorId,
-        doctorName: users.fullName,
         startDateTime: boxAssignments.startDateTime,
         endDateTime: boxAssignments.endDateTime,
       })
       .from(boxAssignments)
-      .innerJoin(users, eq(boxAssignments.doctorId, users.id))
       .where(
         and(
           eq(boxAssignments.boxId, boxId),
+          eq(boxAssignments.doctorId, userId),
           eq(boxAssignments.isActive, true)
         )
-      ) as OverlapCheckRow[];
+      );
 
-    const overlapping = boxConflicts.filter((a) => {
+    const alreadyAssigned = existingOnBox.find((a: { startDateTime: string; endDateTime: string }) => {
       return a.startDateTime < endDateTime && startDateTime < a.endDateTime;
     });
 
-    if (overlapping.length > 0) {
-      if (forceOverride) {
-        // Deactivate all conflicting assignments (takeover)
-        for (const conflict of overlapping) {
-          await db
-            .update(boxAssignments)
-            .set({ isActive: false })
-            .where(eq(boxAssignments.id, conflict.id));
-        }
-      } else {
-        // Return conflict info so client can prompt for confirmation
-        const conflictDetails = overlapping
-          .map(
-            (a) =>
-              `${a.doctorName} (${formatDateRange(a.startDateTime, a.endDateTime)})`
-          )
-          .join(', ');
-
-        return res.status(409).json({
-          error: `Ce box est déjà occupé par: ${conflictDetails}`,
-          conflicts: overlapping,
-        });
-      }
+    if (alreadyAssigned) {
+      return res.status(409).json({
+        error: 'Vous êtes déjà assigné à ce box',
+      });
     }
 
     // Create new assignment starting NOW

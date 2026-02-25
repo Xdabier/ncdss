@@ -34,6 +34,7 @@ export const API_ROUTES = {
     remove: (id: number | string) => `/box-assignments/${id}`,
     myAssignment: '/box-assignments/my-assignment',
     currentDoctor: (boxId: number | string) => `/box-assignments/current-doctor/${boxId}`,
+    currentDoctors: (boxId: number | string) => `/box-assignments/current-doctor/${boxId}`,
     endingSoon: '/box-assignments/ending-soon',
   },
 

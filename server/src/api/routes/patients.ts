@@ -9,7 +9,7 @@ import { matchFindingsToPathologies } from '../../services/pathologyMatcher';
 import { getLLMProvider, PreDiagnosisContext, UnifiedAnalysisContext } from '../../services/llm';
 import * as aiPreDiagnosisService from '../../services/ai-prediagnosis-service';
 import * as unifiedAnalysisService from '../../services/unified-analysis-service';
-import { getCurrentDoctorForBox } from './box-assignments';
+import { getCurrentDoctorsForBox, getLeastLoadedDoctor } from './box-assignments';
 import {
   notifyDoctorPatientAssigned,
   notifyTriageComplete
@@ -1248,11 +1248,11 @@ async function autoAssignBox(
     return { assigned: false, reason: 'Aucun box disponible' };
   }
 
-  // 5. For each candidate, count current patients and check for doctor
+  // 5. For each candidate, count current patients and check for doctors
   const candidates: Array<{
     box: typeof candidateBoxes[number];
     patientCount: number;
-    doctor: { doctorId: string; doctorName: string } | null;
+    doctors: Array<{ doctorId: string; doctorName: string }>;
   }> = [];
 
   for (const box of candidateBoxes) {
@@ -1269,17 +1269,19 @@ async function autoAssignBox(
 
     const patientCount = countResult[0]?.count ?? 0;
 
-    // Check if a doctor is currently on shift for this box
-    const doctor = await getCurrentDoctorForBox(box.id);
+    // Check which doctors are currently on shift for this box
+    const doctors = await getCurrentDoctorsForBox(box.id);
 
-    candidates.push({ box, patientCount, doctor });
+    candidates.push({ box, patientCount, doctors });
   }
 
-  // 6. Sort: boxes WITH a doctor first, then by ascending patient count, then alphabetically
+  // 6. Sort: boxes with more doctors first (more coverage), then ascending patient count, then alphabetically
   candidates.sort((a, b) => {
-    const aHasDoctor = a.doctor ? 0 : 1;
-    const bHasDoctor = b.doctor ? 0 : 1;
+    const aHasDoctor = a.doctors.length > 0 ? 0 : 1;
+    const bHasDoctor = b.doctors.length > 0 ? 0 : 1;
     if (aHasDoctor !== bHasDoctor) return aHasDoctor - bHasDoctor;
+    // More doctors = better coverage, rank higher
+    if (b.doctors.length !== a.doctors.length) return b.doctors.length - a.doctors.length;
     if (a.patientCount !== b.patientCount) return a.patientCount - b.patientCount;
     return a.box.name.localeCompare(b.box.name);
   });
@@ -1288,25 +1290,28 @@ async function autoAssignBox(
   const chosen = candidates[0];
   const now = new Date().toISOString();
 
-  // 8. Update the patient record
+  // 8. Pick the least-loaded doctor from the box's doctors
+  const chosenDoctor = await getLeastLoadedDoctor(chosen.doctors);
+
+  // 9. Update the patient record
   await db.update(patients).set({
     assignedBoxId: chosen.box.id,
-    assignedDoctorId: chosen.doctor?.doctorId || null,
-    doctorAssignedAt: chosen.doctor ? now : null,
+    assignedDoctorId: chosenDoctor?.doctorId || null,
+    doctorAssignedAt: chosenDoctor ? now : null,
     treatmentStartedAt: now,
     treatmentNurseId: triageNurseId,
-    status: chosen.doctor ? PatientStatus.WITH_DOCTOR : PatientStatus.IN_TREATMENT,
+    status: chosenDoctor ? PatientStatus.WITH_DOCTOR : PatientStatus.IN_TREATMENT,
     updatedAt: now,
   }).where(eq(patients.id, patientId));
 
-  // 9. Notify the assigned doctor (fire-and-forget)
-  if (chosen.doctor) {
+  // 10. Notify the assigned doctor (fire-and-forget)
+  if (chosenDoctor) {
     const [pat] = await db.select({ fullName: patients.fullName, esiLevel: patients.esiLevel })
       .from(patients)
       .where(eq(patients.id, patientId));
 
     notifyDoctorPatientAssigned(
-      chosen.doctor.doctorId,
+      chosenDoctor.doctorId,
       patientId,
       pat?.fullName || '',
       chosen.box.name,
@@ -1314,14 +1319,14 @@ async function autoAssignBox(
     ).catch((err) => console.error('Notification error (auto-assign doctor):', err));
   }
 
-  // 10. Return result
+  // 11. Return result
   return {
     assigned: true,
     boxId: chosen.box.id,
     boxName: chosen.box.name,
     boxType: chosen.box.boxType,
-    doctorId: chosen.doctor?.doctorId,
-    doctorName: chosen.doctor?.doctorName,
+    doctorId: chosenDoctor?.doctorId,
+    doctorName: chosenDoctor?.doctorName,
   };
 }
 
@@ -1391,10 +1396,11 @@ router.post('/:id/start-treatment', async (req, res) => {
       boxName = box.name;
     }
 
-    // Auto-assign doctor: Look up the doctor currently assigned to this box
+    // Auto-assign doctor: Pick least-loaded doctor from those currently assigned to this box
     let currentDoctor: { doctorId: string; doctorName: string } | null = null;
     if (boxId) {
-      currentDoctor = await getCurrentDoctorForBox(boxId);
+      const doctors = await getCurrentDoctorsForBox(boxId);
+      currentDoctor = await getLeastLoadedDoctor(doctors);
     }
 
     const now = new Date().toISOString();
@@ -1630,8 +1636,9 @@ router.post('/:id/reassign-box', async (req, res) => {
       return res.status(400).json({ error: 'Le patient est déjà dans ce box' });
     }
 
-    // 6. Get current doctor for new box
-    const currentDoctor = await getCurrentDoctorForBox(newBoxId);
+    // 6. Get doctors for new box and pick least-loaded
+    const boxDoctors = await getCurrentDoctorsForBox(newBoxId);
+    const currentDoctor = await getLeastLoadedDoctor(boxDoctors);
 
     const now = new Date().toISOString();
 

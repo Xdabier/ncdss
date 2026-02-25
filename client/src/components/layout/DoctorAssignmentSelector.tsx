@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Stethoscope, Clock, X, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Stethoscope, Clock, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { BoxType, AssignmentPreset, Box, ASSIGNMENT_PRESETS, API_ROUTES } from '@ncdss/shared';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -16,14 +16,6 @@ import { useAuthStore, DoctorBoxAssignment } from '../../stores/auth.store';
 import { getApi } from '../../services/api';
 import { boxTypeLabels, boxTypeColors, presetLabels } from '../../utils/roleUtils';
 import { cn } from '../../lib/utils';
-
-interface ConflictInfo {
-  id: string;
-  doctorId: string;
-  doctorName: string;
-  startDateTime: string;
-  endDateTime: string;
-}
 
 const selectablePresets: AssignmentPreset[] = [
   AssignmentPreset.GARDE_24H,
@@ -80,15 +72,6 @@ export function DoctorAssignmentSelector({
   // Accordion state - which box types are expanded
   const [expandedTypes, setExpandedTypes] = useState<Set<BoxType>>(new Set([BoxType.MEDICAL]));
 
-  // Takeover confirmation state
-  const [showTakeoverConfirm, setShowTakeoverConfirm] = useState(false);
-  const [conflicts, setConflicts] = useState<ConflictInfo[]>([]);
-  const [pendingAssignment, setPendingAssignment] = useState<{
-    boxId: string;
-    presetType: AssignmentPreset;
-    endDateTime?: string;
-  } | null>(null);
-
   // Fetch available boxes
   useEffect(() => {
     const fetchBoxes = async () => {
@@ -138,9 +121,6 @@ export function DoctorAssignmentSelector({
     setCustomEndDate('');
     setCustomEndTime('20:00');
     setError(null);
-    setConflicts([]);
-    setShowTakeoverConfirm(false);
-    setPendingAssignment(null);
 
     // Expand the type of current assignment if any
     if (doctorBoxAssignment?.boxType) {
@@ -170,7 +150,7 @@ export function DoctorAssignmentSelector({
     return undefined; // Server calculates for presets
   };
 
-  const handleConfirm = async (forceOverride = false) => {
+  const handleConfirm = async () => {
     if (!selectedBoxId) {
       setError('Veuillez sélectionner un box');
       return;
@@ -192,42 +172,17 @@ export function DoctorAssignmentSelector({
         boxId: selectedBoxId,
         presetType: selectedPreset,
         endDateTime,
-        forceOverride,
       });
 
       await setDoctorBoxAssignment(response.data as DoctorBoxAssignment);
-      setShowTakeoverConfirm(false);
-      setPendingAssignment(null);
       setIsOpen(false);
       onAssignmentChange?.();
     } catch (err: any) {
-      if (err.response?.status === 409 && err.response?.data?.conflicts) {
-        // Conflict detected - show takeover confirmation
-        setConflicts(err.response.data.conflicts);
-        setPendingAssignment({
-          boxId: selectedBoxId,
-          presetType: selectedPreset,
-          endDateTime: calculateEndDateTime(),
-        });
-        setShowTakeoverConfirm(true);
-      } else {
-        const message = err.response?.data?.error || 'Erreur lors du changement';
-        setError(message);
-      }
+      const message = err.response?.data?.error || 'Erreur lors du changement';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleTakeoverConfirm = async () => {
-    if (!pendingAssignment) return;
-    await handleConfirm(true);
-  };
-
-  const handleTakeoverCancel = () => {
-    setShowTakeoverConfirm(false);
-    setPendingAssignment(null);
-    setConflicts([]);
   };
 
   const handleEndAssignment = async () => {
@@ -266,19 +221,6 @@ export function DoctorAssignmentSelector({
     return endTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const formatConflictTime = (start: string, end: string): string => {
-    const s = new Date(start);
-    const e = new Date(end);
-    const formatDateTime = (d: Date) =>
-      d.toLocaleString('fr-FR', {
-        day: '2-digit',
-        month: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    return `${formatDateTime(s)} - ${formatDateTime(e)}`;
-  };
-
   const currentBoxType = doctorBoxAssignment?.boxType as BoxType | undefined;
   const currentColor = currentBoxType
     ? boxTypeColors[currentBoxType]
@@ -311,7 +253,7 @@ export function DoctorAssignmentSelector({
         </button>
       )}
 
-      <Dialog open={isOpen && !showTakeoverConfirm} onOpenChange={setIsOpen}>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Choisir mon box</DialogTitle>
@@ -485,7 +427,7 @@ export function DoctorAssignmentSelector({
               Annuler
             </Button>
             <Button
-              onClick={() => handleConfirm(false)}
+              onClick={handleConfirm}
               disabled={isLoading || !selectedBoxId || (selectedPreset === AssignmentPreset.CUSTOM && (!customEndDate || !customEndTime))}
             >
               {isLoading ? 'Mise à jour...' : 'Confirmer'}
@@ -494,79 +436,6 @@ export function DoctorAssignmentSelector({
         </DialogContent>
       </Dialog>
 
-      {/* Takeover Confirmation Dialog */}
-      {showTakeoverConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={handleTakeoverCancel}
-          />
-
-          {/* Dialog Content */}
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 z-10">
-            <div className="p-6">
-              {/* Warning Icon */}
-              <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-amber-100">
-                <AlertTriangle className="h-6 w-6 text-amber-600" />
-              </div>
-
-              {/* Title */}
-              <h3 className="text-lg font-semibold text-center mb-2">
-                Reprendre ce box ?
-              </h3>
-
-              {/* Message */}
-              <div className="text-sm text-gray-600 text-center mb-4">
-                <p className="mb-3">
-                  Ce box est actuellement assigné à un autre médecin.
-                  Voulez-vous reprendre ce box ?
-                </p>
-
-                {/* Conflict Details */}
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-left">
-                  <div className="font-medium text-amber-800 mb-2">
-                    Assignation(s) actuelle(s):
-                  </div>
-                  {conflicts.map((conflict) => (
-                    <div key={conflict.id} className="text-amber-700 mb-1 last:mb-0">
-                      <span className="font-medium">Dr. {conflict.doctorName}</span>
-                      <br />
-                      <span className="text-xs">
-                        {formatConflictTime(conflict.startDateTime, conflict.endDateTime)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <p className="text-xs text-gray-500 text-center mb-4">
-                L'assignation du médecin actuel sera terminée immédiatement.
-              </p>
-
-              {/* Actions */}
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={handleTakeoverCancel}
-                  disabled={isLoading}
-                >
-                  Annuler
-                </Button>
-                <Button
-                  variant="default"
-                  className="flex-1 bg-amber-600 hover:bg-amber-700"
-                  onClick={handleTakeoverConfirm}
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Reprise...' : 'Reprendre le box'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
