@@ -16,6 +16,7 @@ import Help from './pages/Help';
 
 // Hooks
 import { useInactivityLock } from './hooks/useInactivityLock';
+import { useTokenRefresh } from './hooks/useTokenRefresh';
 
 // Admin pages
 import ERConfiguration from './pages/admin/ERConfiguration';
@@ -66,8 +67,9 @@ import PathologyLookup from './pages/shared/PathologyLookup';
 import InterventionsLookup from './pages/shared/InterventionsLookup';
 import TrackingBoard from './pages/shared/TrackingBoard';
 
-function InactivityMonitor() {
+function BackgroundServices() {
   useInactivityLock();
+  useTokenRefresh();
   return null;
 }
 
@@ -80,7 +82,7 @@ export default function App() {
 
   return (
     <HashRouter>
-      <InactivityMonitor />
+      <BackgroundServices />
       <Routes>
         {/* Public routes */}
         <Route path={CLIENT_ROUTES.login} element={<Login />} />
