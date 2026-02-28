@@ -7,7 +7,7 @@
   },
   "files": ["dist-electron/**/*", "package.json"],
   "extraResources": [
-    { "from": "models", "to": "models", "filter": ["*.gguf"] }
+    { "from": "models", "to": "models", "filter": ["ncdss-qwen2.5-1.5B-v1-Q8_0.gguf"] }
   ],
   "win": {
     "target": ["zip"]

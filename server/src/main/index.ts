@@ -1,10 +1,22 @@
 import './load-env'; // Must be first — loads .env into process.env
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, clipboard } from 'electron';
 import path from 'path';
 import { startServer, stopServer, getServerStatus } from './server';
 import { getLocalIP } from '../utils/network';
 import { closeDatabase } from '../database';
 import { startShiftMonitor, stopShiftMonitor } from '../services/shiftMonitorService';
+import {
+  initLogger,
+  setLogWindow,
+  closeLogger,
+  getRecentLogs,
+  getCurrentLogFilePath,
+  getLogDirPath,
+  getRecentLogsAsText,
+} from '../utils/logger';
+
+// Initialize logger immediately — patches console.* before any other code runs
+initLogger();
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -13,9 +25,11 @@ const isDev = process.env.NODE_ENV === 'development';
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 500,
-    height: 700,
-    resizable: false,
+    width: 550,
+    height: 800,
+    minWidth: 450,
+    minHeight: 600,
+    resizable: true,
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
       contextIsolation: true,
@@ -30,6 +44,9 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
+
+  // Forward log entries to this window
+  setLogWindow(mainWindow);
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -54,8 +71,8 @@ app.whenReady().then(async () => {
     llmStatus: 'not_loaded',
   });
 
-  // Log to renderer
-  mainWindow?.webContents.send('log', `Serveur démarré sur ${ip}:${PORT}`);
+  // This log is now automatically captured by the logger monkey-patch
+  console.log(`Serveur démarré sur ${ip}:${PORT}`);
 });
 
 // IPC handlers
@@ -95,22 +112,34 @@ ipcMain.handle('get-ip', () => {
 });
 
 ipcMain.handle('trigger-backup', () => {
-  console.log('TODO: Implement backup');
-  mainWindow?.webContents.send('log', 'Sauvegarde non implémentée');
+  console.log('Sauvegarde non implémentée');
 });
 
 ipcMain.handle('open-logs', () => {
-  console.log('TODO: Open logs folder');
+  shell.openPath(getLogDirPath());
 });
 
 ipcMain.handle('open-data-folder', () => {
-  console.log('TODO: Open data folder');
+  shell.openPath(app.getPath('userData'));
+});
+
+ipcMain.handle('get-recent-logs', () => {
+  return getRecentLogs();
+});
+
+ipcMain.handle('get-log-file-path', () => {
+  return getCurrentLogFilePath();
+});
+
+ipcMain.handle('copy-logs-to-clipboard', () => {
+  clipboard.writeText(getRecentLogsAsText());
 });
 
 app.on('window-all-closed', () => {
   stopShiftMonitor();
   stopServer();
   closeDatabase();
+  closeLogger();
   if (process.platform !== 'darwin') {
     app.quit();
   }

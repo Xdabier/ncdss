@@ -4,6 +4,7 @@ import { ConnectionInfo } from './components/ConnectionInfo';
 import { ActionButtons } from './components/ActionButtons';
 import { ActivityLog } from './components/ActivityLog';
 import './electron.d';
+import type { LogEntry } from './electron.d';
 
 interface ServerStatus {
   running: boolean;
@@ -19,7 +20,7 @@ export default function App() {
     connectedClients: 0,
     llmStatus: 'not_loaded',
   });
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
 
   useEffect(() => {
     // Check if electron API is available
@@ -35,29 +36,38 @@ export default function App() {
       .then((ip) => setStatus((s) => ({ ...s, ip })))
       .catch(console.error);
 
+    // Load buffered logs (captures everything logged before the window was ready)
+    window.electron
+      .getRecentLogs()
+      .then((entries) => setLogs(entries))
+      .catch(console.error);
+
     // Listen for status updates
     window.electron.onServerStatus((newStatus: ServerStatus) => {
       setStatus(newStatus);
     });
 
-    // Listen for logs
-    window.electron.onLog((log: string) => {
-      setLogs((prev) => [...prev.slice(-99), log]);
+    // Listen for new log entries
+    window.electron.onLogEntry((entry: LogEntry) => {
+      setLogs((prev) => [...prev.slice(-999), entry]);
     });
   }, []);
 
-  const addLog = (message: string) => {
-    const timestamp = new Date().toLocaleTimeString('fr-FR');
-    setLogs((prev) => [...prev.slice(-99), `[${timestamp}] ${message}`]);
+  const handleCopy = async () => {
+    await window.electron.copyLogsToClipboard();
+  };
+
+  const handleClear = () => {
+    setLogs([]);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4">
-      <div className="max-w-md mx-auto space-y-3">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 flex flex-col">
+      <div className="max-w-md mx-auto space-y-3 flex flex-col flex-1 w-full">
         {/* Header */}
         <div className="bg-blue-600 text-white p-4 rounded-lg shadow-lg text-center">
-          <h1 className="text-2xl font-bold">🏥 NCDSS Server</h1>
-          <p className="text-sm text-blue-100 mt-1">Système d'Aide à la Décision Clinique</p>
+          <h1 className="text-2xl font-bold">NCDSS Server</h1>
+          <p className="text-sm text-blue-100 mt-1">Systeme d'Aide a la Decision Clinique</p>
         </div>
 
         {/* Status Panel */}
@@ -71,22 +81,21 @@ export default function App() {
           running={status.running}
           onStart={async () => {
             await window.electron.startServer();
-            addLog('Serveur démarré');
           }}
           onStop={async () => {
             await window.electron.stopServer();
-            addLog('Serveur arrêté');
           }}
           onBackup={async () => {
             await window.electron.triggerBackup();
-            addLog('Sauvegarde lancée');
           }}
           onOpenLogs={() => window.electron.openLogs()}
           onOpenData={() => window.electron.openDataFolder()}
         />
 
-        {/* Activity Log */}
-        <ActivityLog logs={logs} />
+        {/* Activity Log - grows to fill remaining space */}
+        <div className="flex-1 flex flex-col min-h-0">
+          <ActivityLog logs={logs} onCopy={handleCopy} onClear={handleClear} />
+        </div>
       </div>
     </div>
   );

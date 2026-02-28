@@ -1,3 +1,9 @@
+export interface LogEntry {
+  timestamp: string;
+  level: 'info' | 'warn' | 'error';
+  message: string;
+}
+
 export interface ElectronAPI {
   getServerStatus: () => Promise<{
     running: boolean;
@@ -11,8 +17,11 @@ export interface ElectronAPI {
   triggerBackup: () => Promise<void>;
   openLogs: () => void;
   openDataFolder: () => void;
+  getRecentLogs: () => Promise<LogEntry[]>;
+  getLogFilePath: () => Promise<string>;
+  copyLogsToClipboard: () => Promise<void>;
   onServerStatus: (callback: (status: any) => void) => void;
-  onLog: (callback: (log: string) => void) => void;
+  onLogEntry: (callback: (entry: LogEntry) => void) => void;
 }
 
 declare global {

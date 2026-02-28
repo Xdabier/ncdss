@@ -8,10 +8,13 @@ contextBridge.exposeInMainWorld('electron', {
   triggerBackup: () => ipcRenderer.invoke('trigger-backup'),
   openLogs: () => ipcRenderer.invoke('open-logs'),
   openDataFolder: () => ipcRenderer.invoke('open-data-folder'),
+  getRecentLogs: () => ipcRenderer.invoke('get-recent-logs'),
+  getLogFilePath: () => ipcRenderer.invoke('get-log-file-path'),
+  copyLogsToClipboard: () => ipcRenderer.invoke('copy-logs-to-clipboard'),
   onServerStatus: (callback: (status: any) => void) => {
     ipcRenderer.on('server-status', (_event, status) => callback(status));
   },
-  onLog: (callback: (log: string) => void) => {
-    ipcRenderer.on('log', (_event, log) => callback(log));
+  onLogEntry: (callback: (entry: any) => void) => {
+    ipcRenderer.on('log-entry', (_event, entry) => callback(entry));
   },
 });
