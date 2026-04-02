@@ -7,10 +7,13 @@ interface Props {
     running: boolean;
     connectedClients: number;
     llmStatus: string;
+    llmProvider?: 'local' | 'claude';
   };
 }
 
 export function StatusPanel({ status }: Props) {
+  const providerLabel = status.llmProvider === 'claude' ? 'Claude' : 'Local';
+
   return (
     <Card className="border-none shadow-none">
       <CardContent className="p-4 space-y-3">
@@ -46,12 +49,12 @@ export function StatusPanel({ status }: Props) {
             }
           >
             {status.llmStatus === 'ready'
-              ? '✓ Prêt'
+              ? `Pret (${providerLabel})`
               : status.llmStatus === 'loading'
-                ? '⏳ Chargement...'
+                ? 'Chargement...'
                 : status.llmStatus === 'error'
-                  ? '✗ Erreur'
-                  : 'Non chargé'}
+                  ? 'Erreur'
+                  : `Non charge (${providerLabel})`}
           </Badge>
         </div>
       </CardContent>

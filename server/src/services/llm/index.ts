@@ -1,4 +1,5 @@
 import { LlamaCppProvider } from './providers/llamacpp';
+import { ClaudeProvider } from './providers/claude';
 import type { UnifiedClinicalAnalysis } from '@ncdss/shared';
 
 /**
@@ -124,18 +125,80 @@ export interface PreDiagnosisSuggestion {
   thinkingEnabled: boolean;
 }
 
-// Singleton provider instance
-let providerInstance: LlamaCppProvider | null = null;
+// ─── Provider Manager ─────────────────────────────────────────────────────────
+
+export type LLMProviderType = 'local' | 'claude';
+
+export interface LLMProviderStatus {
+  activeType: LLMProviderType;
+  localAvailable: boolean;
+  claudeAvailable: boolean;
+}
+
+let activeProviderType: LLMProviderType = 'local';
+let providerInstance: LLMProvider | null = null;
 
 /**
- * Get the LLM provider instance (singleton)
- * Uses local node-llama-cpp (fully offline, GPU-accelerated)
+ * Get the active LLM provider instance.
+ * Creates a new instance on first call or after switchProvider().
  */
 export function getLLMProvider(): LLMProvider {
   if (!providerInstance) {
-    providerInstance = new LlamaCppProvider();
+    providerInstance = activeProviderType === 'claude'
+      ? new ClaudeProvider()
+      : new LlamaCppProvider();
   }
   return providerInstance;
+}
+
+/**
+ * Switch to a different LLM provider at runtime.
+ * Disposes the current provider before creating the new one.
+ */
+export async function switchProvider(type: LLMProviderType): Promise<void> {
+  if (type === activeProviderType && providerInstance) {
+    return; // Already using this provider
+  }
+
+  // Dispose current provider if it has a dispose method
+  if (providerInstance && 'dispose' in providerInstance && typeof (providerInstance as any).dispose === 'function') {
+    await (providerInstance as any).dispose();
+  }
+  providerInstance = null;
+
+  activeProviderType = type;
+  console.log(`[LLM] Switched to provider: ${type}`);
+
+  // Eagerly create the new provider
+  getLLMProvider();
+}
+
+/**
+ * Get the currently active provider type.
+ */
+export function getActiveProviderType(): LLMProviderType {
+  return activeProviderType;
+}
+
+/**
+ * Check if a local .gguf model file is available (without loading it).
+ */
+export async function checkLocalModelAvailable(): Promise<boolean> {
+  return LlamaCppProvider.hasLocalModel();
+}
+
+/**
+ * Get full provider status for the UI.
+ */
+export async function getProviderStatus(): Promise<LLMProviderStatus> {
+  const localAvailable = await checkLocalModelAvailable();
+  const claudeAvailable = !!(process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY.length > 0);
+
+  return {
+    activeType: activeProviderType,
+    localAvailable,
+    claudeAvailable,
+  };
 }
 
 /**
@@ -143,8 +206,47 @@ export function getLLMProvider(): LLMProvider {
  * Call this when the application is closing to free resources
  */
 export async function disposeLLMProvider(): Promise<void> {
-  if (providerInstance) {
-    await providerInstance.dispose();
-    providerInstance = null;
+  if (providerInstance && 'dispose' in providerInstance && typeof (providerInstance as any).dispose === 'function') {
+    await (providerInstance as any).dispose();
   }
+  providerInstance = null;
+}
+
+/**
+ * Auto-detect the best provider on startup.
+ * If no local model is found and Claude API key is set, auto-switch to Claude.
+ * Respects LLM_PROVIDER env var override.
+ */
+export async function autoDetectProvider(): Promise<void> {
+  // Check for explicit env var preference
+  const envProvider = process.env.LLM_PROVIDER?.toLowerCase();
+  if (envProvider === 'claude') {
+    const claudeAvailable = !!(process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY.length > 0);
+    if (claudeAvailable) {
+      await switchProvider('claude');
+      console.log('[LLM] Auto-detect: LLM_PROVIDER=claude, using Claude API');
+      return;
+    }
+    console.warn('[LLM] Auto-detect: LLM_PROVIDER=claude but ANTHROPIC_API_KEY not set, falling back to local');
+  } else if (envProvider === 'local') {
+    console.log('[LLM] Auto-detect: LLM_PROVIDER=local, using local LLM');
+    return;
+  }
+
+  // Auto-detect: check local model availability
+  const localAvailable = await checkLocalModelAvailable();
+  if (localAvailable) {
+    console.log('[LLM] Auto-detect: Local model found, using local LLM');
+    return;
+  }
+
+  // No local model — try Claude
+  const claudeAvailable = !!(process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY.length > 0);
+  if (claudeAvailable) {
+    await switchProvider('claude');
+    console.log('[LLM] Auto-detect: No local model found, ANTHROPIC_API_KEY set — switching to Claude API');
+    return;
+  }
+
+  console.warn('[LLM] Auto-detect: No local model and no ANTHROPIC_API_KEY — AI features disabled');
 }

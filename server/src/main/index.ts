@@ -1,10 +1,17 @@
 import './load-env'; // Must be first — loads .env into process.env
-import { app, BrowserWindow, ipcMain, shell, clipboard } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, clipboard, dialog } from 'electron';
 import path from 'path';
 import { startServer, stopServer, getServerStatus } from './server';
 import { getLocalIP } from '../utils/network';
-import { closeDatabase } from '../database';
+import { closeDatabase, clearPatientData } from '../database';
 import { startShiftMonitor, stopShiftMonitor } from '../services/shiftMonitorService';
+import {
+  autoDetectProvider,
+  getProviderStatus,
+  switchProvider,
+  disposeLLMProvider,
+  type LLMProviderType,
+} from '../services/llm';
 import {
   initLogger,
   setLogWindow,
@@ -63,12 +70,17 @@ app.whenReady().then(async () => {
   // Start background shift monitor
   startShiftMonitor();
 
+  // Auto-detect LLM provider (local model vs Claude API)
+  await autoDetectProvider();
+  const providerStatus = await getProviderStatus();
+
   // Send initial status to renderer
   mainWindow?.webContents.send('server-status', {
     running: true,
     ip: `${ip}:${PORT}`,
     connectedClients: 0,
     llmStatus: 'not_loaded',
+    llmProvider: providerStatus.activeType,
   });
 
   // This log is now automatically captured by the logger monkey-patch
@@ -111,6 +123,21 @@ ipcMain.handle('get-ip', () => {
   return `${getLocalIP()}:${PORT}`;
 });
 
+ipcMain.handle('get-llm-provider-status', async () => {
+  return getProviderStatus();
+});
+
+ipcMain.handle('switch-llm-provider', async (_event, type: LLMProviderType) => {
+  await switchProvider(type);
+  // Notify renderer of the change
+  const status = getServerStatus();
+  const ip = getLocalIP();
+  mainWindow?.webContents.send('server-status', {
+    ...status,
+    ip: `${ip}:${PORT}`,
+  });
+});
+
 ipcMain.handle('trigger-backup', () => {
   console.log('Sauvegarde non implémentée');
 });
@@ -135,9 +162,37 @@ ipcMain.handle('copy-logs-to-clipboard', () => {
   clipboard.writeText(getRecentLogsAsText());
 });
 
+ipcMain.handle('clear-patient-data', async () => {
+  if (!mainWindow) return false;
+
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: 'warning',
+    buttons: ['Annuler', 'Supprimer'],
+    defaultId: 0,
+    cancelId: 0,
+    title: 'Confirmer la suppression',
+    message: 'Supprimer toutes les données patients ?',
+    detail:
+      'Cette action supprimera tous les patients, diagnostics, prescriptions, ' +
+      'analyses IA et notifications. Cette opération est irréversible.',
+  });
+
+  if (response !== 1) return false;
+
+  try {
+    const deleted = clearPatientData();
+    console.log(`✓ Données patients supprimées (${deleted} enregistrements)`);
+    return true;
+  } catch (error) {
+    console.error('Erreur lors de la suppression des données patients:', error);
+    return false;
+  }
+});
+
 app.on('window-all-closed', () => {
   stopShiftMonitor();
   stopServer();
+  disposeLLMProvider();
   closeDatabase();
   closeLogger();
   if (process.platform !== 'darwin') {

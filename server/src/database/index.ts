@@ -109,6 +109,32 @@ export function closeDatabase() {
   }
 }
 
+export function clearPatientData(): number {
+  if (!sqlite) throw new Error('Database not initialized');
+
+  const tables = [
+    'ai_prediagnosis',
+    'unified_analysis',
+    'complementary_exams',
+    'diagnoses',
+    'prescriptions',
+    'notifications',
+    'patients',
+    'patient_identities',
+  ];
+
+  const result = sqlite.transaction(() => {
+    let totalDeleted = 0;
+    for (const table of tables) {
+      const info = sqlite.prepare(`DELETE FROM ${table}`).run();
+      totalDeleted += info.changes;
+    }
+    return totalDeleted;
+  })();
+
+  return result;
+}
+
 export async function seedDefaultAdmin() {
   try {
     const existingUsers = await getDb().select().from(schema.users).limit(1);

@@ -44,6 +44,7 @@ export default defineConfig({
                 'better-sqlite3',
                 'node-llama-cpp',
                 /^@node-llama-cpp\/.*/,
+                '@anthropic-ai/sdk',
               ],
             },
           },

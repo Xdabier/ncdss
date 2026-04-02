@@ -9,6 +9,7 @@ interface Props {
   onBackup: () => void;
   onOpenLogs: () => void;
   onOpenData: () => void;
+  onClearPatients: () => void;
 }
 
 export function ActionButtons({
@@ -18,6 +19,7 @@ export function ActionButtons({
   onBackup,
   onOpenLogs,
   onOpenData,
+  onClearPatients,
 }: Props) {
   return (
     <Card className="border-none shadow-none">
@@ -47,6 +49,14 @@ export function ActionButtons({
 
           <Button variant="secondary" onClick={onOpenData} className="gap-2">
             📁 Dossier
+          </Button>
+
+          <Button
+            variant="destructive"
+            onClick={onClearPatients}
+            className="col-span-2 gap-2"
+          >
+            🗑 Purger les patients
           </Button>
         </div>
       </CardContent>

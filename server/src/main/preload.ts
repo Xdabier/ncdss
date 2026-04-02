@@ -11,9 +11,12 @@ contextBridge.exposeInMainWorld('electron', {
   getRecentLogs: () => ipcRenderer.invoke('get-recent-logs'),
   getLogFilePath: () => ipcRenderer.invoke('get-log-file-path'),
   copyLogsToClipboard: () => ipcRenderer.invoke('copy-logs-to-clipboard'),
+  getLLMProviderStatus: () => ipcRenderer.invoke('get-llm-provider-status'),
+  switchLLMProvider: (type: string) => ipcRenderer.invoke('switch-llm-provider', type),
   onServerStatus: (callback: (status: any) => void) => {
     ipcRenderer.on('server-status', (_event, status) => callback(status));
   },
+  clearPatientData: () => ipcRenderer.invoke('clear-patient-data'),
   onLogEntry: (callback: (entry: any) => void) => {
     ipcRenderer.on('log-entry', (_event, entry) => callback(entry));
   },

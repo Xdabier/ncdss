@@ -3,14 +3,16 @@ import { StatusPanel } from './components/StatusPanel';
 import { ConnectionInfo } from './components/ConnectionInfo';
 import { ActionButtons } from './components/ActionButtons';
 import { ActivityLog } from './components/ActivityLog';
+import { LLMProviderToggle } from './components/LLMProviderToggle';
 import './electron.d';
-import type { LogEntry } from './electron.d';
+import type { LogEntry, LLMProviderType, LLMProviderStatus } from './electron.d';
 
 interface ServerStatus {
   running: boolean;
   ip: string;
   connectedClients: number;
   llmStatus: 'not_loaded' | 'loading' | 'ready' | 'error';
+  llmProvider?: LLMProviderType;
 }
 
 export default function App() {
@@ -21,6 +23,8 @@ export default function App() {
     llmStatus: 'not_loaded',
   });
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [providerStatus, setProviderStatus] = useState<LLMProviderStatus | null>(null);
+  const [switching, setSwitching] = useState(false);
 
   useEffect(() => {
     // Check if electron API is available
@@ -42,6 +46,12 @@ export default function App() {
       .then((entries) => setLogs(entries))
       .catch(console.error);
 
+    // Load LLM provider status
+    window.electron
+      .getLLMProviderStatus()
+      .then(setProviderStatus)
+      .catch(console.error);
+
     // Listen for status updates
     window.electron.onServerStatus((newStatus: ServerStatus) => {
       setStatus(newStatus);
@@ -61,6 +71,19 @@ export default function App() {
     setLogs([]);
   };
 
+  const handleSwitchProvider = async (type: LLMProviderType) => {
+    setSwitching(true);
+    try {
+      await window.electron.switchLLMProvider(type);
+      const newStatus = await window.electron.getLLMProviderStatus();
+      setProviderStatus(newStatus);
+    } catch (err) {
+      console.error('Failed to switch LLM provider:', err);
+    } finally {
+      setSwitching(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 flex flex-col">
       <div className="max-w-md mx-auto space-y-3 flex flex-col flex-1 w-full">
@@ -72,6 +95,13 @@ export default function App() {
 
         {/* Status Panel */}
         <StatusPanel status={status} />
+
+        {/* LLM Provider Toggle */}
+        <LLMProviderToggle
+          providerStatus={providerStatus}
+          onSwitch={handleSwitchProvider}
+          switching={switching}
+        />
 
         {/* Connection Info */}
         <ConnectionInfo ip={status.ip} />
@@ -90,6 +120,9 @@ export default function App() {
           }}
           onOpenLogs={() => window.electron.openLogs()}
           onOpenData={() => window.electron.openDataFolder()}
+          onClearPatients={async () => {
+            await window.electron.clearPatientData();
+          }}
         />
 
         {/* Activity Log - grows to fill remaining space */}

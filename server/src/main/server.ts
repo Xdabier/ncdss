@@ -20,6 +20,7 @@ import { profileRouter } from '../api/routes/profile';
 import { authMiddleware } from '../api/middleware/auth';
 import { auditMiddleware } from '../api/middleware/audit';
 import { initDatabase } from '../database';
+import { getActiveProviderType } from '../services/llm';
 
 let server: Server | null = null;
 let connectedClients = 0;
@@ -103,6 +104,7 @@ export function getServerStatus() {
     running: server !== null,
     connectedClients,
     llmStatus: 'not_loaded',
+    llmProvider: getActiveProviderType(),
   };
 }
 

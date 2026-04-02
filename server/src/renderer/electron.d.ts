@@ -4,11 +4,20 @@ export interface LogEntry {
   message: string;
 }
 
+export type LLMProviderType = 'local' | 'claude';
+
+export interface LLMProviderStatus {
+  activeType: LLMProviderType;
+  localAvailable: boolean;
+  claudeAvailable: boolean;
+}
+
 export interface ElectronAPI {
   getServerStatus: () => Promise<{
     running: boolean;
     connectedClients: number;
     llmStatus: 'not_loaded' | 'loading' | 'ready' | 'error';
+    llmProvider: LLMProviderType;
     ip: string;
   }>;
   startServer: () => Promise<void>;
@@ -20,6 +29,9 @@ export interface ElectronAPI {
   getRecentLogs: () => Promise<LogEntry[]>;
   getLogFilePath: () => Promise<string>;
   copyLogsToClipboard: () => Promise<void>;
+  clearPatientData: () => Promise<boolean>;
+  getLLMProviderStatus: () => Promise<LLMProviderStatus>;
+  switchLLMProvider: (type: LLMProviderType) => Promise<void>;
   onServerStatus: (callback: (status: any) => void) => void;
   onLogEntry: (callback: (entry: LogEntry) => void) => void;
 }

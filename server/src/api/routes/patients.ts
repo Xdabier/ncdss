@@ -6,7 +6,7 @@ import { patients, patientIdentities, users, boxes, weeklySchedule } from '../..
 import { PatientStatus, Orientation, OrientationSource, BoxType, calculateAge } from '@ncdss/shared';
 import { calculateNEWS, calculateGCS, calculateQSOFA } from '../../utils/scores';
 import { matchFindingsToPathologies } from '../../services/pathologyMatcher';
-import { getLLMProvider, PreDiagnosisContext, UnifiedAnalysisContext } from '../../services/llm';
+import { getLLMProvider, getActiveProviderType, PreDiagnosisContext, UnifiedAnalysisContext } from '../../services/llm';
 import * as aiPreDiagnosisService from '../../services/ai-prediagnosis-service';
 import * as unifiedAnalysisService from '../../services/unified-analysis-service';
 import { getCurrentDoctorsForBox, getLeastLoadedDoctor } from './box-assignments';
@@ -1887,10 +1887,14 @@ router.get('/:id/ai-status', async (req, res) => {
   try {
     const llm = getLLMProvider();
     const available = await llm.isAvailable();
-    res.json({ available, provider: 'llamacpp-local' });
+    const providerType = getActiveProviderType();
+    const provider = providerType === 'claude' ? 'claude-api' : 'llamacpp-local';
+    res.json({ available, provider });
   } catch (error) {
     console.error('AI status check error:', error);
-    res.json({ available: false, provider: 'llamacpp-local' });
+    const providerType = getActiveProviderType();
+    const provider = providerType === 'claude' ? 'claude-api' : 'llamacpp-local';
+    res.json({ available: false, provider });
   }
 });
 
