@@ -20,6 +20,7 @@ export interface MedicalHistoryData {
 interface Props {
   data: Partial<MedicalHistoryData>;
   onChange: (data: Partial<MedicalHistoryData>) => void;
+  patientSex?: 'MALE' | 'FEMALE';
 }
 
 const chronicConditionOptions = [
@@ -27,7 +28,7 @@ const chronicConditionOptions = [
   'Insuffisance renale', 'AVC', 'Epilepsie', 'Cancer', 'VIH/SIDA'
 ];
 
-export function MedicalHistoryForm({ data, onChange }: Props): React.ReactElement {
+export function MedicalHistoryForm({ data, onChange, patientSex }: Props): React.ReactElement {
   const [newMedication, setNewMedication] = useState('');
 
   const updateField = <K extends keyof MedicalHistoryData>(field: K, value: MedicalHistoryData[K]): void => {
@@ -90,21 +91,23 @@ export function MedicalHistoryForm({ data, onChange }: Props): React.ReactElemen
         </div>
       </div>
 
-      {/* 3. Antecedents obstetricaux */}
-      <div className="border rounded-lg p-4 space-y-3">
-        <h3 className="font-medium text-lg">Antecedents obstetricaux</h3>
-        <div className="space-y-2">
-          <Label htmlFor="obstetricHistory">Grossesses, accouchements, complications</Label>
-          <textarea
-            id="obstetricHistory"
-            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            value={data.obstetricHistory || ''}
-            onChange={(e) => updateField('obstetricHistory', e.target.value)}
-            placeholder="Ex: G2P2, cesarienne 2020, pas de complications..."
-            rows={2}
-          />
+      {/* 3. Antecedents obstetricaux (female only) */}
+      {patientSex !== 'MALE' && (
+        <div className="border rounded-lg p-4 space-y-3">
+          <h3 className="font-medium text-lg">Antecedents obstetricaux</h3>
+          <div className="space-y-2">
+            <Label htmlFor="obstetricHistory">Grossesses, accouchements, complications</Label>
+            <textarea
+              id="obstetricHistory"
+              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              value={data.obstetricHistory || ''}
+              onChange={(e) => updateField('obstetricHistory', e.target.value)}
+              placeholder="Ex: G2P2, cesarienne 2020, pas de complications..."
+              rows={2}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 4. Allergies */}
       <div className="border rounded-lg p-4 space-y-3">

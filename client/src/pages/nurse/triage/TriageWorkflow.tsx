@@ -1003,6 +1003,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
           <MedicalHistoryForm
             data={medicalHistoryData}
             onChange={handleHistoryChange}
+            patientSex={patient.sex}
           />
         </TriageAccordionSection>
 
