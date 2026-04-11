@@ -4,7 +4,30 @@ import { cn } from '../../lib/utils';
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, ...props }, ref) => {
+  ({ className, type, onWheel, onKeyDown, ...props }, ref) => {
+    const handleWheel = React.useCallback(
+      (e: React.WheelEvent<HTMLInputElement>) => {
+        if (type === 'number') {
+          (e.target as HTMLInputElement).blur();
+          e.preventDefault();
+          return;
+        }
+        onWheel?.(e);
+      },
+      [type, onWheel]
+    );
+
+    const handleKeyDown = React.useCallback(
+      (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (type === 'number' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+          e.preventDefault();
+          return;
+        }
+        onKeyDown?.(e);
+      },
+      [type, onKeyDown]
+    );
+
     return (
       <input
         type={type}
@@ -13,6 +36,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           className
         )}
         ref={ref}
+        onWheel={handleWheel}
+        onKeyDown={handleKeyDown}
         {...props}
       />
     );
