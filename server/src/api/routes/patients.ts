@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { eq, and, like, desc, gte, inArray, ne, sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
-import { patients, patientIdentities, users, boxes, weeklySchedule } from '../../database/schema';
+import { patients, patientIdentities, users, boxes, weeklySchedule, prescriptions as prescriptionsTable, complementaryExams } from '../../database/schema';
 import { PatientStatus, Orientation, OrientationSource, BoxType, calculateAge } from '@ncdss/shared';
 import { calculateNEWS, calculateGCS, calculateQSOFA } from '../../utils/scores';
 import { matchFindingsToPathologies } from '../../services/pathologyMatcher';
@@ -12,7 +12,9 @@ import * as unifiedAnalysisService from '../../services/unified-analysis-service
 import { getCurrentDoctorsForBox, getLeastLoadedDoctor } from './box-assignments';
 import {
   notifyDoctorPatientAssigned,
-  notifyTriageComplete
+  notifyTriageComplete,
+  notifyDoctorTreatmentComplete,
+  notifyTreatmentRedirect
 } from '../../services/notificationService';
 
 const router = Router();
@@ -96,7 +98,11 @@ router.get('/', async (req, res) => {
       triageCompletedAt: patients.triageCompletedAt,
       treatmentStartedAt: patients.treatmentStartedAt,
       doctorAssignedAt: patients.doctorAssignedAt,
-      absentCallHistory: patients.absentCallHistory
+      absentCallHistory: patients.absentCallHistory,
+      holdStatus: patients.holdStatus,
+      holdReason: patients.holdReason,
+      holdAt: patients.holdAt,
+      holdBy: patients.holdBy
     })
     .from(patients)
     .leftJoin(patientIdentities, eq(patients.patientIdentityId, patientIdentities.id));
@@ -958,7 +964,7 @@ router.get('/:id/analysis', async (req, res) => {
         qsofa: patient.qsofaScore,
         esi: patient.esiLevel
       },
-      hasAnalysis: !!patient.matchedPathologies
+      hasAnalysis: !!(patient.matchedPathologies || patient.suggestedNursingInterventions || patient.suggestedMedicalInterventions)
     });
   } catch (error) {
     console.error('Get analysis error:', error);
@@ -1462,7 +1468,15 @@ router.post('/:id/notes', async (req, res) => {
     }
 
     // Parse existing notes or create new array
-    const existingNotes = patient.treatmentNotes ? JSON.parse(patient.treatmentNotes) : [];
+    let existingNotes: any[] = [];
+    if (patient.treatmentNotes) {
+      try {
+        const parsed = JSON.parse(patient.treatmentNotes);
+        existingNotes = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        existingNotes = [];
+      }
+    }
 
     const newNote = {
       id: Date.now().toString(),
@@ -1513,7 +1527,15 @@ router.post('/:id/request-retriage', async (req, res) => {
     const trimmedReason = reason && reason.trim() ? reason.trim() : null;
 
     // Add re-triage request to notes
-    const existingNotes = patient.treatmentNotes ? JSON.parse(patient.treatmentNotes) : [];
+    let existingNotes: any[] = [];
+    if (patient.treatmentNotes) {
+      try {
+        const parsed = JSON.parse(patient.treatmentNotes);
+        existingNotes = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        existingNotes = [];
+      }
+    }
     existingNotes.push({
       id: Date.now().toString(),
       type: 'retriage_request',
@@ -1652,7 +1674,15 @@ router.post('/:id/reassign-box', async (req, res) => {
     }).where(eq(patients.id, id));
 
     // 8. Append transfer note
-    const existingNotes = patient.treatmentNotes ? JSON.parse(patient.treatmentNotes) : [];
+    let existingNotes: any[] = [];
+    if (patient.treatmentNotes) {
+      try {
+        const parsed = JSON.parse(patient.treatmentNotes);
+        existingNotes = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        existingNotes = [];
+      }
+    }
     existingNotes.push({
       id: randomUUID(),
       type: 'transfer',
@@ -1720,6 +1750,20 @@ router.post('/:id/hold', async (req, res) => {
       return res.status(400).json({ error: 'Le patient doit être en consultation ou en traitement' });
     }
 
+    // When redirecting to treatment, require at least one active prescription or pending exam
+    if (holdStatus === 'waiting_for_treatment') {
+      const activePrescriptions = await db.select({ id: prescriptionsTable.id })
+        .from(prescriptionsTable)
+        .where(and(eq(prescriptionsTable.patientId, id), eq(prescriptionsTable.status, 'ACTIVE')));
+      const pendingExams = await db.select({ id: complementaryExams.id })
+        .from(complementaryExams)
+        .where(and(eq(complementaryExams.patientId, id), inArray(complementaryExams.status, ['REQUESTED', 'IN_PROGRESS'])));
+
+      if (activePrescriptions.length === 0 && pendingExams.length === 0) {
+        return res.status(400).json({ error: 'Le patient doit avoir au moins une prescription active ou un examen en cours.' });
+      }
+    }
+
     const now = new Date().toISOString();
     await db.update(patients).set({
       holdStatus,
@@ -1728,6 +1772,49 @@ router.post('/:id/hold', async (req, res) => {
       holdBy: userId,
       updatedAt: now,
     }).where(eq(patients.id, id));
+
+    // Notify treatment nurses when redirecting to treatment
+    if (holdStatus === 'waiting_for_treatment') {
+      try {
+        const today = new Date();
+        const dayOfWeek = (today.getDay() + 6) % 7;
+        const weekStartStr = getWeekStart(today);
+
+        const treatmentNurses = await db
+          .select({ nurseId: weeklySchedule.nurseId })
+          .from(weeklySchedule)
+          .where(and(
+            eq(weeklySchedule.weekStart, weekStartStr),
+            eq(weeklySchedule.dayOfWeek, dayOfWeek),
+            eq(weeklySchedule.assignedRole, 'TREATMENT')
+          ));
+
+        let targetNurseIds: string[];
+        let requiresRoleSwitch = false;
+
+        if (treatmentNurses.length > 0) {
+          targetNurseIds = treatmentNurses.map((n: { nurseId: string }) => n.nurseId);
+        } else {
+          const allNurses = await db
+            .select({ id: users.id })
+            .from(users)
+            .where(and(
+              inArray(users.role, ['NURSE', 'NURSE_SUPERVISOR']),
+              eq(users.isActive, true)
+            ));
+          targetNurseIds = allNurses.map((n: { id: string }) => n.id);
+          requiresRoleSwitch = true;
+        }
+
+        if (targetNurseIds.length > 0) {
+          notifyTreatmentRedirect(
+            targetNurseIds, id, patient.fullName, patient.esiLevel, requiresRoleSwitch
+          ).catch(err => console.error('Notification error (treatment redirect):', err));
+        }
+      } catch (notifError) {
+        console.error('Failed to send treatment redirect notification:', notifError);
+      }
+    }
 
     const updated = await fetchPatientWithIdentity(db, id);
     res.json(updated);
@@ -1770,6 +1857,106 @@ router.post('/:id/resume-hold', async (req, res) => {
     res.json(updated);
   } catch (error) {
     console.error('Resume hold error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Treatment nurse marks patient as ready for doctor
+router.post('/:id/treatment-ready', async (req, res) => {
+  try {
+    const { userId, role } = (req as any).user;
+    const { id } = req.params;
+    const { markAllComplete } = req.body || {};
+
+    if (role !== 'NURSE' && role !== 'NURSE_SUPERVISOR' && role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Seuls les infirmiers peuvent marquer un patient comme prêt' });
+    }
+
+    const db = getDb();
+    const [patient] = await db.select().from(patients).where(eq(patients.id, id));
+    if (!patient) {
+      return res.status(404).json({ error: 'Patient non trouvé' });
+    }
+
+    if (patient.holdStatus !== 'waiting_for_treatment') {
+      return res.status(400).json({ error: 'Le patient n\'est pas en attente de soins' });
+    }
+
+    const now = new Date().toISOString();
+
+    // Bulk-complete all active prescriptions and pending exams if requested
+    if (markAllComplete) {
+      await db.update(prescriptionsTable).set({
+        status: 'COMPLETED',
+        updatedAt: now,
+      }).where(
+        and(
+          eq(prescriptionsTable.patientId, id),
+          inArray(prescriptionsTable.status, ['ACTIVE', 'ON_HOLD'])
+        )
+      );
+      await db.update(complementaryExams).set({
+        status: 'COMPLETED',
+        completedAt: now,
+        completedBy: userId,
+      }).where(
+        and(
+          eq(complementaryExams.patientId, id),
+          inArray(complementaryExams.status, ['REQUESTED', 'IN_PROGRESS'])
+        )
+      );
+    }
+
+    // Transition hold to treatment_done (keep holdAt and holdBy for traceability)
+    await db.update(patients).set({
+      holdStatus: 'treatment_done',
+      holdReason: 'Soins terminés — prêt pour le médecin',
+      updatedAt: now,
+    }).where(eq(patients.id, id));
+
+    // Append treatment note
+    let existingNotes: any[] = [];
+    if (patient.treatmentNotes) {
+      try {
+        const parsed = JSON.parse(patient.treatmentNotes);
+        existingNotes = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        existingNotes = [];
+      }
+    }
+    existingNotes.push({
+      id: randomUUID(),
+      type: 'treatment_complete',
+      content: 'Soins terminés — patient prêt pour le médecin',
+      authorId: userId,
+      createdAt: now,
+    });
+
+    await db.update(patients).set({
+      treatmentNotes: JSON.stringify(existingNotes),
+    }).where(eq(patients.id, id));
+
+    // Notify the doctor who put the patient on hold (the one waiting for treatment to complete)
+    if (patient.holdBy) {
+      notifyDoctorTreatmentComplete(
+        patient.holdBy,
+        id,
+        patient.fullName
+      ).catch((err) => console.error('Notification error (treatment-ready):', err));
+    }
+    // Also notify the assigned doctor if different from holdBy
+    if (patient.assignedDoctorId && patient.assignedDoctorId !== patient.holdBy) {
+      notifyDoctorTreatmentComplete(
+        patient.assignedDoctorId,
+        id,
+        patient.fullName
+      ).catch((err) => console.error('Notification error (treatment-ready):', err));
+    }
+
+    const updated = await fetchPatientWithIdentity(db, id);
+    res.json(updated);
+  } catch (error) {
+    console.error('Treatment ready error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });

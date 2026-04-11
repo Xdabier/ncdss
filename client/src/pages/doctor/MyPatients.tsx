@@ -60,7 +60,7 @@ export default function MyPatients() {
   }, []);
 
   // Stats
-  const myPatients = patients.filter(p => p.assignedDoctorId === user?.id);
+  const myPatients = patients.filter(p => p.assignedDoctorId === user?.id || p.holdBy === user?.id);
   const waitingPatients = patients.filter(
     p => (p.status === PatientStatus.IN_TREATMENT || p.status === PatientStatus.WITH_DOCTOR) &&
          !p.assignedDoctorId
@@ -215,10 +215,23 @@ export default function MyPatients() {
     return 'text-red-600 font-bold';
   };
 
-  // Row background class based on ESI + recently assigned
+  // Hold status labels
+  const holdStatusLabels: Record<string, string> = {
+    waiting_for_treatment: 'En soins',
+    waiting_for_exams: 'Examens',
+    waiting_for_specialist: 'Spécialiste',
+    patient_absent: 'Absent',
+    treatment_done: 'Prêt',
+  };
+
+  // Row background class based on ESI + recently assigned + hold
   const getRowClassName = (patient: PatientListItem): string => {
     const classes: string[] = ['hover:bg-gray-50 transition-colors'];
-    if (recentlyAssignedIds.has(patient.id)) {
+    if (patient.holdStatus === 'treatment_done') {
+      classes.push('bg-green-50 border-l-4 border-l-green-400');
+    } else if (patient.holdStatus) {
+      classes.push('bg-amber-50 border-l-4 border-l-amber-400');
+    } else if (recentlyAssignedIds.has(patient.id)) {
       classes.push('animate-pulse bg-blue-50');
     } else if (patient.esiLevel === 1) {
       classes.push('bg-red-100');
@@ -542,21 +555,26 @@ export default function MyPatients() {
                             </div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
-                            {getStatusBadge(patient.status)}
+                            <div className="flex items-center gap-1">
+                              {getStatusBadge(patient.status)}
+                              {patient.holdStatus && (
+                                <Badge variant={patient.holdStatus === 'treatment_done' ? 'success' : 'warning'} className="text-xs">
+                                  {holdStatusLabels[patient.holdStatus] || 'En attente'}
+                                </Badge>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-right">
                             <div className="flex items-center justify-end gap-2">
-                              {patient.assignedDoctorId === user?.id && (
-                                <Button
-                                  size="sm"
-                                  onClick={() =>
-                                    navigate(CLIENT_ROUTES.doctor.patientDetail(patient.id))
-                                  }
-                                >
-                                  <Eye className="h-4 w-4 mr-1" />
-                                  Voir
-                                </Button>
-                              )}
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  navigate(CLIENT_ROUTES.doctor.patientDetail(patient.id))
+                                }
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                Voir
+                              </Button>
                               {!patient.assignedDoctorId && (
                                 <Button
                                   size="sm"

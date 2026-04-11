@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and, ne } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
 import { complementaryExams, patients, users } from '../../database/schema';
@@ -143,6 +143,20 @@ router.post('/', async (req, res) => {
 
     if (!patient) {
       return res.status(404).json({ error: 'Patient non trouvé' });
+    }
+
+    // Check for duplicate: same exam name, not cancelled
+    const existingExams = await db.select({ id: complementaryExams.id, examName: complementaryExams.examName })
+      .from(complementaryExams)
+      .where(and(
+        eq(complementaryExams.patientId, patientId),
+        ne(complementaryExams.status, 'CANCELLED')
+      ));
+
+    const normalizedName = examName.trim().toLowerCase();
+    const duplicate = existingExams.find((e: { examName: string }) => e.examName.toLowerCase().trim() === normalizedName);
+    if (duplicate) {
+      return res.status(409).json({ error: `Cet examen est déjà demandé pour ce patient: "${examName.trim()}"` });
     }
 
     const id = randomUUID();

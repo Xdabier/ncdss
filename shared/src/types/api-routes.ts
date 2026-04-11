@@ -64,6 +64,7 @@ export const API_ROUTES = {
     reassignBox: (id: number | string) => `/patients/${id}/reassign-box`,
     hold: (id: number | string) => `/patients/${id}/hold`,
     resumeHold: (id: number | string) => `/patients/${id}/resume-hold`,
+    treatmentReady: (id: number | string) => `/patients/${id}/treatment-ready`,
     consultationNotes: (id: number | string) => `/patients/${id}/consultation-notes`,
     aiPrediagnosis: (id: number | string) => `/patients/${id}/ai-prediagnosis`,
     aiStatus: (id: number | string) => `/patients/${id}/ai-status`,

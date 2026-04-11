@@ -25,6 +25,7 @@ const holdStatusLabels: Record<HoldStatus, string> = {
   waiting_for_exams: "En attente d'examens compl\u00e9mentaires",
   waiting_for_specialist: "En attente d'un sp\u00e9cialiste",
   patient_absent: "Patient absent \u00e0 l'appel",
+  treatment_done: 'Soins termin\u00e9s \u2014 pr\u00eat \u00e0 reprendre',
 };
 
 export function HoldPatientModal({

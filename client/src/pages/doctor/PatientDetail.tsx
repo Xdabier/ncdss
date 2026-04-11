@@ -14,13 +14,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select';
-import { ABCDEReviewComponent } from '../../components/doctor/ABCDEReview';
 import { DiagnosisModal } from '../../components/doctor/DiagnosisModal';
 import { PrescriptionModal } from '../../components/doctor/PrescriptionModal';
 import { DoctorDischargeModal } from '../../components/doctor/DoctorDischargeModal';
 import { HoldPatientModal } from '../../components/doctor/HoldPatientModal';
-import { ExamsPanel } from '../../components/doctor/ExamsPanel';
-import { ReassignBoxModal } from '../../components/shared/ReassignBoxModal';
+import { ExamsPanel, AIQuickOrderPopover } from '../../components/doctor/ExamsPanel';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '../../components/ui/dialog';
 import { AIPreDiagnosisPanel } from '../../components/shared/AIPreDiagnosisPanel';
 import { getApi } from '../../services/api';
 import { getScoreColor, getScoreLabel } from '../../utils/scoreUtils';
@@ -38,7 +44,12 @@ import {
   PrescriptionStatus,
   MedicationRoute,
   CreatePrescriptionRequest,
+  ComplementaryExam,
+  ExamStatus,
   API_ROUTES,
+  UnifiedClinicalAnalysis,
+  GetUnifiedAnalysisResponse,
+  UnifiedPathology,
 } from '@ncdss/shared';
 import { CLIENT_ROUTES } from '../../routes';
 import {
@@ -69,6 +80,15 @@ import {
   Pause,
   Play,
   Save,
+  BedDouble,
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  Shield,
+  Zap,
+  FlaskConical,
+  Brain,
+  Wind,
 } from 'lucide-react';
 
 // French labels
@@ -123,6 +143,7 @@ const holdStatusLabels: Record<string, string> = {
   waiting_for_exams: "En attente d'examens compl\u00e9mentaires",
   waiting_for_specialist: "En attente d'un sp\u00e9cialiste",
   patient_absent: "Patient absent \u00e0 l'appel",
+  treatment_done: 'Soins termin\u00e9s \u2014 pr\u00eat \u00e0 reprendre',
 };
 
 // ESI colors
@@ -517,6 +538,7 @@ export default function PatientDetail() {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [exams, setExams] = useState<ComplementaryExam[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -530,6 +552,21 @@ export default function PatientDetail() {
   const [prescriptionToCancel, setPrescriptionToCancel] = useState<Prescription | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [aiRecommendedTests, setAiRecommendedTests] = useState<string[]>([]);
+  const [aiPanelQuickOrder, setAiPanelQuickOrder] = useState<string | null>(null);
+  const [examsRefreshKey, setExamsRefreshKey] = useState(0);
+
+  // Unified analysis state
+  const [unifiedAnalysis, setUnifiedAnalysis] = useState<UnifiedClinicalAnalysis | null>(null);
+  const [unifiedAnalysisLoading, setUnifiedAnalysisLoading] = useState(false);
+
+  // Collapsible sections (true = collapsed)
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
+    treatmentNotes: true,
+    timeline: true,
+  });
+  const toggleSection = (key: string): void => {
+    setCollapsedSections(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   // Redirect to treatment box
   const [showRedirectToBoxModal, setShowRedirectToBoxModal] = useState(false);
@@ -591,6 +628,30 @@ export default function PatientDetail() {
     }
   }, [id]);
 
+  const loadExams = useCallback(async () => {
+    if (!id) return;
+    try {
+      const api = await getApi();
+      const response = await api.get(API_ROUTES.exams.byPatient(id));
+      setExams(response.data);
+    } catch (err: any) {
+      console.error('Error loading exams:', err);
+    }
+  }, [id]);
+
+  const loadUnifiedAnalysis = useCallback(async () => {
+    if (!id) return;
+    try {
+      const api = await getApi();
+      const response = await api.get<GetUnifiedAnalysisResponse>(API_ROUTES.patients.unifiedAnalysis(id));
+      if (response.data.exists && response.data.status === 'completed' && response.data.result) {
+        setUnifiedAnalysis(response.data.result);
+      }
+    } catch {
+      // Unified analysis may not exist yet
+    }
+  }, [id]);
+
   const loadAiRecommendedTests = useCallback(async () => {
     if (!id) return;
     try {
@@ -612,9 +673,9 @@ export default function PatientDetail() {
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
-    await Promise.all([loadPatient(), loadDiagnoses(), loadPrescriptions(), loadAiRecommendedTests()]);
+    await Promise.all([loadPatient(), loadDiagnoses(), loadPrescriptions(), loadExams(), loadAiRecommendedTests(), loadUnifiedAnalysis()]);
     setLoading(false);
-  }, [loadPatient, loadDiagnoses, loadPrescriptions, loadAiRecommendedTests]);
+  }, [loadPatient, loadDiagnoses, loadPrescriptions, loadExams, loadAiRecommendedTests, loadUnifiedAnalysis]);
 
   useEffect(() => {
     loadAll();
@@ -674,9 +735,9 @@ export default function PatientDetail() {
   };
 
   // Redirect to treatment box handler
-  const handleRedirectToBox = async () => {
-    // ReassignBoxModal handles the reassignment; after success, auto-hold the patient
+  const handleRedirectToBox = async (): Promise<void> => {
     try {
+      setActionLoading('redirect');
       const api = await getApi();
       await api.post(API_ROUTES.patients.hold(id!), {
         holdStatus: 'waiting_for_treatment',
@@ -684,22 +745,20 @@ export default function PatientDetail() {
       });
       setShowRedirectToBoxModal(false);
       setRedirectSuccess('Patient redirigé vers le box de soins avec succès');
-      await loadPatient();
-      // Auto-dismiss after 5 seconds
+      await loadAll();
       setTimeout(() => setRedirectSuccess(null), 5000);
     } catch (err: any) {
-      console.error('Error setting hold after redirect:', err);
-      // Even if hold fails, the reassignment succeeded
-      setShowRedirectToBoxModal(false);
-      await loadPatient();
+      console.error('Error redirecting to treatment:', err);
+      setError(err.response?.data?.error || 'Erreur lors de la redirection');
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  // Check if patient has at least one PRIMARY diagnosis that is ACTIVE or CONFIRMED
-  const hasPrimaryDiagnosis = diagnoses.some(
-    d => d.diagnosisType === DiagnosisType.PRIMARY &&
-         (d.status === DiagnosisStatus.ACTIVE || d.confirmedAt)
-  );
+  // Computed: whether patient has active prescriptions or pending exams
+  const activePrescriptionCount = prescriptions.filter(p => p.status === PrescriptionStatus.ACTIVE).length;
+  const pendingExamCount = exams.filter(e => e.status === ExamStatus.REQUESTED || e.status === ExamStatus.IN_PROGRESS).length;
+  const hasActiveWork = activePrescriptionCount > 0 || pendingExamCount > 0;
 
   // Rabies protocol detection
   const rabiesKeywords = [
@@ -801,13 +860,27 @@ export default function PatientDetail() {
     }
   };
 
+  // Parse JSON-or-CSV string into array
+  const parseStringOrJsonArray = (value: string | undefined | null): string[] => {
+    if (!value) return [];
+    const trimmed = value.trim();
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+      } catch { /* fall through to CSV */ }
+    }
+    return trimmed.split(',').map(s => s.trim()).filter(Boolean);
+  };
+
   // Parse chronic conditions
-  const chronicConditions = patient?.chronicConditions
-    ? patient.chronicConditions.split(',').map(c => c.trim()).filter(Boolean)
-    : [];
+  const chronicConditions = parseStringOrJsonArray(patient?.chronicConditions);
 
   // Parse allergies
-  const allergies = patient?.allergies ? patient.allergies.split(',').map(a => a.trim()).filter(Boolean) : [];
+  const allergies = parseStringOrJsonArray(patient?.allergies);
+
+  // Parse current medications
+  const currentMedications = parseStringOrJsonArray(patient?.currentMedications);
 
   // Get status badge
   const getStatusBadge = (status: DiagnosisStatus) => {
@@ -953,14 +1026,16 @@ export default function PatientDetail() {
             <UserPlus className="h-4 w-4 mr-2" />
             Transférer
           </Button>
-          {patient.status === PatientStatus.WITH_DOCTOR && (
+          {patient.status === PatientStatus.WITH_DOCTOR && !patient.holdStatus && (
             <Button
               size="sm"
               variant="outline"
               onClick={() => setShowRedirectToBoxModal(true)}
+              disabled={!hasActiveWork}
               className="text-indigo-700 border-indigo-300 hover:bg-indigo-50"
+              title={!hasActiveWork ? 'Aucune prescription ou examen en cours' : undefined}
             >
-              <ArrowRight className="h-4 w-4 mr-2" />
+              <BedDouble className="h-4 w-4 mr-2" />
               Rediriger vers box de soins
             </Button>
           )}
@@ -982,11 +1057,141 @@ export default function PatientDetail() {
           >
             <LogOut className="h-4 w-4 mr-2" />
             Sortie
-            {!hasPrimaryDiagnosis && (
-              <span className="ml-2 text-xs text-amber-600">(diagnostic requis)</span>
-            )}
           </Button>
         </div>
+
+        {/* Vitals — compact full-width strip */}
+        <div className="mb-3 p-2.5 bg-white border rounded-lg shadow-sm">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            {((() => {
+              const items: { icon: typeof Thermometer; label: string; value: string; alert?: boolean; warn?: boolean; unit?: string }[] = [
+                { icon: Thermometer, label: 'T°', value: patient.temperature ? `${patient.temperature}°C` : '—',
+                  alert: !!(patient.temperature && (patient.temperature < 36 || patient.temperature > 38)) },
+                { icon: Heart, label: 'FC', value: patient.heartRate ? `${patient.heartRate}` : '—',
+                  alert: !!(patient.heartRate && (patient.heartRate < 60 || patient.heartRate > 100)), unit: 'bpm' },
+                { icon: Activity, label: 'FR', value: patient.respiratoryRate ? `${patient.respiratoryRate}` : '—',
+                  alert: !!(patient.respiratoryRate && (patient.respiratoryRate < 12 || patient.respiratoryRate > 20)), unit: '/min' },
+                { icon: Activity, label: 'TA', value: patient.systolicBP && patient.diastolicBP ? `${patient.systolicBP}/${patient.diastolicBP}` : '—', unit: 'mmHg' },
+                { icon: Droplets, label: 'SpO2', value: patient.oxygenSaturation ? `${patient.oxygenSaturation}%` : '—',
+                  alert: !!(patient.oxygenSaturation && patient.oxygenSaturation < 94) },
+                { icon: AlertTriangle, label: 'EVA', value: patient.painLevel !== undefined ? `${patient.painLevel}/10` : '—',
+                  alert: !!(patient.painLevel && patient.painLevel >= 7), warn: !!(patient.painLevel && patient.painLevel >= 4 && patient.painLevel < 7) },
+              ];
+              return items;
+            })()).map((v, i) => (
+              <div key={i} className="flex items-center gap-1.5" title={v.label}>
+                <v.icon className={`h-3.5 w-3.5 ${v.alert ? 'text-red-500' : v.warn ? 'text-amber-500' : 'text-gray-400'}`} />
+                <span className="text-[10px] text-gray-400 uppercase">{v.label}</span>
+                <span className={`text-sm font-bold ${v.alert ? 'text-red-600' : v.warn ? 'text-amber-600' : 'text-gray-900'}`}>
+                  {v.value}
+                </span>
+                {v.unit && v.value !== '—' && <span className="text-[10px] text-gray-400">{v.unit}</span>}
+              </div>
+            ))}
+
+            <div className="h-5 w-px bg-gray-200 hidden sm:block" />
+
+            {([
+              { label: 'NEWS', score: patient.newsScore, type: 'news' as const },
+              { label: 'GCS', score: patient.gcsScore, type: 'gcs' as const },
+              { label: 'qSOFA', score: patient.qsofaScore, type: 'qsofa' as const },
+            ]).map((s, i) => (
+              <div
+                key={i}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-xs font-bold ${
+                  s.score !== undefined ? getScoreColor(s.score, s.type) : 'bg-gray-50 text-gray-400'
+                }`}
+                title={s.score !== undefined ? getScoreLabel(s.score, s.type) : undefined}
+              >
+                <span className="text-[10px] font-medium opacity-70">{s.label}</span>
+                <span>{s.score ?? '—'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ABCDE — compact full-width strip */}
+        {(() => {
+          const parseABCDE = (json: string | undefined): Record<string, unknown> | null => {
+            if (!json) return null;
+            try { return JSON.parse(json); } catch { return null; }
+          };
+          const a = parseABCDE(patient.abcdeAirway);
+          const b = parseABCDE(patient.abcdeBreathing);
+          const c = parseABCDE(patient.abcdeCirculation);
+          const d = parseABCDE(patient.abcdeDisability);
+          const e = parseABCDE(patient.abcdeExposure);
+
+          const critA = !!(a && (a.obstructed || a.stridor || a.patent === false));
+          const critB = !!(b && (b.cyanosis || (typeof b.oxygenSaturation === 'number' && b.oxygenSaturation < 90) || b.workOfBreathing === 'severe'));
+          const critC = !!(c && (c.bleeding || c.skinColor === 'mottled' || c.peripheralPulses === 'absent'));
+          const critD = !!(d && ((typeof d.gcsEye === 'number' && typeof d.gcsVerbal === 'number' && typeof d.gcsMotor === 'number' && (d.gcsEye + d.gcsVerbal + d.gcsMotor) < 9) || d.pupils === 'unequal' || d.motorResponse === 'paralysis'));
+          const critE = !!(e && (typeof e.temperature === 'number' && (e.temperature < 35 || e.temperature > 40)));
+
+          const hasAny = a || b || c || d || e;
+          if (!hasAny) return null;
+
+          const summaryA = !a ? '—' : critA ? (a.obstructed ? 'Obstruées' : a.stridor ? 'Stridor' : 'Non libres') : 'Libres';
+          const summaryB = !b ? '—' : [
+            typeof b.respiratoryRate === 'number' ? `FR ${b.respiratoryRate}` : null,
+            typeof b.oxygenSaturation === 'number' ? `SpO2 ${b.oxygenSaturation}%` : null,
+            b.cyanosis ? 'Cyanose' : null,
+          ].filter(Boolean).join(' · ') || 'RAS';
+          const summaryC = !c ? '—' : [
+            typeof c.heartRate === 'number' ? `FC ${c.heartRate}` : null,
+            c.bloodPressure ? `TA ${c.bloodPressure}` : null,
+            c.bleeding ? 'Saignement' : null,
+          ].filter(Boolean).join(' · ') || 'RAS';
+          const summaryD = !d ? '—' : [
+            (typeof d.gcsEye === 'number' && typeof d.gcsVerbal === 'number' && typeof d.gcsMotor === 'number')
+              ? `GCS ${d.gcsEye + d.gcsVerbal + d.gcsMotor}` : null,
+            d.pupils ? (d.pupils === 'PEARL' ? 'Pupilles N' : `Pupilles ${d.pupils}`) : null,
+          ].filter(Boolean).join(' · ') || 'RAS';
+          const summaryE = !e ? '—' : [
+            typeof e.temperature === 'number' ? `${e.temperature}°C` : null,
+            e.rash ? 'Rash' : null,
+            e.wounds ? 'Plaies' : null,
+            e.edema ? 'Oedème' : null,
+          ].filter(Boolean).join(' · ') || 'RAS';
+
+          const categories: { letter: string; icon: typeof Wind; color: string; summary: string; critical: boolean }[] = [
+            { letter: 'A', icon: Wind, color: 'bg-blue-500', summary: summaryA, critical: critA },
+            { letter: 'B', icon: Activity, color: 'bg-cyan-500', summary: summaryB, critical: critB },
+            { letter: 'C', icon: Heart, color: 'bg-red-500', summary: summaryC, critical: critC },
+            { letter: 'D', icon: Brain, color: 'bg-purple-500', summary: summaryD, critical: critD },
+            { letter: 'E', icon: Thermometer, color: 'bg-orange-500', summary: summaryE, critical: critE },
+          ];
+
+          return (
+            <div className="mb-3 p-2 bg-white border rounded-lg shadow-sm">
+              <div className="grid grid-cols-5 gap-2">
+                {categories.map((cat) => (
+                  <div
+                    key={cat.letter}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md border ${
+                      cat.critical ? 'border-red-300 bg-red-50' : 'border-gray-100 bg-gray-50'
+                    }`}
+                    title={`${cat.letter} — ${cat.summary}`}
+                  >
+                    <div className={`p-1 rounded ${cat.color} shrink-0`}>
+                      <cat.icon className="h-3 w-3 text-white" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs font-bold text-gray-700">{cat.letter}</span>
+                        {cat.critical && <AlertTriangle className="h-3 w-3 text-red-500" />}
+                        {!cat.critical && cat.summary !== '—' && <CheckCircle className="h-3 w-3 text-green-500" />}
+                      </div>
+                      <p className={`text-[10px] leading-tight truncate ${cat.critical ? 'text-red-700 font-medium' : 'text-gray-500'}`}>
+                        {cat.summary}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Allergies Alert */}
         {allergies.length > 0 && (
@@ -1011,36 +1216,45 @@ export default function PatientDetail() {
         )}
 
         {/* Hold Banner */}
-        {patient.holdStatus && (
-          <div className="mb-6 p-4 bg-amber-50 border-2 border-amber-300 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Pause className="h-5 w-5 text-amber-600" />
-                <div>
-                  <p className="font-semibold text-amber-800">
-                    Patient en attente — {holdStatusLabels[patient.holdStatus] || patient.holdStatus}
-                  </p>
-                  {patient.holdReason && (
-                    <p className="text-sm text-amber-700 mt-0.5">{patient.holdReason}</p>
+        {patient.holdStatus && (() => {
+          const isTreatmentDone = patient.holdStatus === 'treatment_done';
+          return (
+            <div className={`mb-6 p-4 border-2 rounded-lg ${isTreatmentDone ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-300'}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {isTreatmentDone ? (
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  ) : (
+                    <Pause className="h-5 w-5 text-amber-600" />
                   )}
+                  <div>
+                    <p className={`font-semibold ${isTreatmentDone ? 'text-green-800' : 'text-amber-800'}`}>
+                      {isTreatmentDone
+                        ? 'Soins terminés — Patient prêt à reprendre la consultation'
+                        : `Patient en attente — ${holdStatusLabels[patient.holdStatus] || patient.holdStatus}`}
+                    </p>
+                    {!isTreatmentDone && patient.holdReason && (
+                      <p className="text-sm text-amber-700 mt-0.5">{patient.holdReason}</p>
+                    )}
+                  </div>
                 </div>
+                <Button
+                  size="sm"
+                  onClick={handleResumeHold}
+                  disabled={actionLoading === 'resume-hold'}
+                  className={isTreatmentDone ? 'bg-green-600 hover:bg-green-700' : 'bg-amber-600 hover:bg-amber-700'}
+                >
+                  {actionLoading === 'resume-hold' ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4 mr-2" />
+                  )}
+                  Reprendre la consultation
+                </Button>
               </div>
-              <Button
-                size="sm"
-                onClick={handleResumeHold}
-                disabled={actionLoading === 'resume-hold'}
-                className="bg-amber-600 hover:bg-amber-700"
-              >
-                {actionLoading === 'resume-hold' ? (
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4 mr-2" />
-                )}
-                Reprendre la consultation
-              </Button>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Redirect Success Banner */}
         {redirectSuccess && (
@@ -1089,6 +1303,26 @@ export default function PatientDetail() {
           </div>
         )}
 
+        {/* Critical Alerts from Unified Analysis */}
+        {unifiedAnalysis && unifiedAnalysis.criticalAlerts.length > 0 && (
+          <div className="mb-6 p-4 bg-red-50 border-2 border-red-400 rounded-lg">
+            <div className="flex items-start gap-3">
+              <Shield className="h-5 w-5 text-red-600 mt-0.5 shrink-0" />
+              <div className="flex-1">
+                <p className="font-bold text-red-800 mb-1">Alertes critiques</p>
+                <ul className="space-y-1">
+                  {unifiedAnalysis.criticalAlerts.map((alert, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-sm text-red-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />
+                      {alert}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Main Content - 2 columns on desktop */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
           {/* Left Column - 2/3 width */}
@@ -1113,6 +1347,17 @@ export default function PatientDetail() {
                   )}
                 </div>
 
+                {/* Orientation Reason from Unified Analysis */}
+                {unifiedAnalysis?.orientationReason && (
+                  <div className="pt-3 border-t">
+                    <p className="text-sm font-medium text-gray-600 mb-1">
+                      <Shield className="h-4 w-4 inline mr-1" />
+                      Raison de l'orientation ({unifiedAnalysis.orientation})
+                    </p>
+                    <p className="text-sm text-gray-700">{unifiedAnalysis.orientationReason}</p>
+                  </div>
+                )}
+
                 {/* Chronic Conditions */}
                 {chronicConditions.length > 0 && (
                   <div className="pt-3 border-t">
@@ -1131,175 +1376,217 @@ export default function PatientDetail() {
                 )}
 
                 {/* Current Medications */}
-                {patient.currentMedications && (
+                {currentMedications.length > 0 && (
                   <div className="pt-3 border-t">
                     <p className="text-sm font-medium text-gray-600 mb-2">
                       <Pill className="h-4 w-4 inline mr-1" />
                       Traitement en cours
                     </p>
-                    <p className="text-sm text-gray-700">{patient.currentMedications}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {currentMedications.map((med, idx) => (
+                        <Badge key={idx} variant="secondary">{med}</Badge>
+                      ))}
+                    </div>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Vitals Grid */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Constantes Vitales</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-2 text-gray-500 mb-1">
-                      <Thermometer className="h-4 w-4" />
-                      <span className="text-xs">Température</span>
-                    </div>
-                    <span className={`text-lg font-semibold ${
-                      patient.temperature && (patient.temperature < 36 || patient.temperature > 38)
-                        ? 'text-red-600'
-                        : ''
-                    }`}>
-                      {patient.temperature ? `${patient.temperature}°C` : '—'}
+            {/* AI Clinical Analysis (from Unified Analysis) */}
+            {unifiedAnalysis && (
+              <Card className="border-purple-200 bg-gradient-to-br from-purple-50/50 to-white">
+                <CardHeader className="pb-1">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Brain className="h-4 w-4 text-purple-600" />
+                      Analyse Clinique IA
+                    </CardTitle>
+                    <span className="text-[10px] text-gray-400">
+                      {new Date(unifiedAnalysis.analysisTimestamp).toLocaleString('fr-FR', {
+                        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+                      })}
                     </span>
                   </div>
-
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-2 text-gray-500 mb-1">
-                      <Heart className="h-4 w-4" />
-                      <span className="text-xs">Fréquence cardiaque</span>
+                </CardHeader>
+                <CardContent className="space-y-3 pt-2">
+                  {/* Medical Interventions — compact bullets */}
+                  {unifiedAnalysis.medicalInterventions.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-blue-800 mb-1 flex items-center gap-1">
+                        <Stethoscope className="h-3.5 w-3.5" />
+                        Interventions médicales
+                      </p>
+                      <ul className="space-y-0.5">
+                        {unifiedAnalysis.medicalInterventions.map((intervention, idx) => (
+                          <li key={idx} className="flex items-start gap-1.5 text-xs text-blue-900">
+                            <span className="w-1 h-1 rounded-full bg-blue-500 mt-1.5 shrink-0" />
+                            {intervention}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                    <span className={`text-lg font-semibold ${
-                      patient.heartRate && (patient.heartRate < 60 || patient.heartRate > 100)
-                        ? 'text-amber-600'
-                        : ''
-                    }`}>
-                      {patient.heartRate ? `${patient.heartRate} bpm` : '—'}
-                    </span>
-                  </div>
+                  )}
 
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-2 text-gray-500 mb-1">
-                      <Activity className="h-4 w-4" />
-                      <span className="text-xs">Fréquence respiratoire</span>
+                  {/* Pathology Hypotheses — top 1 expanded, rest compact */}
+                  {unifiedAnalysis.pathologies.length > 0 && (
+                    <div className="pt-2 border-t border-purple-100">
+                      <p className="text-xs font-semibold text-purple-800 mb-1.5 flex items-center gap-1">
+                        <Activity className="h-3.5 w-3.5" />
+                        Hypothèses diagnostiques ({unifiedAnalysis.pathologies.length})
+                      </p>
+
+                      {/* Top pathology — expanded */}
+                      {(() => {
+                        const top = unifiedAnalysis.pathologies[0];
+                        return (
+                          <div className="p-2.5 bg-white rounded-lg border border-gray-200 shadow-sm mb-2">
+                            <div className="flex items-start justify-between gap-2 mb-1.5">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm text-gray-900 truncate">{top.name}</p>
+                                {top.icd10Code && <span className="text-[10px] text-gray-400">{top.icd10Code}</span>}
+                              </div>
+                              <Badge className={`text-[10px] shrink-0 ${
+                                top.urgency === 'emergent' ? 'bg-red-500 text-white' :
+                                top.urgency === 'urgent' ? 'bg-orange-500 text-white' : 'bg-green-500 text-white'
+                              }`}>
+                                {top.urgency === 'emergent' ? 'Emergent' : top.urgency === 'urgent' ? 'Urgent' : 'Routine'}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                                <div
+                                  className={`h-1.5 rounded-full ${
+                                    top.confidence >= 80 ? 'bg-green-500' : top.confidence >= 50 ? 'bg-yellow-500' : 'bg-orange-500'
+                                  }`}
+                                  style={{ width: `${top.confidence}%` }}
+                                />
+                              </div>
+                              <span className="text-xs font-medium text-gray-600 w-10 text-right">{top.confidence}%</span>
+                            </div>
+                            <p className="text-xs text-gray-600 line-clamp-2">{top.reasoning}</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-1.5 w-full h-7 text-xs"
+                              onClick={() => handleUseAISuggestion({
+                                diagnosis: top.name, confidence: top.confidence,
+                                reasoning: top.reasoning, urgency: top.urgency, icd10Code: top.icd10Code,
+                              })}
+                            >
+                              <Zap className="h-3 w-3 mr-1" />
+                              Utiliser ce diagnostic
+                            </Button>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Remaining pathologies — compact, expandable */}
+                      {unifiedAnalysis.pathologies.length > 1 && (
+                        <>
+                          {!collapsedSections.morePathologies ? (
+                            <button
+                              type="button"
+                              className="w-full text-center text-xs text-purple-600 hover:text-purple-800 hover:bg-purple-50 py-1.5 rounded-md border border-dashed border-purple-200"
+                              onClick={() => toggleSection('morePathologies')}
+                            >
+                              Voir {unifiedAnalysis.pathologies.length - 1} autre{unifiedAnalysis.pathologies.length > 2 ? 's' : ''} hypothèse{unifiedAnalysis.pathologies.length > 2 ? 's' : ''}
+                            </button>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {unifiedAnalysis.pathologies.slice(1).map((pathology, idx) => (
+                                <div key={idx} className="p-2 bg-white rounded-lg border border-gray-200">
+                                  <div className="flex items-center justify-between gap-2 mb-1">
+                                    <p className="font-medium text-xs text-gray-900 truncate flex-1">{pathology.name}</p>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <Badge className={`text-[10px] px-1.5 py-0 ${
+                                        pathology.urgency === 'emergent' ? 'bg-red-500 text-white' :
+                                        pathology.urgency === 'urgent' ? 'bg-orange-500 text-white' : 'bg-green-500 text-white'
+                                      }`}>
+                                        {pathology.urgency === 'emergent' ? 'E' : pathology.urgency === 'urgent' ? 'U' : 'R'}
+                                      </Badge>
+                                      <span className="text-[10px] font-medium text-gray-500">{pathology.confidence}%</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex-1 bg-gray-200 rounded-full h-1 mb-1">
+                                    <div
+                                      className={`h-1 rounded-full ${
+                                        pathology.confidence >= 80 ? 'bg-green-500' : pathology.confidence >= 50 ? 'bg-yellow-500' : 'bg-orange-500'
+                                      }`}
+                                      style={{ width: `${pathology.confidence}%` }}
+                                    />
+                                  </div>
+                                  <p className="text-[11px] text-gray-500 line-clamp-1">{pathology.reasoning}</p>
+                                  <button
+                                    className="mt-1 text-[10px] text-purple-600 hover:text-purple-800 font-medium"
+                                    onClick={() => handleUseAISuggestion({
+                                      diagnosis: pathology.name, confidence: pathology.confidence,
+                                      reasoning: pathology.reasoning, urgency: pathology.urgency, icd10Code: pathology.icd10Code,
+                                    })}
+                                  >
+                                    <Zap className="h-3 w-3 inline mr-0.5" />
+                                    Utiliser
+                                  </button>
+                                </div>
+                              ))}
+                              <button
+                                type="button"
+                                className="w-full text-center text-[10px] text-gray-400 hover:text-gray-600 py-1"
+                                onClick={() => toggleSection('morePathologies')}
+                              >
+                                Réduire
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
-                    <span className={`text-lg font-semibold ${
-                      patient.respiratoryRate && (patient.respiratoryRate < 12 || patient.respiratoryRate > 20)
-                        ? 'text-amber-600'
-                        : ''
-                    }`}>
-                      {patient.respiratoryRate ? `${patient.respiratoryRate} /min` : '—'}
-                    </span>
-                  </div>
+                  )}
 
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-2 text-gray-500 mb-1">
-                      <Activity className="h-4 w-4" />
-                      <span className="text-xs">Tension artérielle</span>
+                  {/* Warnings — collapsible, default closed */}
+                  {unifiedAnalysis.warnings.length > 0 && (
+                    <div className="pt-2 border-t border-purple-100">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 hover:text-amber-900 w-full"
+                        onClick={() => toggleSection('aiWarnings')}
+                      >
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        Avertissements ({unifiedAnalysis.warnings.length})
+                        {collapsedSections.aiWarnings
+                          ? <ChevronUp className="h-3 w-3 ml-auto" />
+                          : <ChevronDown className="h-3 w-3 ml-auto" />
+                        }
+                      </button>
+                      {collapsedSections.aiWarnings && (
+                        <ul className="mt-1 space-y-0.5">
+                          {unifiedAnalysis.warnings.map((w, idx) => (
+                            <li key={idx} className="flex items-start gap-1.5 text-xs text-amber-800">
+                              <span className="w-1 h-1 rounded-full bg-amber-500 mt-1.5 shrink-0" />
+                              {w}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
-                    <span className="text-lg font-semibold">
-                      {patient.systolicBP && patient.diastolicBP
-                        ? `${patient.systolicBP}/${patient.diastolicBP} mmHg`
-                        : '—'}
-                    </span>
-                  </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-2 text-gray-500 mb-1">
-                      <Droplets className="h-4 w-4" />
-                      <span className="text-xs">Saturation O2</span>
-                    </div>
-                    <span className={`text-lg font-semibold ${
-                      patient.oxygenSaturation && patient.oxygenSaturation < 94
-                        ? 'text-red-600'
-                        : ''
-                    }`}>
-                      {patient.oxygenSaturation ? `${patient.oxygenSaturation}%` : '—'}
-                    </span>
-                  </div>
+            {/* AI Pre-Diagnosis Panel (generate/streaming) — shown when no unified analysis */}
+            {!unifiedAnalysis && (
+              <AIPreDiagnosisPanel
+                patientId={patient.id}
+                onUseSuggestion={handleUseAISuggestion}
+                onRequestExam={(testName) => setAiPanelQuickOrder(testName)}
+                requestedExamNames={exams.filter(e => e.status !== ExamStatus.CANCELLED).map(e => e.examName)}
+              />
+            )}
 
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-2 text-gray-500 mb-1">
-                      <AlertTriangle className="h-4 w-4" />
-                      <span className="text-xs">Douleur (EVA)</span>
-                    </div>
-                    <span className={`text-lg font-semibold ${
-                      patient.painLevel && patient.painLevel >= 7
-                        ? 'text-red-600'
-                        : patient.painLevel && patient.painLevel >= 4
-                          ? 'text-amber-600'
-                          : ''
-                    }`}>
-                      {patient.painLevel !== undefined ? `${patient.painLevel}/10` : '—'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Scores Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mt-4">
-                  <div className={`p-3 rounded-lg border-2 ${
-                    patient.newsScore !== undefined
-                      ? getScoreColor(patient.newsScore, 'news')
-                      : 'bg-gray-50'
-                  }`}>
-                    <div className="text-xs text-gray-600 mb-1">NEWS</div>
-                    <div className="text-xl font-bold">
-                      {patient.newsScore ?? '—'}
-                    </div>
-                    {patient.newsScore !== undefined && (
-                      <div className="text-xs mt-1">
-                        {getScoreLabel(patient.newsScore, 'news')}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className={`p-3 rounded-lg border-2 ${
-                    patient.gcsScore !== undefined
-                      ? getScoreColor(patient.gcsScore, 'gcs')
-                      : 'bg-gray-50'
-                  }`}>
-                    <div className="text-xs text-gray-600 mb-1">GCS</div>
-                    <div className="text-xl font-bold">
-                      {patient.gcsScore ?? '—'}
-                    </div>
-                    {patient.gcsScore !== undefined && (
-                      <div className="text-xs mt-1">
-                        {getScoreLabel(patient.gcsScore, 'gcs')}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className={`p-3 rounded-lg border-2 ${
-                    patient.qsofaScore !== undefined
-                      ? getScoreColor(patient.qsofaScore, 'qsofa')
-                      : 'bg-gray-50'
-                  }`}>
-                    <div className="text-xs text-gray-600 mb-1">qSOFA</div>
-                    <div className="text-xl font-bold">
-                      {patient.qsofaScore ?? '—'}
-                    </div>
-                    {patient.qsofaScore !== undefined && (
-                      <div className="text-xs mt-1">
-                        {getScoreLabel(patient.qsofaScore, 'qsofa')}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* ABCDE Review */}
-            <ABCDEReviewComponent patient={patient} />
           </div>
 
           {/* Right Column - 1/3 width */}
           <div className="space-y-3 sm:space-y-4 md:space-y-6">
-            {/* AI Pre-Diagnosis Panel */}
-            <AIPreDiagnosisPanel
-              patientId={patient.id}
-              onUseSuggestion={handleUseAISuggestion}
-            />
-
             {/* Diagnoses Section */}
             <Card>
               <CardHeader className="pb-2">
@@ -1583,10 +1870,53 @@ export default function PatientDetail() {
               </CardContent>
             </Card>
 
+            {/* AI Recommended Tests (near Exams panel) */}
+            {unifiedAnalysis && unifiedAnalysis.recommendedTests.length > 0 && (
+              <Card className="border-indigo-100">
+                <CardHeader className="pb-1 pt-3 px-4">
+                  <CardTitle className="text-sm flex items-center gap-1.5 text-indigo-800">
+                    <FlaskConical className="h-3.5 w-3.5" />
+                    Examens recommandés (IA)
+                    <Badge variant="outline" className="text-[10px] text-indigo-500 border-indigo-200 ml-auto">
+                      {unifiedAnalysis.recommendedTests.length}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-3 pt-1">
+                  <div className="space-y-1">
+                    {unifiedAnalysis.recommendedTests.map((test, idx) => {
+                      const alreadyRequested = exams
+                        .filter(e => e.status !== ExamStatus.CANCELLED)
+                        .some(e => e.examName.toLowerCase().trim() === test.toLowerCase().trim());
+                      return (
+                        <div key={idx} className="flex items-center justify-between py-1 px-2 rounded hover:bg-indigo-50 text-xs">
+                          <span className="text-gray-700 truncate mr-2">{test}</span>
+                          {alreadyRequested ? (
+                            <Badge variant="secondary" className="text-[10px] shrink-0">
+                              <CheckCircle className="h-2.5 w-2.5 mr-0.5" />
+                              Demandé
+                            </Badge>
+                          ) : (
+                            <button
+                              onClick={() => setAiPanelQuickOrder(test)}
+                              className="text-[10px] font-medium text-indigo-600 hover:text-indigo-800 px-1.5 py-0.5 rounded border border-indigo-200 shrink-0"
+                            >
+                              + Demander
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Complementary Exams */}
             <ExamsPanel
               patientId={patient.id}
               aiRecommendedTests={aiRecommendedTests}
+              refreshKey={examsRefreshKey}
             />
 
             {/* Consultation Notes (auto-save) */}
@@ -1626,83 +1956,118 @@ export default function PatientDetail() {
               </CardContent>
             </Card>
 
-            {/* Treatment Notes Section */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Edit3 className="h-5 w-5 text-gray-500" />
-                  Notes de traitement
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {patient.treatmentNotes ? (
-                  <div className="space-y-2">
-                    {patient.treatmentNotes.split('\n\n').map((note, idx) => (
-                      <div
-                        key={idx}
-                        className={`p-2 rounded text-sm ${
-                          note.startsWith('[Transfert]')
-                            ? 'bg-blue-50 border-l-2 border-blue-400'
-                            : 'bg-gray-50'
-                        }`}
-                      >
-                        <p className="whitespace-pre-wrap">{note}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-sm italic text-center py-4">
-                    Aucune note de traitement
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Actions Section */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button
-                  className="w-full justify-start"
-                  variant="outline"
-                  onClick={() => setShowTransferModal(true)}
-                  disabled={patient.status === PatientStatus.DISCHARGED}
-                >
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Transférer à un autre médecin
-                </Button>
-
-                <Button
-                  className="w-full justify-start"
-                  variant="outline"
-                  onClick={() => setShowDischargeModal(true)}
-                  disabled={patient.status === PatientStatus.DISCHARGED}
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Sortie du Patient
-                  {!hasPrimaryDiagnosis && (
-                    <span className="ml-auto text-xs text-amber-600">
-                      (diagnostic requis)
-                    </span>
+            {/* Treatment Notes (collapsible, default closed) */}
+            {(() => {
+              // Parse treatment notes: could be JSON array of objects or plain text
+              let parsedNotes: { content: string; type?: string; createdAt?: string }[] = [];
+              if (patient.treatmentNotes) {
+                const trimmed = patient.treatmentNotes.trim();
+                if (trimmed.startsWith('[')) {
+                  try {
+                    const arr = JSON.parse(trimmed);
+                    if (Array.isArray(arr)) {
+                      parsedNotes = arr.map((n: Record<string, unknown>) => ({
+                        content: String(n.content || n.note || n.text || ''),
+                        type: n.type ? String(n.type) : undefined,
+                        createdAt: n.createdAt ? String(n.createdAt) : undefined,
+                      })).filter(n => n.content);
+                    }
+                  } catch {
+                    // Fall through to plain text
+                    parsedNotes = trimmed.split('\n\n').filter(Boolean).map(s => ({ content: s }));
+                  }
+                } else {
+                  parsedNotes = trimmed.split('\n\n').filter(Boolean).map(s => ({ content: s }));
+                }
+              }
+              return (
+                <Card>
+                  <CardHeader
+                    className="pb-2 cursor-pointer select-none"
+                    onClick={() => toggleSection('treatmentNotes')}
+                  >
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Edit3 className="h-5 w-5 text-gray-500" />
+                        Notes de traitement
+                        {parsedNotes.length > 0 && (
+                          <Badge variant="secondary" className="text-xs">
+                            {parsedNotes.length}
+                          </Badge>
+                        )}
+                      </CardTitle>
+                      {collapsedSections.treatmentNotes ? (
+                        <ChevronDown className="h-5 w-5 text-gray-400" />
+                      ) : (
+                        <ChevronUp className="h-5 w-5 text-gray-400" />
+                      )}
+                    </div>
+                  </CardHeader>
+                  {!collapsedSections.treatmentNotes && (
+                    <CardContent>
+                      {parsedNotes.length > 0 ? (
+                        <div className="space-y-2">
+                          {parsedNotes.map((note, idx) => (
+                            <div
+                              key={idx}
+                              className={`p-2 rounded text-sm ${
+                                note.type === 'transfer' || note.content.startsWith('[Transfert]')
+                                  ? 'bg-blue-50 border-l-2 border-blue-400'
+                                  : note.type === 'retriage_request'
+                                    ? 'bg-amber-50 border-l-2 border-amber-400'
+                                    : 'bg-gray-50'
+                              }`}
+                            >
+                              <p className="whitespace-pre-wrap">{note.content}</p>
+                              {note.createdAt && (
+                                <p className="text-[10px] text-gray-400 mt-1">
+                                  {formatDateTime(note.createdAt)}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-gray-500 text-sm italic text-center py-4">
+                          Aucune note de traitement
+                        </p>
+                      )}
+                    </CardContent>
                   )}
-                </Button>
+                </Card>
+              );
+            })()}
 
-                {patient.status === PatientStatus.DISCHARGED && (
-                  <div className="p-3 bg-gray-100 rounded-lg text-center">
-                    <p className="text-sm text-gray-600">
-                      Patient sorti le {formatDateTime(patient.dischargedAt!)}
-                    </p>
-                    <p className="text-sm font-medium">
-                      {dischargeTypeLabels[patient.dischargeType || 'home']}
-                    </p>
-                  </div>
-                )}
-
-                {/* Timeline Info */}
-                <div className="pt-3 border-t">
-                  <p className="text-xs font-medium text-gray-500 mb-2">Chronologie</p>
+            {/* Timeline (collapsible, default closed) */}
+            <Card>
+              <CardHeader
+                className="pb-2 cursor-pointer select-none"
+                onClick={() => toggleSection('timeline')}
+              >
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-gray-500" />
+                    Chronologie
+                  </CardTitle>
+                  {collapsedSections.timeline ? (
+                    <ChevronDown className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <ChevronUp className="h-5 w-5 text-gray-400" />
+                  )}
+                </div>
+              </CardHeader>
+              {!collapsedSections.timeline && (
+                <CardContent>
+                  {patient.status === PatientStatus.DISCHARGED && (
+                    <div className="p-3 bg-gray-100 rounded-lg text-center mb-3">
+                      <p className="text-sm text-gray-600">
+                        Patient sorti le {formatDateTime(patient.dischargedAt!)}
+                      </p>
+                      <p className="text-sm font-medium">
+                        {dischargeTypeLabels[patient.dischargeType || 'home']}
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-1 text-xs text-gray-600">
                     <div className="flex items-center gap-2">
                       <Clock className="h-3 w-3" />
@@ -1721,8 +2086,8 @@ export default function PatientDetail() {
                       </div>
                     )}
                   </div>
-                </div>
-              </CardContent>
+                </CardContent>
+              )}
             </Card>
           </div>
         </div>
@@ -1818,16 +2183,80 @@ export default function PatientDetail() {
         />
       )}
 
-      <ReassignBoxModal
-        isOpen={showRedirectToBoxModal}
-        onClose={() => setShowRedirectToBoxModal(false)}
-        onSuccess={handleRedirectToBox}
-        patientId={patient.id}
-        patientName={patient.fullName}
-        currentBoxId={patient.assignedBoxId || undefined}
-        orientation={patient.finalOrientation || undefined}
-        esiLevel={patient.esiLevel || undefined}
-      />
+      {aiPanelQuickOrder && (
+        <AIQuickOrderPopover
+          testName={aiPanelQuickOrder}
+          patientId={patient.id}
+          onClose={() => setAiPanelQuickOrder(null)}
+          onSuccess={() => {
+            setAiPanelQuickOrder(null);
+            loadExams();
+            setExamsRefreshKey((k) => k + 1);
+          }}
+        />
+      )}
+
+      {/* Redirect to treatment box confirmation dialog */}
+      <Dialog open={showRedirectToBoxModal} onOpenChange={(open) => !open && setShowRedirectToBoxModal(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BedDouble className="h-5 w-5 text-indigo-500" />
+              Rediriger vers le box de soins
+            </DialogTitle>
+            <DialogDescription>
+              {patient.fullName}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-gray-600">
+              Le patient sera mis en attente et apparaîtra dans la file de soins de l'infirmier(e) de traitement.
+            </p>
+
+            <div className="bg-indigo-50 rounded-lg p-3 space-y-1">
+              {activePrescriptionCount > 0 && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Pill className="h-4 w-4 text-indigo-600" />
+                  <span className="text-indigo-800">{activePrescriptionCount} prescription(s) active(s)</span>
+                </div>
+              )}
+              {pendingExamCount > 0 && (
+                <div className="flex items-center gap-2 text-sm">
+                  <FileText className="h-4 w-4 text-indigo-600" />
+                  <span className="text-indigo-800">{pendingExamCount} examen(s) en attente</span>
+                </div>
+              )}
+              {!hasActiveWork && (
+                <p className="text-sm text-amber-700 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Aucune prescription ou examen en cours.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRedirectToBoxModal(false)} disabled={actionLoading === 'redirect'}>
+              Annuler
+            </Button>
+            <Button
+              onClick={handleRedirectToBox}
+              disabled={!hasActiveWork || actionLoading === 'redirect'}
+              className="bg-indigo-600 hover:bg-indigo-700"
+            >
+              {actionLoading === 'redirect' ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Redirection...
+                </>
+              ) : (
+                'Confirmer la redirection'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

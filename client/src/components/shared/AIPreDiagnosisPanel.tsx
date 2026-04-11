@@ -60,6 +60,8 @@ interface SavedPreDiagnosis {
 interface AIPreDiagnosisPanelProps {
   patientId: string;
   onUseSuggestion?: (suggestion: AISuggestion) => void;
+  onRequestExam?: (testName: string) => void;
+  requestedExamNames?: string[];
 }
 
 const urgencyColors: Record<string, string> = {
@@ -257,7 +259,7 @@ export function AILoadingAnimation({
   );
 }
 
-export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnosisPanelProps) {
+export function AIPreDiagnosisPanel({ patientId, onUseSuggestion, onRequestExam, requestedExamNames }: AIPreDiagnosisPanelProps) {
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
@@ -718,7 +720,7 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
                   className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2 hover:text-gray-900"
                 >
                   <FlaskConical className="h-4 w-4 text-blue-500" />
-                  Examens recommandes ({result.recommendedTests.length})
+                  Examens recommandés ({result.recommendedTests.length})
                   {showAllTests ? (
                     <ChevronUp className="h-4 w-4" />
                   ) : (
@@ -726,12 +728,40 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion }: AIPreDiagnos
                   )}
                 </button>
                 {showAllTests && (
-                  <div className="flex flex-wrap gap-2">
-                    {result.recommendedTests.map((test, index) => (
-                      <Badge key={index} variant="secondary" className="text-xs">
-                        {test}
-                      </Badge>
-                    ))}
+                  <div className="space-y-1.5">
+                    {result.recommendedTests.map((test, index) => {
+                      const alreadyRequested = requestedExamNames?.some(
+                        (name) => name.toLowerCase().trim() === test.toLowerCase().trim()
+                      );
+                      return (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-2 bg-blue-50 rounded-lg border border-blue-100"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Zap className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                            <span className="text-xs text-blue-900 truncate">{test}</span>
+                          </div>
+                          {alreadyRequested ? (
+                            <Badge variant="secondary" className="text-[10px] shrink-0 ml-2">
+                              <CheckCircle2 className="h-3 w-3 mr-0.5" />
+                              Déjà demandé
+                            </Badge>
+                          ) : onRequestExam ? (
+                            <button
+                              onClick={() => onRequestExam(test)}
+                              className="text-[10px] font-medium text-blue-700 hover:text-blue-900 hover:bg-blue-100 px-2 py-0.5 rounded shrink-0 ml-2 border border-blue-300"
+                            >
+                              + Demander
+                            </button>
+                          ) : (
+                            <Badge variant="secondary" className="text-[10px] shrink-0 ml-2">
+                              {test}
+                            </Badge>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

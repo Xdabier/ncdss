@@ -10,6 +10,8 @@ import {
   RotateCcw,
   TrendingDown,
   Users,
+  BedDouble,
+  Play,
 } from 'lucide-react';
 
 interface Props {
@@ -34,6 +36,8 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   RETRIAGE_REQUESTED: <RotateCcw className="h-4 w-4 text-yellow-600" />,
   PATIENT_DETERIORATION: <TrendingDown className="h-4 w-4 text-red-600" />,
   ORPHANED_PATIENTS: <Users className="h-4 w-4 text-red-500" />,
+  TREATMENT_COMPLETE: <Play className="h-4 w-4 text-green-600" />,
+  TREATMENT_REDIRECT: <BedDouble className="h-4 w-4 text-indigo-600" />,
 };
 
 function formatTimeAgo(dateStr: string): string {

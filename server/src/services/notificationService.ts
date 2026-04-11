@@ -176,6 +176,51 @@ export async function notifyOrphanedPatients(
   }
 }
 
+/**
+ * Notify treatment nurses that a patient has been redirected for treatment.
+ */
+export async function notifyTreatmentRedirect(
+  nurseIds: string[],
+  patientId: string,
+  patientName: string,
+  esiLevel: number | null,
+  requiresRoleSwitch: boolean
+): Promise<void> {
+  const priority = esiLevel && esiLevel <= 2
+    ? NotificationPriority.HIGH
+    : NotificationPriority.MEDIUM;
+
+  for (const nurseId of nurseIds) {
+    await createNotification({
+      userId: nurseId,
+      type: NotificationType.TREATMENT_REDIRECT,
+      title: `Patient redirig\u00e9: ${patientName}`,
+      message: `${esiLevel ? 'ESI ' + esiLevel + ' \u2014 ' : ''}Prescriptions/examens \u00e0 r\u00e9aliser`,
+      priority,
+      relatedPatientId: patientId,
+      metadata: requiresRoleSwitch ? { requiresRoleSwitch: true } : null,
+    });
+  }
+}
+
+/**
+ * Notify a doctor that treatment is complete and the patient is ready to resume consultation.
+ */
+export async function notifyDoctorTreatmentComplete(
+  doctorId: string,
+  patientId: string,
+  patientName: string
+): Promise<void> {
+  await createNotification({
+    userId: doctorId,
+    type: NotificationType.TREATMENT_COMPLETE,
+    title: `Soins terminés: ${patientName}`,
+    message: `Le patient ${patientName} est prêt à reprendre la consultation.`,
+    priority: NotificationPriority.HIGH,
+    relatedPatientId: patientId,
+  });
+}
+
 // ============================================================================
 // CLEANUP
 // ============================================================================

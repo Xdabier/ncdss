@@ -1,11 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, CheckCheck, Loader2 } from 'lucide-react';
+import { Bell, CheckCheck, Loader2, BedDouble } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Notification, UserRole } from '@ncdss/shared';
+import { Notification, UserRole, NurseAssignment, NotificationType, API_ROUTES } from '@ncdss/shared';
 import { CLIENT_ROUTES } from '../../routes';
 import { Button } from '../ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '../ui/dialog';
 import { useNotificationStore } from '../../stores/notification.store';
 import { useAuthStore } from '../../stores/auth.store';
+import { getApi } from '../../services/api';
 import { NotificationItem } from './NotificationItem';
 import { cn } from '../../lib/utils';
 
@@ -13,7 +22,11 @@ export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, todayAssignment, setTodayAssignment } = useAuthStore();
+
+  const [showRoleSwitchDialog, setShowRoleSwitchDialog] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const [switchingRole, setSwitchingRole] = useState(false);
 
   const {
     notifications,
@@ -50,9 +63,24 @@ export function NotificationBell() {
 
   const handleNavigate = (notification: Notification) => {
     setIsOpen(false);
+    markAsRead(notification.id);
+
     if (notification.relatedPatientId) {
-      // Navigate based on user role
       const role = user?.role;
+
+      // If nurse receives a treatment redirect but isn't assigned to treatment
+      if (
+        notification.type === NotificationType.TREATMENT_REDIRECT &&
+        (role === UserRole.NURSE || role === UserRole.NURSE_SUPERVISOR) &&
+        todayAssignment !== NurseAssignment.TREATMENT &&
+        notification.metadata?.requiresRoleSwitch
+      ) {
+        setPendingNavigation(notification.relatedPatientId);
+        setShowRoleSwitchDialog(true);
+        return;
+      }
+
+      // Normal navigation
       if (role === UserRole.DOCTOR || role === UserRole.SUPER_ADMIN) {
         navigate(CLIENT_ROUTES.doctor.patientDetail(notification.relatedPatientId));
       } else if (role === UserRole.NURSE || role === UserRole.NURSE_SUPERVISOR) {
@@ -60,6 +88,26 @@ export function NotificationBell() {
       } else {
         navigate(CLIENT_ROUTES.shared.patientTimeline(notification.relatedPatientId));
       }
+    }
+  };
+
+  const handleSwitchToTreatment = async () => {
+    setSwitchingRole(true);
+    try {
+      const api = await getApi();
+      await api.put(API_ROUTES.schedule.myAssignment, {
+        newAssignment: NurseAssignment.TREATMENT,
+      });
+      await setTodayAssignment(NurseAssignment.TREATMENT);
+      setShowRoleSwitchDialog(false);
+      if (pendingNavigation) {
+        navigate(CLIENT_ROUTES.nurse.treatment.patientCare(pendingNavigation));
+        setPendingNavigation(null);
+      }
+    } catch (err) {
+      console.error('Error switching role:', err);
+    } finally {
+      setSwitchingRole(false);
     }
   };
 
@@ -128,6 +176,37 @@ export function NotificationBell() {
           </div>
         </div>
       )}
+
+      {/* Role switch dialog */}
+      <Dialog open={showRoleSwitchDialog} onOpenChange={(open) => !open && !switchingRole && setShowRoleSwitchDialog(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BedDouble className="h-5 w-5 text-indigo-500" />
+              Changement de r\u00f4le requis
+            </DialogTitle>
+            <DialogDescription>
+              Ce patient a \u00e9t\u00e9 redirig\u00e9 vers le box de soins.
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-sm text-gray-600 py-2">
+            Vous devez passer en r\u00f4le <span className="font-semibold">Soins</span> pour prendre en charge ce patient. Votre r\u00f4le actuel sera mis \u00e0 jour.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowRoleSwitchDialog(false); setPendingNavigation(null); }} disabled={switchingRole}>
+              Annuler
+            </Button>
+            <Button
+              onClick={handleSwitchToTreatment}
+              disabled={switchingRole}
+              className="bg-indigo-600 hover:bg-indigo-700"
+            >
+              {switchingRole ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Passer en Soins
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

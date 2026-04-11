@@ -32,7 +32,7 @@ export enum IdType {
   PASSPORT = 'PASSPORT'
 }
 
-export type HoldStatus = 'waiting_for_treatment' | 'waiting_for_exams' | 'waiting_for_specialist' | 'patient_absent';
+export type HoldStatus = 'waiting_for_treatment' | 'waiting_for_exams' | 'waiting_for_specialist' | 'patient_absent' | 'treatment_done';
 
 export interface PatientIdentity {
   id: string;

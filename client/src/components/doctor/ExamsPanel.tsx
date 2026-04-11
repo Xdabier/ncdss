@@ -75,6 +75,7 @@ const examStatusColors: Record<ExamStatus, string> = {
 interface ExamsPanelProps {
   patientId: string;
   aiRecommendedTests?: string[];
+  refreshKey?: number;
 }
 
 // ============================================================================
@@ -88,7 +89,7 @@ interface AIQuickOrderProps {
   onClose: () => void;
 }
 
-function AIQuickOrderPopover({ testName, patientId, onSuccess, onClose }: AIQuickOrderProps) {
+export function AIQuickOrderPopover({ testName, patientId, onSuccess, onClose }: AIQuickOrderProps) {
   const [examType, setExamType] = useState<ExamType | ''>('');
   const [priority, setPriority] = useState<ExamPriority>(ExamPriority.NORMAL);
   const [loading, setLoading] = useState(false);
@@ -371,7 +372,7 @@ function ExamRequestModal({ patientId, onClose, onSuccess, editExam }: ExamReque
 // ExamsPanel Component
 // ============================================================================
 
-export function ExamsPanel({ patientId, aiRecommendedTests }: ExamsPanelProps) {
+export function ExamsPanel({ patientId, aiRecommendedTests, refreshKey }: ExamsPanelProps) {
   const [exams, setExams] = useState<ComplementaryExam[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -393,7 +394,7 @@ export function ExamsPanel({ patientId, aiRecommendedTests }: ExamsPanelProps) {
 
   useEffect(() => {
     loadExams();
-  }, [loadExams]);
+  }, [loadExams, refreshKey]);
 
   // Check if an AI test is already requested
   const isTestAlreadyRequested = (testName: string): boolean => {

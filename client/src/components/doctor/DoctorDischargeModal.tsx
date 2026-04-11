@@ -126,14 +126,7 @@ export function DoctorDischargeModal({
     }
   };
 
-  // For admission, we don't require a PRIMARY diagnosis
-  const requiresPrimaryDiagnosis = dischargeType !== 'admission';
-
   const handleDischarge = async () => {
-    if (requiresPrimaryDiagnosis && !hasPrimaryDiagnosis) {
-      setError('Un diagnostic principal est requis');
-      return;
-    }
 
     setLoading(true);
     setError(null);
@@ -190,18 +183,11 @@ export function DoctorDischargeModal({
           )}
 
           {/* Validation Warning */}
-          {!hasPrimaryDiagnosis && requiresPrimaryDiagnosis && (
-            <Alert variant="warning" className="bg-yellow-50 border-yellow-200">
-              <AlertTriangle className="h-4 w-4 text-yellow-600" />
-              <AlertDescription className="text-yellow-800">
-                Un diagnostic principal est requis avant la sortie du patient.
-              </AlertDescription>
-            </Alert>
-          )}
-          {dischargeType === 'admission' && !hasPrimaryDiagnosis && (
-            <Alert className="bg-blue-50 border-blue-200">
-              <AlertDescription className="text-blue-800">
-                Le patient sera admis pour bilan compl\u00e9mentaire.
+          {!hasPrimaryDiagnosis && (
+            <Alert className="bg-amber-50 border-amber-200">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800">
+                Aucun diagnostic principal enregistré.
               </AlertDescription>
             </Alert>
           )}
@@ -297,12 +283,8 @@ export function DoctorDischargeModal({
             </Button>
             <Button
               onClick={handleDischarge}
-              disabled={loading || (requiresPrimaryDiagnosis && !hasPrimaryDiagnosis)}
-              className={`flex-1 ${
-                (!requiresPrimaryDiagnosis || hasPrimaryDiagnosis)
-                  ? 'bg-green-600 hover:bg-green-700'
-                  : 'bg-gray-400'
-              }`}
+              disabled={loading}
+              className="flex-1 bg-green-600 hover:bg-green-700"
             >
               {loading ? (
                 <>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Search, RefreshCw, Users, Activity, HeartPulse, Stethoscope } from 'lucide-react';
+import { AlertTriangle, Search, RefreshCw, Users, Activity, HeartPulse, Stethoscope, BedDouble } from 'lucide-react';
 import { DashboardLayout } from '../../../components/layout/DashboardLayout';
 import { DataTable, Column } from '../../../components/ui/DataTable';
 import { Button } from '../../../components/ui/button';
@@ -45,7 +45,7 @@ export default function TreatmentQueue() {
   const [doctors, setDoctors] = useState<UserType[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'waiting' | 'inTreatment' | 'all'>('waiting');
+  const [filter, setFilter] = useState<'redirected' | 'waiting' | 'inTreatment' | 'all'>('redirected');
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
   useEffect(() => {
@@ -113,6 +113,7 @@ export default function TreatmentQueue() {
   // Filter by status tab and search term
   const filteredPatients = patients.filter((p) => {
     // Apply status filter based on selected tab
+    if (filter === 'redirected' && p.holdStatus !== 'waiting_for_treatment') return false;
     if (filter === 'waiting' && p.status !== PatientStatus.REGISTERED && p.status !== PatientStatus.IN_TRIAGE && p.status !== PatientStatus.TRIAGED) return false;
     if (filter === 'inTreatment' && p.status !== PatientStatus.IN_TREATMENT && p.status !== PatientStatus.WITH_DOCTOR) return false;
     // 'all' = Critiques tab: shows ESI 1-2 across ALL statuses
@@ -136,6 +137,7 @@ export default function TreatmentQueue() {
     (p) => p.status === PatientStatus.IN_TREATMENT || p.status === PatientStatus.WITH_DOCTOR
   ).length;
   const criticalCount = patients.filter((p) => (p.esiLevel ?? 5) <= 2).length;
+  const redirectedCount = patients.filter((p) => p.holdStatus === 'waiting_for_treatment').length;
 
   const handleStartTreatment = (patientId: string) => {
     // Navigate to box assignment page for TRIAGED patients
@@ -235,7 +237,14 @@ export default function TreatmentQueue() {
       width: '10%',
       render: (p) => {
         const config = statusConfig[p.status] || { label: p.status, color: 'bg-gray-100 text-gray-800' };
-        return <span className={`px-2 py-1 rounded text-xs font-medium ${config.color}`}>{config.label}</span>;
+        return (
+          <div className="flex flex-col gap-1">
+            <span className={`px-2 py-1 rounded text-xs font-medium ${config.color}`}>{config.label}</span>
+            {p.holdStatus === 'waiting_for_treatment' && (
+              <span className="px-2 py-1 rounded text-xs font-medium bg-indigo-100 text-indigo-800">Redirigé</span>
+            )}
+          </div>
+        );
       },
     },
     {
@@ -287,7 +296,23 @@ export default function TreatmentQueue() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          {/* Redirigés */}
+          <Card
+            className={`cursor-pointer transition-all ${filter === 'redirected' ? 'ring-2 ring-indigo-500' : 'hover:shadow-md'}`}
+            onClick={() => setFilter('redirected')}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Redirigés</p>
+                  <p className="text-3xl font-bold text-indigo-600">{redirectedCount}</p>
+                </div>
+                <BedDouble className="h-10 w-10 text-indigo-500 opacity-50" />
+              </div>
+            </CardContent>
+          </Card>
+
           {/* En attente */}
           <Card
             className={`cursor-pointer transition-all ${filter === 'waiting' ? 'ring-2 ring-yellow-500' : 'hover:shadow-md'}`}
@@ -392,11 +417,13 @@ export default function TreatmentQueue() {
                 <div className="text-sm text-blue-800">
                   <p className="font-medium mb-1">Aucun patient dans cette catégorie</p>
                   <p>
-                    {filter === 'waiting'
-                      ? 'Aucun patient en attente de soins.'
-                      : filter === 'inTreatment'
-                        ? 'Aucun patient actuellement en soins.'
-                        : 'Aucun patient à afficher.'}
+                    {filter === 'redirected'
+                      ? 'Aucun patient redirigé vers le box de soins.'
+                      : filter === 'waiting'
+                        ? 'Aucun patient en attente de soins.'
+                        : filter === 'inTreatment'
+                          ? 'Aucun patient actuellement en soins.'
+                          : 'Aucun patient à afficher.'}
                   </p>
                   <p className="mt-1 text-blue-600">Dernière actualisation: {formatDateTime(lastRefresh.toISOString())}</p>
                 </div>

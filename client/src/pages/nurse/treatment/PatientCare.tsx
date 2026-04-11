@@ -29,6 +29,7 @@ import {
   Syringe,
   ClipboardList,
   FlaskConical,
+  BedDouble,
 } from 'lucide-react';
 import { DashboardLayout } from '../../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -42,11 +43,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../../components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '../../../components/ui/dialog';
 import { getApi } from '../../../services/api';
 import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, PatientStatus, Box, User as UserType, Prescription, MedicationRoute, AdministrationStatus, PrescriptionStatus, ComplementaryExam, ExamType, ExamStatus, ExamPriority, API_ROUTES } from '@ncdss/shared';
 import { formatDateTime } from '../../../utils/dateUtils';
 import { ReassignBoxModal } from '../../../components/shared/ReassignBoxModal';
+import { SuggestedInterventionsCard } from '../../../components/shared/SuggestedInterventionsCard';
 
 // Treatment note interface
 interface TreatmentNote {
@@ -150,6 +160,7 @@ export default function PatientCare() {
   const [examActionLoading, setExamActionLoading] = useState<string | null>(null);
   const [showExamResultsModal, setShowExamResultsModal] = useState(false);
   const [selectedExam, setSelectedExam] = useState<ComplementaryExam | null>(null);
+  const [showTreatmentReadyModal, setShowTreatmentReadyModal] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -169,12 +180,11 @@ export default function PatientCare() {
     try {
       setLoading(true);
       const api = await getApi();
-      const [patientRes, boxesRes, doctorsRes, activePresRes, holdPresRes, examsRes] = await Promise.all([
+      const [patientRes, boxesRes, doctorsRes, prescriptionsRes, examsRes] = await Promise.all([
         api.get(API_ROUTES.patients.byId(id!)),
         api.get(API_ROUTES.config.boxes),
         api.get(API_ROUTES.users.byRole('DOCTOR')),
-        api.get(API_ROUTES.prescriptions.byPatient(id!), { params: { status: 'ACTIVE' } }),
-        api.get(API_ROUTES.prescriptions.byPatient(id!), { params: { status: 'ON_HOLD' } }),
+        api.get(API_ROUTES.prescriptions.byPatient(id!)),
         api.get(API_ROUTES.exams.byPatient(id!)),
       ]);
 
@@ -194,8 +204,7 @@ export default function PatientCare() {
       setBoxes(boxesRes.data.filter((b: Box) => b.isActive));
       // API already filters by isActive, no need to filter again
       setDoctors(doctorsRes.data);
-      // Combine ACTIVE and ON_HOLD prescriptions
-      setPrescriptions([...activePresRes.data, ...holdPresRes.data]);
+      setPrescriptions(prescriptionsRes.data);
       setExams(examsRes.data);
     } catch (error) {
       console.error('Error loading patient:', error);
@@ -290,10 +299,9 @@ export default function PatientCare() {
   };
 
   const handleAdministrationSuccess = async (): Promise<void> => {
-    // Reload prescriptions after administration
     try {
       const api = await getApi();
-      const prescriptionsRes = await api.get(API_ROUTES.prescriptions.byPatient(id!), { params: { status: 'ACTIVE' } });
+      const prescriptionsRes = await api.get(API_ROUTES.prescriptions.byPatient(id!));
       setPrescriptions(prescriptionsRes.data);
     } catch (error) {
       console.error('Error reloading prescriptions:', error);
@@ -303,12 +311,8 @@ export default function PatientCare() {
   const reloadPrescriptions = async (): Promise<void> => {
     try {
       const api = await getApi();
-      // Get both ACTIVE and ON_HOLD prescriptions
-      const [activeRes, holdRes] = await Promise.all([
-        api.get(API_ROUTES.prescriptions.byPatient(id!), { params: { status: 'ACTIVE' } }),
-        api.get(API_ROUTES.prescriptions.byPatient(id!), { params: { status: 'ON_HOLD' } }),
-      ]);
-      setPrescriptions([...activeRes.data, ...holdRes.data]);
+      const prescriptionsRes = await api.get(API_ROUTES.prescriptions.byPatient(id!));
+      setPrescriptions(prescriptionsRes.data);
     } catch (error) {
       console.error('Error reloading prescriptions:', error);
     }
@@ -391,6 +395,23 @@ export default function PatientCare() {
       console.error('Error completing exam:', error);
     } finally {
       setExamActionLoading(null);
+    }
+  };
+
+  // Mark patient as ready for doctor (treatment complete)
+  const handleMarkTreatmentReady = async (markAllComplete: boolean): Promise<void> => {
+    setActionLoading(true);
+    try {
+      const api = await getApi();
+      await api.post(API_ROUTES.patients.treatmentReady(id!), { markAllComplete });
+      setShowTreatmentReadyModal(false);
+      setSuccessMessage('Patient marqué comme prêt — le médecin a été notifié.');
+      await loadData();
+    } catch (error: any) {
+      console.error('Error marking treatment ready:', error);
+      setShowTreatmentReadyModal(false);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -544,6 +565,58 @@ export default function PatientCare() {
               </CardContent>
             </Card>
 
+            {/* Redirected for treatment banner */}
+            {patient.holdStatus === 'waiting_for_treatment' && (
+              <Card className="border-indigo-300 bg-indigo-50">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <BedDouble className="h-6 w-6 text-indigo-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-semibold text-indigo-800">
+                          Patient redirigé par le médecin pour des soins
+                        </p>
+                        <div className="mt-2 space-y-1 text-sm text-indigo-700">
+                          {prescriptions.filter(p => p.status === PrescriptionStatus.ACTIVE).length > 0 && (
+                            <p className="flex items-center gap-1">
+                              <Pill className="h-3.5 w-3.5" />
+                              {prescriptions.filter(p => p.status === PrescriptionStatus.ACTIVE).length} prescription(s) active(s)
+                            </p>
+                          )}
+                          {exams.filter(e => e.status === ExamStatus.REQUESTED || e.status === ExamStatus.IN_PROGRESS).length > 0 && (
+                            <p className="flex items-center gap-1">
+                              <FlaskConical className="h-3.5 w-3.5" />
+                              {exams.filter(e => e.status === ExamStatus.REQUESTED || e.status === ExamStatus.IN_PROGRESS).length} examen(s) en attente
+                            </p>
+                          )}
+                          {prescriptions.filter(p => p.status === PrescriptionStatus.COMPLETED).length > 0 && (
+                            <p className="flex items-center gap-1 text-green-700">
+                              <CheckCircle className="h-3.5 w-3.5" />
+                              {prescriptions.filter(p => p.status === PrescriptionStatus.COMPLETED).length} prescription(s) terminée(s)
+                            </p>
+                          )}
+                          {exams.filter(e => e.status === ExamStatus.COMPLETED).length > 0 && (
+                            <p className="flex items-center gap-1 text-green-700">
+                              <CheckCircle className="h-3.5 w-3.5" />
+                              {exams.filter(e => e.status === ExamStatus.COMPLETED).length} examen(s) complété(s)
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => setShowTreatmentReadyModal(true)}
+                      disabled={actionLoading}
+                      className="bg-green-600 hover:bg-green-700 text-white flex-shrink-0"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Prêt pour le médecin
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Vitals Summary */}
             <Card>
               <CardHeader className="pb-3">
@@ -657,6 +730,9 @@ export default function PatientCare() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* AI Suggested Interventions */}
+            <SuggestedInterventionsCard patientId={id!} />
 
             {/* Treatment Notes */}
             <Card>
@@ -1345,6 +1421,74 @@ export default function PatientCare() {
         orientation={patient.finalOrientation ?? undefined}
         esiLevel={patient.esiLevel ?? undefined}
       />
+
+      {/* Treatment ready confirmation dialog */}
+      <Dialog open={showTreatmentReadyModal} onOpenChange={(open) => !open && !actionLoading && setShowTreatmentReadyModal(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              Confirmer la fin des soins
+            </DialogTitle>
+            <DialogDescription>
+              {patient.fullName}
+            </DialogDescription>
+          </DialogHeader>
+          {(() => {
+            const remainingPrescriptions = prescriptions.filter(p => p.status === PrescriptionStatus.ACTIVE || p.status === PrescriptionStatus.ON_HOLD).length;
+            const remainingExams = exams.filter(e => e.status === ExamStatus.REQUESTED || e.status === ExamStatus.IN_PROGRESS).length;
+            const hasIncompleteWork = remainingPrescriptions > 0 || remainingExams > 0;
+
+            return (
+              <div className="py-2 space-y-3">
+                <p className="text-sm text-gray-600">
+                  Le médecin sera notifié que le patient est prêt à reprendre la consultation.
+                </p>
+
+                {hasIncompleteWork && (
+                  <div className="bg-amber-50 rounded-lg p-3 text-sm text-amber-700 space-y-1">
+                    <p className="font-medium flex items-center gap-1">
+                      <AlertTriangle className="h-4 w-4" />
+                      Soins non terminés :
+                    </p>
+                    {remainingPrescriptions > 0 && (
+                      <p className="ml-5">{remainingPrescriptions} prescription(s) encore active(s)</p>
+                    )}
+                    {remainingExams > 0 && (
+                      <p className="ml-5">{remainingExams} examen(s) en attente</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowTreatmentReadyModal(false)} disabled={actionLoading}>
+              Annuler
+            </Button>
+            {(prescriptions.some(p => p.status === PrescriptionStatus.ACTIVE || p.status === PrescriptionStatus.ON_HOLD) ||
+              exams.some(e => e.status === ExamStatus.REQUESTED || e.status === ExamStatus.IN_PROGRESS)) && (
+              <Button
+                variant="outline"
+                onClick={() => handleMarkTreatmentReady(false)}
+                disabled={actionLoading}
+                className="border-amber-300 text-amber-700 hover:bg-amber-50"
+              >
+                {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                Prêt (soins non terminés)
+              </Button>
+            )}
+            <Button
+              onClick={() => handleMarkTreatmentReady(true)}
+              disabled={actionLoading}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Prêt
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
