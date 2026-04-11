@@ -84,6 +84,7 @@ const ORIENTATION_COLORS: Record<string, string> = {
 
 const orientationLabels: Record<string, string> = {
   SAUV: 'SAUV',
+  DECHOCAGE: 'Déchocage',
   MEDICAL: 'Médical',
   SURGICAL: 'Chirurgical',
   TRAUMA: 'Trauma',

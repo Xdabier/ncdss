@@ -88,6 +88,7 @@ export const erConfiguration = sqliteTable('er_configuration', {
   surgicalBoxes: integer('surgical_boxes').notNull().default(2),
   traumaBoxes: integer('trauma_boxes').notNull().default(2),
   sauvBeds: integer('sauv_beds').notNull().default(4),
+  dechocageBeds: integer('dechocage_beds').notNull().default(2),
   updatedBy: text('updated_by').references(() => users.id),
   updatedAt: text('updated_at')
     .notNull()
@@ -97,7 +98,7 @@ export const erConfiguration = sqliteTable('er_configuration', {
 export const boxes = sqliteTable('boxes', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
-  boxType: text('box_type').notNull(), // TRIAGE, MEDICAL, SURGICAL, TRAUMA, SAUV
+  boxType: text('box_type').notNull(), // TRIAGE, MEDICAL, SURGICAL, TRAUMA, SAUV, DECHOCAGE
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
 });
 

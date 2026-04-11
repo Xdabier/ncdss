@@ -36,6 +36,7 @@ export const boxTypeLabels: Record<BoxType, string> = {
   [BoxType.SURGICAL]: 'Chirurgical',
   [BoxType.TRAUMA]: 'Trauma',
   [BoxType.SAUV]: 'SAUV',
+  [BoxType.DECHOCAGE]: 'Déchocage',
 };
 
 export const boxTypeColors: Record<BoxType, string> = {
@@ -44,6 +45,7 @@ export const boxTypeColors: Record<BoxType, string> = {
   [BoxType.SURGICAL]: 'bg-purple-100 text-purple-800',
   [BoxType.TRAUMA]: 'bg-orange-100 text-orange-800',
   [BoxType.SAUV]: 'bg-red-100 text-red-800',
+  [BoxType.DECHOCAGE]: 'bg-rose-100 text-rose-800',
 };
 
 export const presetLabels: Record<AssignmentPreset, string> = {

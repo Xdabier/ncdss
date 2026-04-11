@@ -83,6 +83,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 // Orientation labels
 const orientationLabels: Record<string, string> = {
   SAUV: 'SAUV',
+  DECHOCAGE: 'Déchocage',
   MEDICAL: 'Médical',
   SURGICAL: 'Chirurgical',
   TRAUMA: 'Traumato',

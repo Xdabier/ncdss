@@ -3,7 +3,7 @@
   "properties": {
     "orientation": {
       "type": "string",
-      "enum": ["SAUV", "MEDICAL", "SURGICAL", "TRAUMA", "PEDIATRIC"]
+      "enum": ["SAUV", "DECHOCAGE", "MEDICAL", "SURGICAL", "TRAUMA", "PEDIATRIC"]
     },
     "orientationReason": { "type": "string" },
     "criticalAlerts": {

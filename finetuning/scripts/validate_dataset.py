@@ -31,7 +31,7 @@ from .common import get_data_dir, load_env, load_jsonl, load_unified_schema, log
 # Constants
 # ---------------------------------------------------------------------------
 
-VALID_ORIENTATIONS = {"SAUV", "MEDICAL", "SURGICAL", "TRAUMA", "PEDIATRIC"}
+VALID_ORIENTATIONS = {"SAUV", "DECHOCAGE", "MEDICAL", "SURGICAL", "TRAUMA", "PEDIATRIC"}
 
 ALL_CATEGORIES = [
     "cardiac", "respiratory", "neurological", "abdominal_gi", "trauma",

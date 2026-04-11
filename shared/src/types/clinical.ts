@@ -11,7 +11,7 @@
 
 export type ABCDECategory = 'A' | 'B' | 'C' | 'D' | 'E';
 
-export type TriagePriority = 'SAUV' | 'SURGICAL' | 'TRAUMA' | 'MEDICAL' | 'PEDIATRIC';
+export type TriagePriority = 'SAUV' | 'DECHOCAGE' | 'SURGICAL' | 'TRAUMA' | 'MEDICAL' | 'PEDIATRIC';
 
 export type VitalSignOperator = '>' | '<' | '>=' | '<=';
 
@@ -51,6 +51,12 @@ export const TRIAGE_PRIORITY_META: Record<TriagePriority, TriagePriorityMeta> = 
   SAUV: {
     nameFr: "Salle d'Accueil des Urgences Vitales",
     nameEn: 'Resuscitation Room',
+    color: 'RED',
+    maxWaitMinutes: 0,
+  },
+  DECHOCAGE: {
+    nameFr: 'Salle de déchocage',
+    nameEn: 'Shock Resuscitation Room',
     color: 'RED',
     maxWaitMinutes: 0,
   },

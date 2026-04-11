@@ -84,7 +84,7 @@ function deptCodesToJson(primary: unknown, secondary: unknown): string | null {
 // ---------------------------------------------------------------------------
 
 const PATHOLOGY_ID_RE = /^[A-E]-\d{3}$/;
-const VALID_TRIAGE_PRIORITIES = new Set(['SAUV', 'SURGICAL', 'TRAUMA', 'MEDICAL', 'PEDIATRIC']);
+const VALID_TRIAGE_PRIORITIES = new Set(['SAUV', 'DECHOCAGE', 'SURGICAL', 'TRAUMA', 'MEDICAL', 'PEDIATRIC']);
 
 interface ValidationError {
   sheet: string;

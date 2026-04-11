@@ -6,6 +6,7 @@ export interface ERConfiguration {
   surgicalBoxes: number;
   traumaBoxes: number;
   sauvBeds: number;
+  dechocageBeds: number;
   updatedBy: string | null;
   updatedAt: string;
 }
@@ -16,6 +17,7 @@ export enum BoxType {
   SURGICAL = 'SURGICAL',
   TRAUMA = 'TRAUMA',
   SAUV = 'SAUV',
+  DECHOCAGE = 'DECHOCAGE',
 }
 
 export interface Box {

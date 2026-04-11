@@ -52,7 +52,7 @@ from scripts.distill_labels import (
 MODEL = "claude-sonnet-4-5-20250929"
 MAX_TOKENS = 8192
 MAX_RETRIES = 3
-VALID_ORIENTATIONS = {"SAUV", "MEDICAL", "SURGICAL", "TRAUMA", "PEDIATRIC"}
+VALID_ORIENTATIONS = {"SAUV", "DECHOCAGE", "MEDICAL", "SURGICAL", "TRAUMA", "PEDIATRIC"}
 
 # Three variations: different temperature + prompt suffix
 VARIATIONS = [

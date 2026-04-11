@@ -40,7 +40,7 @@ export const UNIFIED_ANALYSIS_JSON_SCHEMA_BASE = {
   properties: {
     orientation: {
       type: 'string' as const,
-      enum: ['SAUV', 'MEDICAL', 'SURGICAL', 'TRAUMA', 'PEDIATRIC']
+      enum: ['SAUV', 'DECHOCAGE', 'MEDICAL', 'SURGICAL', 'TRAUMA', 'PEDIATRIC']
     },
     orientationReason: { type: 'string' as const },
     criticalAlerts: {
@@ -78,7 +78,7 @@ export const UNIFIED_ANALYSIS_JSON_SCHEMA_FINETUNED = {
   properties: {
     orientation: {
       type: 'string' as const,
-      enum: ['SAUV', 'MEDICAL', 'SURGICAL', 'TRAUMA', 'PEDIATRIC']
+      enum: ['SAUV', 'DECHOCAGE', 'MEDICAL', 'SURGICAL', 'TRAUMA', 'PEDIATRIC']
     },
     orientationReason: { type: 'string' as const },
     nursingInterventions: { type: 'array' as const, items: { type: 'string' as const }, minItems: 2 },

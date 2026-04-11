@@ -11,7 +11,8 @@ const boxTypeLabels: Record<string, string> = {
   MEDICAL: 'Médical',
   SURGICAL: 'Chirurgical',
   TRAUMA: 'Traumato',
-  SAUV: 'SAUV'
+  SAUV: 'SAUV',
+  DECHOCAGE: 'Déchocage'
 };
 
 const boxTypeColors: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -19,7 +20,8 @@ const boxTypeColors: Record<string, 'default' | 'secondary' | 'destructive' | 'o
   MEDICAL: 'default',
   SURGICAL: 'secondary',
   TRAUMA: 'destructive',
-  SAUV: 'outline'
+  SAUV: 'outline',
+  DECHOCAGE: 'destructive'
 };
 
 export default function BoxManagement() {
@@ -85,7 +87,7 @@ export default function BoxManagement() {
         <h1 className="text-2xl font-bold mb-6">Gestion des Boxes</h1>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 mb-6">
           {Object.entries(boxTypeLabels).map(([type, label]) => (
             <div
               key={type}

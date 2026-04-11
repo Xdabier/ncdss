@@ -86,6 +86,7 @@ interface ClinicalStats {
 
 const triagePriorityLabels: Record<string, string> = {
   SAUV: 'SAUV',
+  DECHOCAGE: 'Déchocage',
   MEDICAL: 'Médical',
   SURGICAL: 'Chirurgical',
   TRAUMA: 'Trauma',
@@ -94,6 +95,7 @@ const triagePriorityLabels: Record<string, string> = {
 
 const triagePriorityColors: Record<string, string> = {
   SAUV: 'bg-red-100 text-red-800 border-red-200',
+  DECHOCAGE: 'bg-rose-100 text-rose-800 border-rose-200',
   MEDICAL: 'bg-blue-100 text-blue-800 border-blue-200',
   SURGICAL: 'bg-amber-100 text-amber-800 border-amber-200',
   TRAUMA: 'bg-orange-100 text-orange-800 border-orange-200',
@@ -128,6 +130,7 @@ const CATEGORY_TABS = [
 const TRIAGE_PRIORITIES = [
   { value: 'all', label: 'Toutes les priorités' },
   { value: 'SAUV', label: 'SAUV' },
+  { value: 'DECHOCAGE', label: 'Déchocage' },
   { value: 'SURGICAL', label: 'Chirurgical' },
   { value: 'TRAUMA', label: 'Trauma' },
   { value: 'MEDICAL', label: 'Médical' },

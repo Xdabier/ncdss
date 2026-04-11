@@ -12,7 +12,7 @@ export interface UnifiedPathology {
 }
 
 export interface UnifiedClinicalAnalysis {
-  orientation: 'SAUV' | 'MEDICAL' | 'SURGICAL' | 'TRAUMA' | 'PEDIATRIC';
+  orientation: 'SAUV' | 'DECHOCAGE' | 'MEDICAL' | 'SURGICAL' | 'TRAUMA' | 'PEDIATRIC';
   orientationReason: string;
   criticalAlerts: string[];
   pathologies: UnifiedPathology[];

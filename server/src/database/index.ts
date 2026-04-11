@@ -174,6 +174,7 @@ export async function seedDefaultERConfig() {
         surgicalBoxes: 2,
         traumaBoxes: 2,
         sauvBeds: 4,
+        dechocageBeds: 2,
         updatedBy: null,
         updatedAt: new Date().toISOString(),
       });

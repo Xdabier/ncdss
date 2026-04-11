@@ -14,6 +14,7 @@ export enum Sex {
 
 export enum Orientation {
   SAUV = 'SAUV',
+  DECHOCAGE = 'DECHOCAGE',
   MEDICAL = 'MEDICAL',
   SURGICAL = 'SURGICAL',
   TRAUMA = 'TRAUMA',

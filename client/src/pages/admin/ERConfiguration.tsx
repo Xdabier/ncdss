@@ -140,22 +140,9 @@ export default function ERConfigurationPage() {
                       />
                       <p className="text-sm text-gray-500">Boxes dédiés au tri des patients</p>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
 
-              {/* Boxes de Soins */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Boxes de Soins</CardTitle>
-                  <CardDescription>
-                    Configuration des boxes de traitement par spécialité
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="medicalBoxes">Boxes Médicaux</Label>
+                      <Label htmlFor="medicalBoxes">Boxes de Soins</Label>
                       <Input
                         id="medicalBoxes"
                         type="number"
@@ -166,7 +153,20 @@ export default function ERConfigurationPage() {
                       />
                       <p className="text-sm text-gray-500">Boxes pour médecine générale</p>
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
 
+              {/* Boxes de Soins */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Zones de Prise en Charge</CardTitle>
+                  <CardDescription>
+                    Configuration des zones de prise en charge spécialisée
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="surgicalBoxes">Boxes Chirurgicaux</Label>
                       <Input
@@ -207,6 +207,19 @@ export default function ERConfigurationPage() {
                       />
                       <p className="text-sm text-gray-500">Boxes de la Salle d'Accueil des Urgences Vitales</p>
                     </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="dechocageBeds">Boxes Déchocage</Label>
+                      <Input
+                        id="dechocageBeds"
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={config.dechocageBeds}
+                        onChange={(e) => updateField('dechocageBeds', parseInt(e.target.value) || 1)}
+                      />
+                      <p className="text-sm text-gray-500">Boxes de la Salle de Déchocage</p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -223,7 +236,8 @@ export default function ERConfigurationPage() {
                       config.medicalBoxes +
                       config.surgicalBoxes +
                       config.traumaBoxes +
-                      config.sauvBeds}{' '}
+                      config.sauvBeds +
+                      config.dechocageBeds}{' '}
                     postes
                   </div>
                   <p className="text-sm text-blue-700 mt-1">

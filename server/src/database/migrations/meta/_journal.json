@@ -64,6 +64,13 @@
       "when": 1771303045052,
       "tag": "0008_cynical_black_bolt",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1775936037171,
+      "tag": "0009_sturdy_hulk",
+      "breakpoints": true
     }
   ]
 }

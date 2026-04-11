@@ -48,6 +48,7 @@ const statusColors: Record<string, 'default' | 'secondary' | 'destructive' | 'ou
 
 const orientationLabels: Record<string, string> = {
   SAUV: 'SAUV',
+  DECHOCAGE: 'Déchocage',
   MEDICAL: 'Médical',
   SURGICAL: 'Chirurgical',
   TRAUMA: 'Trauma',

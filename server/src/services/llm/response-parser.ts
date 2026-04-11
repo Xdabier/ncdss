@@ -116,7 +116,7 @@ export function parseUnifiedAnalysisResponse(
       const parsed = JSON.parse(jsonStr);
 
       // Validate orientation
-      const validOrientations = ['SAUV', 'MEDICAL', 'SURGICAL', 'TRAUMA', 'PEDIATRIC'] as const;
+      const validOrientations = ['SAUV', 'DECHOCAGE', 'MEDICAL', 'SURGICAL', 'TRAUMA', 'PEDIATRIC'] as const;
       const orientation = validOrientations.includes(parsed.orientation)
         ? parsed.orientation as typeof validOrientations[number]
         : 'MEDICAL' as const;

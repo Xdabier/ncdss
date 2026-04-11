@@ -35,6 +35,7 @@ interface BoxWithDoctor extends Box {
 
 const orientationLabels: Record<string, string> = {
   SAUV: 'SAUV',
+  DECHOCAGE: 'Déchocage',
   MEDICAL: 'Médical',
   SURGICAL: 'Chirurgical',
   TRAUMA: 'Traumatologie',
@@ -47,10 +48,12 @@ const boxTypeLabels: Record<string, string> = {
   SURGICAL: 'Chirurgical',
   TRAUMA: 'Traumatologie',
   SAUV: 'SAUV',
+  DECHOCAGE: 'Déchocage',
 };
 
 const orientationToBoxTypes: Record<string, BoxType[]> = {
   SAUV: [BoxType.SAUV],
+  DECHOCAGE: [BoxType.DECHOCAGE],
   MEDICAL: [BoxType.MEDICAL],
   SURGICAL: [BoxType.SURGICAL],
   TRAUMA: [BoxType.TRAUMA],

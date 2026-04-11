@@ -1227,6 +1227,7 @@ async function autoAssignBox(
   // 1. Map orientation to BoxType
   const orientationToBoxType: Record<string, string> = {
     SAUV: BoxType.SAUV,
+    DECHOCAGE: BoxType.DECHOCAGE,
     MEDICAL: BoxType.MEDICAL,
     SURGICAL: BoxType.SURGICAL,
     TRAUMA: BoxType.TRAUMA,

@@ -108,7 +108,7 @@ export function estimateTokens(text: string): number {
  * Checks required fields, enum values, and array constraints.
  */
 export function validateUnifiedSchema(parsed: Record<string, unknown>): boolean {
-  const validOrientations = ['SAUV', 'MEDICAL', 'SURGICAL', 'TRAUMA', 'PEDIATRIC'];
+  const validOrientations = ['SAUV', 'DECHOCAGE', 'MEDICAL', 'SURGICAL', 'TRAUMA', 'PEDIATRIC'];
   const validUrgencies = ['routine', 'urgent', 'emergent'];
 
   // Required top-level fields

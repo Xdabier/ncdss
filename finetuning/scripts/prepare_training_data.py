@@ -26,7 +26,7 @@ from .common import get_data_dir, load_env, load_jsonl, logger
 SYSTEM_MESSAGE_FR = "Tu es un assistant medical d'urgence experimente."
 SYSTEM_MESSAGE_EN = "You are an experienced emergency medicine assistant."
 
-VALID_ORIENTATIONS = {"SAUV", "MEDICAL", "SURGICAL", "TRAUMA", "PEDIATRIC"}
+VALID_ORIENTATIONS = {"SAUV", "DECHOCAGE", "MEDICAL", "SURGICAL", "TRAUMA", "PEDIATRIC"}
 
 
 # ---------------------------------------------------------------------------

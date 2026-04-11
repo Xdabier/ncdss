@@ -55,7 +55,7 @@ except ImportError:
 # Constants
 # ---------------------------------------------------------------------------
 
-VALID_ORIENTATIONS = ["SAUV", "MEDICAL", "SURGICAL", "TRAUMA", "PEDIATRIC"]
+VALID_ORIENTATIONS = ["SAUV", "DECHOCAGE", "MEDICAL", "SURGICAL", "TRAUMA", "PEDIATRIC"]
 VALID_URGENCIES = ["routine", "urgent", "emergent"]
 
 SYSTEM_MESSAGE_FR = "Tu es un assistant medical d'urgence experimente."

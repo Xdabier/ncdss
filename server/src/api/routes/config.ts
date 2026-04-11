@@ -30,7 +30,7 @@ router.put('/er', async (req, res) => {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
 
-    const { inscriptionDesks, triageBoxes, medicalBoxes, surgicalBoxes, traumaBoxes, sauvBeds } =
+    const { inscriptionDesks, triageBoxes, medicalBoxes, surgicalBoxes, traumaBoxes, sauvBeds, dechocageBeds } =
       req.body;
 
     const db = getDb();
@@ -46,6 +46,7 @@ router.put('/er', async (req, res) => {
           surgicalBoxes,
           traumaBoxes,
           sauvBeds,
+          dechocageBeds,
           updatedBy: userId,
           updatedAt: new Date().toISOString(),
         })
@@ -59,6 +60,7 @@ router.put('/er', async (req, res) => {
       surgicalBoxes,
       traumaBoxes,
       sauvBeds,
+      dechocageBeds,
     });
 
     const [updated] = await db.select().from(erConfiguration).limit(1);
@@ -87,6 +89,7 @@ async function regenerateBoxes(config: {
   surgicalBoxes: number;
   traumaBoxes: number;
   sauvBeds: number;
+  dechocageBeds: number;
 }) {
   const db = getDb();
 
@@ -133,6 +136,14 @@ async function regenerateBoxes(config: {
       id: randomUUID(),
       name: `Box SAUV ${i}`,
       boxType: BoxType.SAUV,
+      isActive: true,
+    });
+  }
+  for (let i = 1; i <= config.dechocageBeds; i++) {
+    boxesToCreate.push({
+      id: randomUUID(),
+      name: `Box Déchocage ${i}`,
+      boxType: BoxType.DECHOCAGE,
       isActive: true,
     });
   }

@@ -53,6 +53,7 @@ interface OrientationOption {
 
 const ORIENTATION_OPTIONS: OrientationOption[] = [
   { value: OrientationType.SAUV, label: 'SAUV', color: 'text-red-900', bgColor: 'bg-red-100', borderColor: 'border-red-500', selectedBg: 'bg-red-500 text-white' },
+  { value: OrientationType.DECHOCAGE, label: 'Déchocage', color: 'text-rose-900', bgColor: 'bg-rose-100', borderColor: 'border-rose-700', selectedBg: 'bg-rose-700 text-white' },
   { value: OrientationType.MEDICAL, label: 'Medical', color: 'text-blue-900', bgColor: 'bg-blue-100', borderColor: 'border-blue-500', selectedBg: 'bg-blue-500 text-white' },
   { value: OrientationType.SURGICAL, label: 'Chirurgical', color: 'text-purple-900', bgColor: 'bg-purple-100', borderColor: 'border-purple-500', selectedBg: 'bg-purple-500 text-white' },
   { value: OrientationType.TRAUMA, label: 'Traumato', color: 'text-orange-900', bgColor: 'bg-orange-100', borderColor: 'border-orange-500', selectedBg: 'bg-orange-500 text-white' },
@@ -63,6 +64,7 @@ const PEDIATRIC_AGE_THRESHOLD = 15;
 
 const orientationColors: Record<string, string> = {
   SAUV: 'bg-red-600 text-white',
+  DECHOCAGE: 'bg-rose-700 text-white',
   TRAUMA: 'bg-orange-500 text-white',
   SURGICAL: 'bg-purple-500 text-white',
   MEDICAL: 'bg-blue-500 text-white',
@@ -71,6 +73,7 @@ const orientationColors: Record<string, string> = {
 
 const orientationLabels: Record<string, string> = {
   SAUV: 'SAUV',
+  DECHOCAGE: 'Déchocage',
   TRAUMA: 'Traumatologie',
   SURGICAL: 'Chirurgical',
   MEDICAL: 'Medical',

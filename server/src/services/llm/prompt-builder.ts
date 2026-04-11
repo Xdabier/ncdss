@@ -129,7 +129,7 @@ ${allergiesText}${historyText}
 
 INSTRUCTIONS:
 Analyse l'ensemble des donnees cliniques et reponds avec un objet JSON contenant:
-- "orientation": zone d'orientation parmi ["SAUV", "MEDICAL", "SURGICAL", "TRAUMA", "PEDIATRIC"]
+- "orientation": zone d'orientation parmi ["SAUV", "DECHOCAGE", "MEDICAL", "SURGICAL", "TRAUMA", "PEDIATRIC"]
 - "orientationReason": justification de l'orientation en une phrase
 - "criticalAlerts": alertes critiques immediates (tableau de chaines)
 - "pathologies": 2-5 hypotheses diagnostiques classees par probabilite, chacune avec:

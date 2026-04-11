@@ -48,6 +48,7 @@ interface UnifiedAnalysisPanelProps {
 
 const orientationColors: Record<string, string> = {
   SAUV: 'bg-red-600 text-white',
+  DECHOCAGE: 'bg-rose-700 text-white',
   TRAUMA: 'bg-orange-500 text-white',
   SURGICAL: 'bg-purple-500 text-white',
   MEDICAL: 'bg-blue-500 text-white',
@@ -56,6 +57,7 @@ const orientationColors: Record<string, string> = {
 
 const orientationLabels: Record<string, string> = {
   SAUV: 'SAUV',
+  DECHOCAGE: 'Déchocage',
   TRAUMA: 'Traumatologie',
   SURGICAL: 'Chirurgical',
   MEDICAL: 'Medical',

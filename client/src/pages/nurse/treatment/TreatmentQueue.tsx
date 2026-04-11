@@ -24,6 +24,7 @@ const esiColors: Record<number, string> = {
 // Orientation labels in French
 const orientationLabels: Record<string, string> = {
   SAUV: 'SAUV',
+  DECHOCAGE: 'Déchocage',
   MEDICAL: 'Médical',
   SURGICAL: 'Chirurgical',
   TRAUMA: 'Traumato',
