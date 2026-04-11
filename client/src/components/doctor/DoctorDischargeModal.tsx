@@ -43,17 +43,17 @@ interface DoctorDischargeModalProps {
 
 // French labels
 const dischargeTypeLabels: Record<string, string> = {
-  'home': 'Retour \u00e0 domicile',
+  'home': 'Retour à domicile',
   'transfer': 'Transfert vers un autre service',
-  'left_ama': 'Sorti contre avis m\u00e9dical',
-  'deceased': 'D\u00e9c\u00e8s',
+  'left_ama': 'Sorti contre avis médical',
+  'deceased': 'Décès',
   'admission': 'Hospitalisation',
 };
 
 // Grouped discharge types for the select
 const dischargeGroups = [
   {
-    label: 'Sortie d\u00e9finitive',
+    label: 'Sortie définitive',
     types: ['home', 'transfer', 'left_ama', 'deceased'] as const,
   },
   {

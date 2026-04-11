@@ -140,10 +140,10 @@ const dischargeTypeLabels: Record<string, string> = {
 
 const holdStatusLabels: Record<string, string> = {
   waiting_for_treatment: 'En attente de soins au box',
-  waiting_for_exams: "En attente d'examens compl\u00e9mentaires",
-  waiting_for_specialist: "En attente d'un sp\u00e9cialiste",
-  patient_absent: "Patient absent \u00e0 l'appel",
-  treatment_done: 'Soins termin\u00e9s \u2014 pr\u00eat \u00e0 reprendre',
+  waiting_for_exams: "En attente d'examens complémentaires",
+  waiting_for_specialist: "En attente d'un spécialiste",
+  patient_absent: "Patient absent à l'appel",
+  treatment_done: 'Soins terminés — prêt à reprendre',
 };
 
 // ESI colors
@@ -1026,7 +1026,7 @@ export default function PatientDetail() {
             <UserPlus className="h-4 w-4 mr-2" />
             Transférer
           </Button>
-          {patient.status === PatientStatus.WITH_DOCTOR && !patient.holdStatus && (
+          {(patient.status === PatientStatus.WITH_DOCTOR || patient.status === PatientStatus.IN_TREATMENT) && !patient.holdStatus && (
             <Button
               size="sm"
               variant="outline"
@@ -1937,7 +1937,7 @@ export default function PatientDetail() {
                     {notesSaveStatus === 'saved' && (
                       <span className="flex items-center gap-1 text-green-600">
                         <Save className="h-3 w-3" />
-                        Sauvegard\u00e9
+                        Sauvegardé
                       </span>
                     )}
                   </div>
@@ -1947,12 +1947,12 @@ export default function PatientDetail() {
                 <textarea
                   value={consultationNotes}
                   onChange={(e) => handleConsultationNotesChange(e.target.value)}
-                  placeholder="Notes du m\u00e9decin (sauvegarde automatique)..."
+                  placeholder="Notes du médecin (sauvegarde automatique)..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-sm"
                   rows={5}
                   disabled={patient.status === PatientStatus.DISCHARGED}
                 />
-                <p className="text-xs text-gray-400 mt-1">Sauvegarde automatique apr\u00e8s 30 secondes d'inactivit\u00e9</p>
+                <p className="text-xs text-gray-400 mt-1">Sauvegarde automatique après 30 secondes d'inactivité</p>
               </CardContent>
             </Card>
 

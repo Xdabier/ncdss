@@ -22,10 +22,10 @@ interface HoldPatientModalProps {
 
 const holdStatusLabels: Record<HoldStatus, string> = {
   waiting_for_treatment: 'En attente de soins au box',
-  waiting_for_exams: "En attente d'examens compl\u00e9mentaires",
-  waiting_for_specialist: "En attente d'un sp\u00e9cialiste",
-  patient_absent: "Patient absent \u00e0 l'appel",
-  treatment_done: 'Soins termin\u00e9s \u2014 pr\u00eat \u00e0 reprendre',
+  waiting_for_exams: "En attente d'examens complémentaires",
+  waiting_for_specialist: "En attente d'un spécialiste",
+  patient_absent: "Patient absent à l'appel",
+  treatment_done: 'Soins terminés — prêt à reprendre',
 };
 
 export function HoldPatientModal({
@@ -43,7 +43,7 @@ export function HoldPatientModal({
 
   const handleSubmit = async () => {
     if (!holdStatus) {
-      setError('Veuillez s\u00e9lectionner un motif de mise en attente');
+      setError('Veuillez sélectionner un motif de mise en attente');
       return;
     }
 
@@ -119,7 +119,7 @@ export function HoldPatientModal({
               onValueChange={(v) => setHoldStatus(v as HoldStatus)}
             >
               <SelectTrigger className="mt-1">
-                <SelectValue placeholder="S\u00e9lectionner un motif" />
+                <SelectValue placeholder="Sélectionner un motif" />
               </SelectTrigger>
               <SelectContent>
                 {(Object.entries(holdStatusLabels) as [HoldStatus, string][]).map(
@@ -135,12 +135,12 @@ export function HoldPatientModal({
 
           {/* Optional notes */}
           <div>
-            <Label htmlFor="holdReason">Pr\u00e9cisions (optionnel)</Label>
+            <Label htmlFor="holdReason">Précisions (optionnel)</Label>
             <textarea
               id="holdReason"
               value={holdReason}
               onChange={(e) => setHoldReason(e.target.value)}
-              placeholder="Ex: Bilan sanguin demand\u00e9, r\u00e9sultats attendus..."
+              placeholder="Ex: Bilan sanguin demandé, résultats attendus..."
               className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
               rows={3}
               disabled={loading}

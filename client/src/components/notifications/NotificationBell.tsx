@@ -183,14 +183,14 @@ export function NotificationBell() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <BedDouble className="h-5 w-5 text-indigo-500" />
-              Changement de r\u00f4le requis
+              Changement de rôle requis
             </DialogTitle>
             <DialogDescription>
-              Ce patient a \u00e9t\u00e9 redirig\u00e9 vers le box de soins.
+              Ce patient a été redirigé vers le box de soins.
             </DialogDescription>
           </DialogHeader>
           <p className="text-sm text-gray-600 py-2">
-            Vous devez passer en r\u00f4le <span className="font-semibold">Soins</span> pour prendre en charge ce patient. Votre r\u00f4le actuel sera mis \u00e0 jour.
+            Vous devez passer en rôle <span className="font-semibold">Soins</span> pour prendre en charge ce patient. Votre rôle actuel sera mis à jour.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowRoleSwitchDialog(false); setPendingNavigation(null); }} disabled={switchingRole}>
