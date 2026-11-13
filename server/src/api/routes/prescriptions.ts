@@ -3,6 +3,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
 import { prescriptions, patients, users } from '../../database/schema';
+import { AuthRequest } from '../middleware/auth';
 import { UserRole, AdministrationStatus } from '@ncdss/shared';
 
 const router = Router();
@@ -172,7 +173,7 @@ router.get('/:id', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
-    const { role } = (req as any).user;
+    const { role } = (req as AuthRequest).user!;
 
     if (!isDoctorOrAdmin(role)) {
       return res.status(403).json({ error: 'Seuls les médecins peuvent modifier une prescription' });
@@ -294,7 +295,7 @@ router.put('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { userId, role } = (req as any).user;
+    const { userId, role } = (req as AuthRequest).user!;
 
     // Role check: Doctor or Super Admin only
     if (!isDoctorOrAdmin(role)) {
@@ -401,7 +402,7 @@ router.post('/', async (req, res) => {
 
 router.post('/:id/administer', async (req, res) => {
   try {
-    const { userId, role } = (req as any).user;
+    const { userId, role } = (req as AuthRequest).user!;
     const { id } = req.params;
     const { status, notes } = req.body;
 
@@ -468,7 +469,7 @@ router.post('/:id/administer', async (req, res) => {
 
 router.post('/:id/cancel', async (req, res) => {
   try {
-    const { userId, role } = (req as any).user;
+    const { userId, role } = (req as AuthRequest).user!;
 
     // Role check: Doctor or Super Admin only
     if (!isDoctorOrAdmin(role)) {
@@ -532,7 +533,7 @@ router.post('/:id/cancel', async (req, res) => {
 
 router.post('/:id/hold', async (req, res) => {
   try {
-    const { role } = (req as any).user;
+    const { role } = (req as AuthRequest).user!;
     const { id } = req.params;
 
     // Role check: Nurses and doctors can put prescriptions on hold
@@ -584,7 +585,7 @@ router.post('/:id/hold', async (req, res) => {
 
 router.post('/:id/resume', async (req, res) => {
   try {
-    const { role } = (req as any).user;
+    const { role } = (req as AuthRequest).user!;
     const { id } = req.params;
 
     // Role check: Nurses and doctors can resume prescriptions
@@ -636,7 +637,7 @@ router.post('/:id/resume', async (req, res) => {
 
 router.post('/:id/complete', async (req, res) => {
   try {
-    const { role } = (req as any).user;
+    const { role } = (req as AuthRequest).user!;
     const { id } = req.params;
 
     // Role check: Nurses and doctors can complete prescriptions

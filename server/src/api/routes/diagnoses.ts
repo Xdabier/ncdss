@@ -3,6 +3,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
 import { diagnoses, patients, users } from '../../database/schema';
+import { AuthRequest } from '../middleware/auth';
 import { UserRole } from '@ncdss/shared';
 
 const router = Router();
@@ -120,7 +121,7 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { userId, role } = (req as any).user;
+    const { userId, role } = (req as AuthRequest).user!;
 
     // Role check: Doctor or Super Admin only
     if (!isDoctorOrAdmin(role)) {
@@ -227,7 +228,7 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
-    const { role } = (req as any).user;
+    const { role } = (req as AuthRequest).user!;
 
     // Role check: Doctor or Super Admin only
     if (!isDoctorOrAdmin(role)) {
@@ -348,7 +349,7 @@ router.put('/:id', async (req, res) => {
 
 router.post('/:id/confirm', async (req, res) => {
   try {
-    const { role } = (req as any).user;
+    const { role } = (req as AuthRequest).user!;
 
     // Role check: Doctor or Super Admin only
     if (!isDoctorOrAdmin(role)) {
@@ -420,7 +421,7 @@ router.post('/:id/confirm', async (req, res) => {
 
 router.post('/:id/rule-out', async (req, res) => {
   try {
-    const { role } = (req as any).user;
+    const { role } = (req as AuthRequest).user!;
 
     // Role check: Doctor or Super Admin only
     if (!isDoctorOrAdmin(role)) {

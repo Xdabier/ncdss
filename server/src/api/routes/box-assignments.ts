@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { eq, and, lte, gt, ne, gte } from 'drizzle-orm';
+import { eq, and, lte, gt, ne } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
 import { boxAssignments, boxes, users, patients } from '../../database/schema';
+import { AuthRequest } from '../middleware/auth';
 
 // Helper function to get all doctors currently assigned to a box
 export async function getCurrentDoctorsForBox(boxId: string): Promise<Array<{ doctorId: string; doctorName: string }>> {
@@ -123,7 +124,7 @@ router.get('/', async (req, res) => {
     const db = getDb();
     const { current, date, boxId, doctorId } = req.query;
 
-    let query = db
+    const query = db
       .select({
         id: boxAssignments.id,
         boxId: boxAssignments.boxId,
@@ -203,7 +204,7 @@ router.get('/current-doctor/:boxId', async (req, res) => {
         )
       ) as CurrentDoctorRow[];
 
-    // Filter for current time — return all matching doctors
+    // Filter for current time - return all matching doctors
     const currentDoctors = result.filter(
       (a: CurrentDoctorRow) => a.startDateTime <= now && a.endDateTime > now
     );
@@ -279,7 +280,7 @@ router.get('/ending-soon', async (req, res) => {
 // Create assignment
 router.post('/', async (req, res) => {
   try {
-    const { role } = (req as any).user;
+    const { role } = (req as AuthRequest).user!;
     if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
@@ -363,7 +364,7 @@ router.post('/', async (req, res) => {
 // GET /my-assignment - Get doctor's current box assignment
 router.get('/my-assignment', async (req, res) => {
   try {
-    const { role, userId } = (req as any).user;
+    const { role, userId } = (req as AuthRequest).user!;
 
     if (role !== 'DOCTOR' && role !== 'SUPER_ADMIN') {
       return res.status(403).json({
@@ -408,7 +409,7 @@ router.get('/my-assignment', async (req, res) => {
 // PUT /my-assignment - Doctor self-assignment (start NOW)
 router.put('/my-assignment', async (req, res) => {
   try {
-    const { role, userId } = (req as any).user;
+    const { role, userId } = (req as AuthRequest).user!;
 
     if (role !== 'DOCTOR' && role !== 'SUPER_ADMIN') {
       return res.status(403).json({
@@ -566,7 +567,7 @@ router.put('/my-assignment', async (req, res) => {
 // DELETE /my-assignment - End doctor's current assignment
 router.delete('/my-assignment', async (req, res) => {
   try {
-    const { role, userId } = (req as any).user;
+    const { role, userId } = (req as AuthRequest).user!;
 
     if (role !== 'DOCTOR' && role !== 'SUPER_ADMIN') {
       return res.status(403).json({
@@ -612,7 +613,7 @@ router.delete('/my-assignment', async (req, res) => {
 // Remove assignment (soft delete)
 router.delete('/:id', async (req, res) => {
   try {
-    const { role } = (req as any).user;
+    const { role } = (req as AuthRequest).user!;
     if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
@@ -629,22 +630,5 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
-
-// Helper function to format date range for display
-function formatDateRange(start: string, end: string): string {
-  const s = new Date(start);
-  const e = new Date(end);
-
-  const formatDate = (d: Date) =>
-    `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
-  const formatTime = (d: Date) =>
-    `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-
-  if (s.toDateString() === e.toDateString()) {
-    return `${formatDate(s)} ${formatTime(s)}-${formatTime(e)}`;
-  } else {
-    return `${formatDate(s)} ${formatTime(s)} → ${formatDate(e)} ${formatTime(e)}`;
-  }
-}
 
 export { router as boxAssignmentsRouter };

@@ -1,8 +1,9 @@
 import { Router } from 'express';
-import { eq, and, like, desc, gte, inArray, ne, sql } from 'drizzle-orm';
+import { eq, and, desc, gte, lt, inArray, ne, sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
 import { patients, patientIdentities, users, boxes, weeklySchedule, prescriptions as prescriptionsTable, complementaryExams } from '../../database/schema';
+import { AuthRequest } from '../middleware/auth';
 import { PatientStatus, Orientation, OrientationSource, BoxType, calculateAge } from '@ncdss/shared';
 import { calculateNEWS, calculateGCS, calculateQSOFA } from '../../utils/scores';
 import { matchFindingsToPathologies } from '../../services/pathologyMatcher';
@@ -25,6 +26,7 @@ const router = Router();
 
 type PatientRow = typeof patients.$inferSelect;
 type IdentityRow = typeof patientIdentities.$inferSelect;
+type MergedPatient = PatientRow;
 
 /** Build a patient query with identity LEFT JOIN (select all columns from both tables). */
 function patientWithIdentityQuery(db: ReturnType<typeof getDb>) {
@@ -34,7 +36,7 @@ function patientWithIdentityQuery(db: ReturnType<typeof getDb>) {
 }
 
 /** Merge a joined patient+identity row into a flat patient object for API responses. */
-function mergePatientIdentity(row: { patients: PatientRow; patient_identities: IdentityRow | null }): Record<string, any> {
+function mergePatientIdentity(row: { patients: PatientRow; patient_identities: IdentityRow | null }): MergedPatient {
   const p = row.patients;
   const identity = row.patient_identities;
 
@@ -57,7 +59,7 @@ function mergePatientIdentity(row: { patients: PatientRow; patient_identities: I
 }
 
 /** Fetch a single patient by visit ID with identity data merged. */
-async function fetchPatientWithIdentity(db: ReturnType<typeof getDb>, patientId: string): Promise<Record<string, any> | null> {
+async function fetchPatientWithIdentity(db: ReturnType<typeof getDb>, patientId: string): Promise<MergedPatient | null> {
   const rows = await patientWithIdentityQuery(db).where(eq(patients.id, patientId));
   if (rows.length === 0) return null;
   return mergePatientIdentity(rows[0]);
@@ -70,7 +72,7 @@ async function fetchPatientWithIdentity(db: ReturnType<typeof getDb>, patientId:
 // List patients with filters
 router.get('/', async (req, res) => {
   try {
-    const { status, search, today, limit = 50 } = req.query;
+    const { status, search, today, date, limit = 50 } = req.query;
     const db = getDb();
 
     const queryBase = db.select({
@@ -129,6 +131,16 @@ router.get('/', async (req, res) => {
       const todayStart = new Date();
       todayStart.setUTCHours(0, 0, 0, 0);
       conditions.push(gte(patients.createdAt, todayStart.toISOString()));
+    }
+
+    // Arrival day as YYYY-MM-DD (UTC, like the "today" filter)
+    if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      const dayStart = new Date(`${date}T00:00:00.000Z`);
+      if (!Number.isNaN(dayStart.getTime())) {
+        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+        conditions.push(gte(patients.createdAt, dayStart.toISOString()));
+        conditions.push(lt(patients.createdAt, dayEnd.toISOString()));
+      }
     }
 
     const queryWithWhere = conditions.length > 0
@@ -227,7 +239,7 @@ router.get('/:id', async (req, res) => {
 // Create new patient (Inscription nurse)
 router.post('/', async (req, res) => {
   try {
-    const { userId } = (req as any).user;
+    const { userId } = (req as AuthRequest).user!;
     const {
       fullName,
       dateOfBirth,
@@ -430,7 +442,7 @@ router.put('/:id', async (req, res) => {
 
     // Update identity fields on patient_identities row
     if (existing.patientIdentityId) {
-      const identityUpdate: Record<string, any> = { updatedAt: now };
+      const identityUpdate: Partial<typeof patientIdentities.$inferInsert> = { updatedAt: now };
       if (fullName !== undefined) identityUpdate.fullName = fullName;
       if (dateOfBirth !== undefined) identityUpdate.dateOfBirth = dateOfBirth;
       if (sex !== undefined) identityUpdate.sex = sex;
@@ -506,7 +518,7 @@ router.put('/:id/medical-history', async (req, res) => {
 
     // Also update the linked patient_identities row (latest known medical history)
     if (existing.patientIdentityId) {
-      const identityUpdate: Record<string, any> = { updatedAt: now };
+      const identityUpdate: Partial<typeof patientIdentities.$inferInsert> = { updatedAt: now };
       if (allergies !== undefined) identityUpdate.allergies = allergies;
       if (chronicConditions !== undefined) identityUpdate.chronicConditions = JSON.stringify(chronicConditions);
       if (currentMedications !== undefined) identityUpdate.currentMedications = JSON.stringify(currentMedications);
@@ -533,7 +545,7 @@ router.put('/:id/medical-history', async (req, res) => {
 // Mark patient as absent (called but did not respond)
 router.post('/:id/absent-call', async (req, res) => {
   try {
-    const { userId } = (req as any).user;
+    const { userId } = (req as AuthRequest).user!;
     const { id } = req.params;
     const db = getDb();
 
@@ -573,7 +585,7 @@ router.post('/:id/absent-call', async (req, res) => {
 // Recall an absent patient back to the active queue
 router.post('/:id/recall', async (req, res) => {
   try {
-    const { userId } = (req as any).user;
+    const { userId } = (req as AuthRequest).user!;
     const { id } = req.params;
     const db = getDb();
 
@@ -626,7 +638,7 @@ router.post('/:id/recall', async (req, res) => {
 // Start triage (changes status to IN_TRIAGE)
 router.post('/:id/start-triage', async (req, res) => {
   try {
-    const { userId } = (req as any).user;
+    const { userId } = (req as AuthRequest).user!;
     const { id } = req.params;
     const db = getDb();
     
@@ -725,7 +737,7 @@ router.put('/:id/abcde/:category', async (req, res) => {
     }
 
     // Build update data starting with the JSON blob
-    const updateData: Record<string, any> = {
+    const updateData: Partial<typeof patients.$inferInsert> = {
       [field]: JSON.stringify(req.body),
       updatedAt: new Date().toISOString()
     };
@@ -999,7 +1011,7 @@ router.get('/:id/suggest-orientation', async (req, res) => {
       });
     }
 
-    // No stored orientation — run full analysis via the matcher
+    // No stored orientation - run full analysis via the matcher
     const airway = patient.abcdeAirway ? JSON.parse(patient.abcdeAirway) : {};
     const breathing = patient.abcdeBreathing ? JSON.parse(patient.abcdeBreathing) : {};
     const circulation = patient.abcdeCirculation ? JSON.parse(patient.abcdeCirculation) : {};
@@ -1098,7 +1110,7 @@ router.put('/:id/esi', async (req, res) => {
 router.post('/:id/complete-triage', async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId } = (req as any).user;
+    const { userId } = (req as AuthRequest).user!;
     const { esiLevel, suggestedOrientation, orientationSource, finalOrientation, overrideReason } = req.body;
     const db = getDb();
 
@@ -1353,7 +1365,7 @@ router.put('/:id/status', async (req, res) => {
       return res.status(404).json({ error: 'Patient non trouvé' });
     }
 
-    const updateData: any = {
+    const updateData: Partial<typeof patients.$inferInsert> = {
       status,
       updatedAt: new Date().toISOString()
     };
@@ -1378,7 +1390,7 @@ router.put('/:id/status', async (req, res) => {
 // Start treatment - assign patient to box (auto-assigns doctor if one is currently assigned to the box)
 router.post('/:id/start-treatment', async (req, res) => {
   try {
-    const { userId } = (req as any).user;
+    const { userId } = (req as AuthRequest).user!;
     const { id } = req.params;
     const { boxId } = req.body;
 
@@ -1452,7 +1464,7 @@ router.post('/:id/start-treatment', async (req, res) => {
 // Add treatment note
 router.post('/:id/notes', async (req, res) => {
   try {
-    const { userId } = (req as any).user;
+    const { userId } = (req as AuthRequest).user!;
     const { id } = req.params;
     const { note, noteType } = req.body;
     // noteType: 'observation' | 'intervention' | 'medication' | 'alert'
@@ -1469,7 +1481,7 @@ router.post('/:id/notes', async (req, res) => {
     }
 
     // Parse existing notes or create new array
-    let existingNotes: any[] = [];
+    let existingNotes: unknown[] = [];
     if (patient.treatmentNotes) {
       try {
         const parsed = JSON.parse(patient.treatmentNotes);
@@ -1504,7 +1516,7 @@ router.post('/:id/notes', async (req, res) => {
 // Request re-triage
 router.post('/:id/request-retriage', async (req, res) => {
   try {
-    const { userId, role } = (req as any).user;
+    const { userId, role } = (req as AuthRequest).user!;
     const { id } = req.params;
     const { reason } = req.body;
 
@@ -1528,7 +1540,7 @@ router.post('/:id/request-retriage', async (req, res) => {
     const trimmedReason = reason && reason.trim() ? reason.trim() : null;
 
     // Add re-triage request to notes
-    let existingNotes: any[] = [];
+    let existingNotes: unknown[] = [];
     if (patient.treatmentNotes) {
       try {
         const parsed = JSON.parse(patient.treatmentNotes);
@@ -1626,7 +1638,7 @@ router.post('/:id/transfer-to-doctor', async (req, res) => {
 // Reassign patient to a different box (re-orientation)
 router.post('/:id/reassign-box', async (req, res) => {
   try {
-    const { userId } = (req as any).user;
+    const { userId } = (req as AuthRequest).user!;
     const { id } = req.params;
     const { newBoxId, reason } = req.body;
 
@@ -1675,7 +1687,7 @@ router.post('/:id/reassign-box', async (req, res) => {
     }).where(eq(patients.id, id));
 
     // 8. Append transfer note
-    let existingNotes: any[] = [];
+    let existingNotes: unknown[] = [];
     if (patient.treatmentNotes) {
       try {
         const parsed = JSON.parse(patient.treatmentNotes);
@@ -1728,7 +1740,7 @@ router.post('/:id/reassign-box', async (req, res) => {
 // Put patient on hold
 router.post('/:id/hold', async (req, res) => {
   try {
-    const { userId, role } = (req as any).user;
+    const { userId, role } = (req as AuthRequest).user!;
     const { id } = req.params;
     const { holdStatus, holdReason } = req.body;
 
@@ -1828,7 +1840,7 @@ router.post('/:id/hold', async (req, res) => {
 // Resume from hold
 router.post('/:id/resume-hold', async (req, res) => {
   try {
-    const { role } = (req as any).user;
+    const { role } = (req as AuthRequest).user!;
     const { id } = req.params;
 
     if (role !== 'DOCTOR' && role !== 'SUPER_ADMIN') {
@@ -1865,7 +1877,7 @@ router.post('/:id/resume-hold', async (req, res) => {
 // Treatment nurse marks patient as ready for doctor
 router.post('/:id/treatment-ready', async (req, res) => {
   try {
-    const { userId, role } = (req as any).user;
+    const { userId, role } = (req as AuthRequest).user!;
     const { id } = req.params;
     const { markAllComplete } = req.body || {};
 
@@ -1911,12 +1923,12 @@ router.post('/:id/treatment-ready', async (req, res) => {
     // Transition hold to treatment_done (keep holdAt and holdBy for traceability)
     await db.update(patients).set({
       holdStatus: 'treatment_done',
-      holdReason: 'Soins terminés — prêt pour le médecin',
+      holdReason: 'Soins terminés - prêt pour le médecin',
       updatedAt: now,
     }).where(eq(patients.id, id));
 
     // Append treatment note
-    let existingNotes: any[] = [];
+    let existingNotes: unknown[] = [];
     if (patient.treatmentNotes) {
       try {
         const parsed = JSON.parse(patient.treatmentNotes);
@@ -1928,7 +1940,7 @@ router.post('/:id/treatment-ready', async (req, res) => {
     existingNotes.push({
       id: randomUUID(),
       type: 'treatment_complete',
-      content: 'Soins terminés — patient prêt pour le médecin',
+      content: 'Soins terminés - patient prêt pour le médecin',
       authorId: userId,
       createdAt: now,
     });
@@ -1965,7 +1977,7 @@ router.post('/:id/treatment-ready', async (req, res) => {
 // Auto-save consultation notes
 router.put('/:id/consultation-notes', async (req, res) => {
   try {
-    const { role } = (req as any).user;
+    const { role } = (req as AuthRequest).user!;
     const { id } = req.params;
     const { notes } = req.body;
 
@@ -1994,7 +2006,7 @@ router.put('/:id/consultation-notes', async (req, res) => {
 // Discharge patient
 router.post('/:id/discharge', async (req, res) => {
   try {
-    const { userId } = (req as any).user;
+    const { userId } = (req as AuthRequest).user!;
     const { id } = req.params;
     const { dischargeNotes, dischargeType } = req.body;
     // dischargeType: 'home' | 'admission' | 'transfer' | 'left_ama' | 'deceased'
@@ -2090,7 +2102,7 @@ router.get('/:id/ai-status', async (req, res) => {
 router.post('/:id/ai-prediagnosis', async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, role } = (req as any).user;
+    const { userId, role } = (req as AuthRequest).user!;
     const db = getDb();
 
     // Load patient
@@ -2149,11 +2161,11 @@ router.post('/:id/ai-prediagnosis', async (req, res) => {
     await aiPreDiagnosisService.saveResult(id, suggestion);
 
     res.json(suggestion);
-  } catch (error: any) {
+  } catch (error) {
     const { id } = req.params;
     console.error('AI pre-diagnosis error:', error);
     // Update status to failed
-    await aiPreDiagnosisService.updateStatus(id, 'failed', error.message || 'Erreur du service d\'IA');
+    await aiPreDiagnosisService.updateStatus(id, 'failed', (error instanceof Error && error.message) || 'Erreur du service d\'IA');
     res.status(500).json({ error: 'Erreur du service d\'IA' });
   }
 });
@@ -2161,7 +2173,7 @@ router.post('/:id/ai-prediagnosis', async (req, res) => {
 // Generate AI pre-diagnosis with streaming (SSE)
 router.get('/:id/ai-prediagnosis-stream', async (req, res) => {
   const { id } = req.params;
-  const { userId, role } = (req as any).user;
+  const { userId, role } = (req as AuthRequest).user!;
 
   try {
     const db = getDb();
@@ -2247,11 +2259,11 @@ router.get('/:id/ai-prediagnosis-stream', async (req, res) => {
     });
 
     res.end();
-  } catch (error: any) {
+  } catch (error) {
     console.error('AI pre-diagnosis stream error:', error);
     // Update status to failed
     try {
-      await aiPreDiagnosisService.updateStatus(id, 'failed', error.message || 'Erreur du service d\'IA');
+      await aiPreDiagnosisService.updateStatus(id, 'failed', (error instanceof Error && error.message) || 'Erreur du service d\'IA');
     } catch (updateError) {
       console.error('Failed to update AI pre-diagnosis status:', updateError);
     }
@@ -2302,7 +2314,7 @@ router.get('/:id/unified-analysis', async (req, res) => {
 router.post('/:id/unified-analysis', async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, role } = (req as any).user;
+    const { userId, role } = (req as AuthRequest).user!;
     const db = getDb();
 
     // Load patient
@@ -2338,10 +2350,10 @@ router.post('/:id/unified-analysis', async (req, res) => {
     };
 
     res.json(analysis);
-  } catch (error: any) {
+  } catch (error) {
     const { id } = req.params;
     console.error('Unified analysis error:', error);
-    await unifiedAnalysisService.updateStatus(id, 'failed', error.message || 'Erreur du service d\'IA');
+    await unifiedAnalysisService.updateStatus(id, 'failed', (error instanceof Error && error.message) || 'Erreur du service d\'IA');
     res.status(500).json({ error: 'Erreur du service d\'IA' });
   }
 });
@@ -2349,7 +2361,7 @@ router.post('/:id/unified-analysis', async (req, res) => {
 // Generate unified analysis with streaming (SSE)
 router.get('/:id/unified-analysis-stream', async (req, res) => {
   const { id } = req.params;
-  const { userId, role } = (req as any).user;
+  const { userId, role } = (req as AuthRequest).user!;
 
   try {
     const db = getDb();
@@ -2404,10 +2416,10 @@ router.get('/:id/unified-analysis-stream', async (req, res) => {
     });
 
     res.end();
-  } catch (error: any) {
+  } catch (error) {
     console.error('Unified analysis stream error:', error);
     try {
-      await unifiedAnalysisService.updateStatus(id, 'failed', error.message || 'Erreur du service d\'IA');
+      await unifiedAnalysisService.updateStatus(id, 'failed', (error instanceof Error && error.message) || 'Erreur du service d\'IA');
     } catch (updateError) {
       console.error('Failed to update unified analysis status:', updateError);
     }

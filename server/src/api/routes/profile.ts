@@ -4,13 +4,14 @@ import { eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
 import { users, userProfiles } from '../../database/schema';
+import { AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
 // GET /me - Get own profile
 router.get('/me', async (req, res) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = (req as AuthRequest).user!.userId;
     const db = getDb();
 
     const [user] = await db.select().from(users).where(eq(users.id, userId));
@@ -55,7 +56,7 @@ router.get('/me', async (req, res) => {
 // PUT /me - Create/update own profile
 router.put('/me', async (req, res) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = (req as AuthRequest).user!.userId;
     const { cin, address, firstName, lastName, birthDate } = req.body;
     const db = getDb();
 
@@ -154,7 +155,7 @@ router.put('/me', async (req, res) => {
 // POST /change-password - Change own password
 router.post('/change-password', async (req, res) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = (req as AuthRequest).user!.userId;
     const { currentPassword, newPassword } = req.body;
     const db = getDb();
 
@@ -194,7 +195,7 @@ router.post('/change-password', async (req, res) => {
 // POST /create-pin - Create or update lock screen PIN
 router.post('/create-pin', async (req, res) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = (req as AuthRequest).user!.userId;
     const { pin, currentPassword } = req.body;
     const db = getDb();
 
@@ -250,7 +251,7 @@ router.post('/create-pin', async (req, res) => {
 // POST /verify-pin - Verify lock screen PIN
 router.post('/verify-pin', async (req, res) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = (req as AuthRequest).user!.userId;
     const { pin } = req.body;
     const db = getDb();
 

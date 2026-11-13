@@ -3,6 +3,7 @@ import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
 import { weeklySchedule, users } from '../../database/schema';
+import { AuthRequest } from '../middleware/auth';
 import { NurseAssignment } from '@ncdss/shared';
 
 const router = Router();
@@ -60,7 +61,7 @@ router.get('/:weekStart', async (req, res) => {
 // Save schedule for a week
 router.post('/:weekStart', async (req, res) => {
   try {
-    const { role, userId } = (req as any).user;
+    const { role, userId } = (req as AuthRequest).user!;
 
     if (role !== 'NURSE_SUPERVISOR' && role !== 'SUPER_ADMIN') {
       return res.status(403).json({ error: 'Accès non autorisé' });
@@ -112,7 +113,7 @@ router.post('/:weekStart', async (req, res) => {
 // PUT /my-assignment - Nurse self-assignment change
 router.put('/my-assignment', async (req, res) => {
   try {
-    const { role, userId } = (req as any).user;
+    const { role, userId } = (req as AuthRequest).user!;
 
     // Only nurses can change their own assignment
     if (role !== 'NURSE') {
@@ -200,7 +201,7 @@ router.post('/:weekStart/validate', async (req, res) => {
     const dayNames = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
     for (let day = 0; day < 7; day++) {
-      const dayRoles = schedules.map((s: any) => {
+      const dayRoles = schedules.map((s: { days: Record<number, string | { role?: string } | undefined> }) => {
         const dayData = s.days[day];
         return typeof dayData === 'string' ? dayData : dayData?.role;
       });

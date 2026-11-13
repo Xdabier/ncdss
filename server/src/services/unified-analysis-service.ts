@@ -110,7 +110,7 @@ export async function updateStatus(
 /**
  * Build UnifiedAnalysisContext from a patient DB row
  */
-export function buildUnifiedContext(patient: any): UnifiedAnalysisContext {
+export function buildUnifiedContext(patient: typeof patients.$inferSelect): UnifiedAnalysisContext {
   const age = patient.dateOfBirth ? calculateAge(patient.dateOfBirth) : patient.age;
   return {
     chiefComplaint: patient.chiefComplaint || '',

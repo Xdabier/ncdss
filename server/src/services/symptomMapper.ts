@@ -77,7 +77,7 @@ function mapAirway(
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_DYSPHAGIA', critical: false }]);
   }
 
-  // Pain location (P1.2)
+  // Pain location
   if (data.painLocation && data.painLocation.length > 0) {
     const painMap: Record<string, string> = {
       thoracic: 'SYM_CHEST_PAIN',
@@ -160,7 +160,7 @@ function mapBreathing(
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_APNEA', critical: true }]);
   }
 
-  // Raw signesLutte array (P6.1) — may contain items not captured by individual booleans
+  // Raw signesLutte array, may contain items not captured by individual booleans
   if (data.signesLutte && data.signesLutte.length > 0) {
     const signesLutteMap: Record<string, CodeMapping> = {
       'tirage sous-costal': { code: 'SYM_INCREASED_WOB', critical: false },
@@ -176,7 +176,7 @@ function mapBreathing(
     }
   }
 
-  // pauseRespiratoire alias (P6.1) — maps to the same code as apnea
+  // pauseRespiratoire alias, maps to the same code as apnea
   if (data.pauseRespiratoire) {
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_APNEA', critical: true }]);
   }
@@ -302,7 +302,7 @@ function mapDisability(
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_HEADACHE', critical: false }]);
   }
 
-  // Pupil light reactivity (P2.2)
+  // Pupil light reactivity
   if (data.pupilReactivity === false) {
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_PUPIL_NONREACTIVE', critical: true }]);
   }
@@ -377,7 +377,7 @@ function mapExposure(
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_DIARRHEA', critical: false }]);
   }
 
-  // New exposure fields (P1.6)
+  // New exposure fields
   if (data.electrocution) {
     addCodes(observedCodes, criticalCodes, [{ code: 'SYM_ELECTROCUTION', critical: true }]);
   }
@@ -435,7 +435,7 @@ interface PatientVitals {
 function resolveVitalValue(vitals: PatientVitals, symptom: PathologySymptom): number | undefined {
   const code = symptom.symptomCode.toUpperCase();
 
-  // Code-based resolution (preferred — unambiguous)
+  // Code-based resolution (preferred - unambiguous)
   if (code.includes('HR') || code.includes('HEART')) return vitals.heartRate;
   if (code.includes('SBP') || code.includes('BP')) return vitals.systolicBP;
   if (code.includes('RR') || code.includes('RESP')) return vitals.respiratoryRate;
@@ -458,15 +458,15 @@ function resolveVitalValue(vitals: PatientVitals, symptom: PathologySymptom): nu
     case '°C':
       return vitals.temperature;
     case '%':
-      // Ambiguous between SpO2 and respiratory rate — prefer SpO2 (more common VS_ use)
+      // Ambiguous between SpO2 and respiratory rate - prefer SpO2 (more common VS_ use)
       return vitals.oxygenSaturation;
     case 'score':
-      // Ambiguous between GCS and pain — prefer GCS (more common VS_ use)
+      // Ambiguous between GCS and pain - prefer GCS (more common VS_ use)
       return vitals.gcsScore;
     case 'mg/dL':
       return vitals.glucoseLevel;
     case 's':
-      // Capillary refill time — not available from standard vitals
+      // Capillary refill time - not available from standard vitals
       return undefined;
     default:
       return undefined;

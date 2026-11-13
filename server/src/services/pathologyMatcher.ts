@@ -226,8 +226,8 @@ export async function matchFindingsToPathologies(
 
   // ── Step 7: Load interventions for top 5 matches ──────────────────
   const top5Ids = topMatches.slice(0, 5).map(m => m.pathologyId);
-  let suggestedNursing: NursingIntervention[] = [];
-  let suggestedMedical: MedicalIntervention[] = [];
+  const suggestedNursing: NursingIntervention[] = [];
+  const suggestedMedical: MedicalIntervention[] = [];
 
   if (top5Ids.length > 0) {
     const [nursingRows, medicalRows] = await Promise.all([
@@ -318,19 +318,19 @@ export async function matchFindingsToPathologies(
   if (effectiveScores.news !== undefined && effectiveScores.news >= 7) {
     suggestedOrientation = 'SAUV';
     orientationSource = 'SCORE_BASED';
-    orientationReason = `Score NEWS ≥ 7 (${effectiveScores.news}) — Risque élevé de détérioration`;
+    orientationReason = `Score NEWS ≥ 7 (${effectiveScores.news}) - Risque élevé de détérioration`;
   } else if (effectiveScores.gcs !== undefined && effectiveScores.gcs < 9) {
     suggestedOrientation = 'SAUV';
     orientationSource = 'SCORE_BASED';
-    orientationReason = `Score GCS < 9 (${effectiveScores.gcs}) — Altération sévère de la conscience`;
+    orientationReason = `Score GCS < 9 (${effectiveScores.gcs}) - Altération sévère de la conscience`;
   } else if (effectiveScores.qsofa !== undefined && effectiveScores.qsofa >= 2) {
     suggestedOrientation = 'SAUV';
     orientationSource = 'SCORE_BASED';
-    orientationReason = `Score qSOFA ≥ 2 (${effectiveScores.qsofa}) — Risque de sepsis`;
+    orientationReason = `Score qSOFA ≥ 2 (${effectiveScores.qsofa}) - Risque de sepsis`;
   } else if (effectiveScores.esi !== undefined && effectiveScores.esi <= 2) {
     suggestedOrientation = 'SAUV';
     orientationSource = 'SCORE_BASED';
-    orientationReason = `ESI niveau ${effectiveScores.esi} — Urgence vitale`;
+    orientationReason = `ESI niveau ${effectiveScores.esi} - Urgence vitale`;
   }
 
   // P2: Critical symptom codes → SAUV
@@ -380,33 +380,4 @@ export async function matchFindingsToPathologies(
     observedSymptomCodes: Array.from(observedCodes),
     matchedPathologiesCount: topMatches.length,
   };
-}
-
-// ============================================================================
-// Quick critical threshold check
-// ============================================================================
-
-/**
- * Quick check if any critical score thresholds are met.
- * Can be called without full analysis for immediate alerting.
- */
-export function checkCriticalThresholds(
-  scores: { news?: number; gcs?: number; qsofa?: number; esi?: number }
-): { isCritical: boolean; reasons: string[] } {
-  const reasons: string[] = [];
-
-  if (scores.news !== undefined && scores.news >= 7) {
-    reasons.push(`NEWS ≥ 7 (${scores.news})`);
-  }
-  if (scores.gcs !== undefined && scores.gcs < 9) {
-    reasons.push(`GCS < 9 (${scores.gcs})`);
-  }
-  if (scores.qsofa !== undefined && scores.qsofa >= 2) {
-    reasons.push(`qSOFA ≥ 2 (${scores.qsofa})`);
-  }
-  if (scores.esi !== undefined && scores.esi <= 2) {
-    reasons.push(`ESI ≤ 2 (${scores.esi})`);
-  }
-
-  return { isCritical: reasons.length > 0, reasons };
 }

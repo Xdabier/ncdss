@@ -3,6 +3,7 @@ import { eq, desc, and, ne } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
 import { complementaryExams, patients, users } from '../../database/schema';
+import { AuthRequest } from '../middleware/auth';
 import { UserRole } from '@ncdss/shared';
 
 const router = Router();
@@ -110,7 +111,7 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { userId, role } = (req as any).user;
+    const { userId, role } = (req as AuthRequest).user!;
 
     if (!isDoctorOrAdmin(role)) {
       return res.status(403).json({ error: 'Seuls les médecins peuvent demander des examens' });
@@ -197,7 +198,7 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
-    const { role } = (req as any).user;
+    const { role } = (req as AuthRequest).user!;
 
     if (!isDoctorOrAdmin(role)) {
       return res.status(403).json({ error: 'Seuls les médecins peuvent modifier des examens' });
@@ -265,7 +266,7 @@ router.put('/:id', async (req, res) => {
 
 router.put('/:id/status', async (req, res) => {
   try {
-    const { userId, role } = (req as any).user;
+    const { userId, role } = (req as AuthRequest).user!;
 
     if (!isNurseOrAbove(role)) {
       return res.status(403).json({ error: 'Accès non autorisé' });
@@ -353,7 +354,7 @@ router.put('/:id/status', async (req, res) => {
 
 router.post('/:id/cancel', async (req, res) => {
   try {
-    const { userId, role } = (req as any).user;
+    const { userId, role } = (req as AuthRequest).user!;
 
     if (!isDoctorOrAdmin(role)) {
       return res.status(403).json({ error: 'Seuls les médecins peuvent annuler des examens' });

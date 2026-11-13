@@ -187,7 +187,7 @@ export function buildUnifiedPromptFinetuned(context: UnifiedAnalysisContext): st
 
 // ─── ABCDE Serialization ──────────────────────────────────────────────────────
 
-export function serializeAbcdeFindings(findings: UnifiedAnalysisContext['abcdeFindings']): string {
+function serializeAbcdeFindings(findings: UnifiedAnalysisContext['abcdeFindings']): string {
   const sections: string[] = [];
 
   if (findings.airway && Object.keys(findings.airway).length > 0) {
@@ -209,7 +209,7 @@ export function serializeAbcdeFindings(findings: UnifiedAnalysisContext['abcdeFi
   return sections.length > 0 ? sections.join('\n') : 'Aucune evaluation ABCDE disponible';
 }
 
-export function serializeAirway(data: Record<string, unknown>): string {
+function serializeAirway(data: Record<string, unknown>): string {
   const parts: string[] = [];
   if (data.obstructed === true) parts.push('Obstruction des voies aeriennes');
   if (data.patent === true) parts.push('Voies aeriennes libres');
@@ -232,7 +232,7 @@ export function serializeAirway(data: Record<string, unknown>): string {
   return parts.length > 0 ? parts.join(', ') : 'RAS';
 }
 
-export function serializeBreathing(data: Record<string, unknown>): string {
+function serializeBreathing(data: Record<string, unknown>): string {
   const parts: string[] = [];
   if (data.dyspnea === true) parts.push('Dyspnee');
   if (data.cyanosis === true) parts.push('Cyanose');
@@ -258,7 +258,7 @@ export function serializeBreathing(data: Record<string, unknown>): string {
   return parts.length > 0 ? parts.join(', ') : 'RAS';
 }
 
-export function serializeCirculation(data: Record<string, unknown>): string {
+function serializeCirculation(data: Record<string, unknown>): string {
   const parts: string[] = [];
   if (data.tachycardia === true) parts.push('Tachycardie');
   if (data.bradycardia === true) parts.push('Bradycardie');
@@ -288,7 +288,7 @@ export function serializeCirculation(data: Record<string, unknown>): string {
   return parts.length > 0 ? parts.join(', ') : 'RAS';
 }
 
-export function serializeDisability(data: Record<string, unknown>): string {
+function serializeDisability(data: Record<string, unknown>): string {
   const parts: string[] = [];
   if (data.altered === true) parts.push('Conscience alteree');
   if (data.confused === true) parts.push('Confusion');
@@ -320,7 +320,7 @@ export function serializeDisability(data: Record<string, unknown>): string {
   return parts.length > 0 ? parts.join(', ') : 'RAS';
 }
 
-export function serializeExposure(data: Record<string, unknown>): string {
+function serializeExposure(data: Record<string, unknown>): string {
   const parts: string[] = [];
   if (data.fever === true) parts.push('Fievre');
   if (data.hypothermia === true) parts.push('Hypothermie');

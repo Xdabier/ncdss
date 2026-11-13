@@ -157,7 +157,7 @@ export async function updateStatus(
 /**
  * Build PreDiagnosisContext from patient data
  */
-function buildContext(patient: any): PreDiagnosisContext {
+function buildContext(patient: typeof patients.$inferSelect): PreDiagnosisContext {
   const age = patient.dateOfBirth ? calculateAge(patient.dateOfBirth) : patient.age;
   return {
     chiefComplaint: patient.chiefComplaint || '',
@@ -240,10 +240,10 @@ async function runGeneration(
     if (!signal.aborted) {
       await saveResult(patientId, result);
     }
-  } catch (error: any) {
+  } catch (error) {
     if (!signal.aborted) {
       console.error('AI pre-diagnosis generation error:', error);
-      await updateStatus(patientId, 'failed', error.message || 'Erreur lors de la generation');
+      await updateStatus(patientId, 'failed', (error instanceof Error && error.message) || 'Erreur lors de la generation');
     }
   }
 }
@@ -275,24 +275,4 @@ export function triggerBackgroundGeneration(
         generationQueue.delete(patientId);
       }
     });
-}
-
-/**
- * Check if generation is currently in progress for a patient
- */
-export function isGenerating(patientId: string): boolean {
-  return generationQueue.has(patientId);
-}
-
-/**
- * Cancel ongoing generation for a patient
- */
-export function cancelGeneration(patientId: string): boolean {
-  const controller = generationQueue.get(patientId);
-  if (controller) {
-    controller.abort();
-    generationQueue.delete(patientId);
-    return true;
-  }
-  return false;
 }

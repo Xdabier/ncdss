@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
 import { getDb } from '../../database';
 import { users } from '../../database/schema';
+import { AuthRequest } from '../middleware/auth';
 import { UserRole } from '@ncdss/shared';
 
 const router = Router();
@@ -24,7 +25,8 @@ router.get('/', async (req, res) => {
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
       })
-      .from(users);
+      .from(users)
+      .$dynamic();
 
     const conditions = [];
 
@@ -41,7 +43,7 @@ router.get('/', async (req, res) => {
     }
 
     if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any;
+      query = query.where(and(...conditions));
     }
 
     const result = await query;
@@ -83,7 +85,7 @@ router.get('/:id', async (req, res) => {
 // Create user
 router.post('/', async (req, res) => {
   try {
-    const { role: callerRole } = (req as any).user;
+    const { role: callerRole } = (req as AuthRequest).user!;
 
     if (callerRole !== 'ADMIN' && callerRole !== 'SUPER_ADMIN') {
       return res.status(403).json({ error: 'Accès non autorisé' });
@@ -156,7 +158,7 @@ router.post('/', async (req, res) => {
 // Update user
 router.put('/:id', async (req, res) => {
   try {
-    const { role: callerRole, userId: callerId } = (req as any).user;
+    const { role: callerRole, userId: callerId } = (req as AuthRequest).user!;
 
     if (callerRole !== 'ADMIN' && callerRole !== 'SUPER_ADMIN') {
       return res.status(403).json({ error: 'Accès non autorisé' });
@@ -183,7 +185,7 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Vous ne pouvez pas désactiver votre propre compte' });
     }
 
-    const updateData: any = { updatedAt: new Date().toISOString() };
+    const updateData: Partial<typeof users.$inferInsert> = { updatedAt: new Date().toISOString() };
     if (fullName !== undefined) updateData.fullName = fullName;
     if (role !== undefined) updateData.role = role;
     if (isActive !== undefined) updateData.isActive = isActive;
@@ -213,7 +215,7 @@ router.put('/:id', async (req, res) => {
 // Reset password
 router.post('/:id/reset-password', async (req, res) => {
   try {
-    const { role: callerRole } = (req as any).user;
+    const { role: callerRole } = (req as AuthRequest).user!;
 
     if (callerRole !== 'ADMIN' && callerRole !== 'SUPER_ADMIN') {
       return res.status(403).json({ error: 'Accès non autorisé' });

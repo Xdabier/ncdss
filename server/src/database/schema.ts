@@ -148,7 +148,7 @@ export const patientIdentities = sqliteTable('patient_identities', {
 });
 
 // ============================================================================
-// PATIENTS (Basic structure - will expand in Week 2)
+// PATIENTS (one row per ER visit)
 // ============================================================================
 
 export const patients = sqliteTable('patients', {
@@ -389,7 +389,7 @@ export const prescriptions = sqliteTable('prescriptions', {
   medicationName: text('medication_name').notNull(),
   dosage: text('dosage').notNull(),           // e.g., "500mg"
   route: text('route').notNull(),             // PO, IV, IM, SC, SL, INH, TOP, PR, OPH
-  frequency: text('frequency'),                // e.g., "3x/jour", "toutes les 8h" — optional
+  frequency: text('frequency'),                // e.g., "3x/jour", "toutes les 8h" - optional
   duration: text('duration'),                 // e.g., "5 jours"
   instructions: text('instructions'),         // Special instructions
   startTime: text('start_time'),

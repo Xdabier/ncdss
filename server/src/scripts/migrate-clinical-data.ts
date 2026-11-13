@@ -4,7 +4,7 @@
  * into the new clinical tables (pathologies, pathology_symptoms,
  * nursing_interventions, medical_interventions).
  *
- * Run with: npx tsx src/scripts/migrate-clinical-data.ts
+ * Run with: npm run db:seed -- <path-to-excel-file> (from server/)
  */
 
 import Database from 'better-sqlite3';
@@ -18,7 +18,6 @@ import {
   pathologySymptoms,
   nursingInterventions,
   medicalInterventions,
-  patients,
 } from '../database/schema';
 
 // ---------------------------------------------------------------------------
@@ -173,7 +172,12 @@ async function migrate(): Promise<void> {
   const db = drizzle(sqlite);
 
   // --- Locate Excel file -----------------------------------------------------
-  const excelPath = path.join(process.cwd(), '..', 'docs', 'ABCDE_NCDSS_v2_updated.xlsx');
+  if (!process.argv[2]) {
+    console.error('Usage: npm run db:seed -- <path-to-excel-file>');
+    process.exit(1);
+  }
+
+  const excelPath = path.resolve(process.argv[2]);
 
   if (!fs.existsSync(excelPath)) {
     console.error('ERROR: Excel file not found at', excelPath);
@@ -289,7 +293,7 @@ async function migrate(): Promise<void> {
     // Fall back to English or code when French is missing (cross-referenced shared symptoms)
     const descFr = rawDescFr || rawDescEn || code;
     if (!rawDescFr) {
-      errors.push({ sheet: 'Symptoms', row: rowNum, message: `Empty symptom_fr for ${pid} / ${code} — using fallback "${descFr}"` });
+      errors.push({ sheet: 'Symptoms', row: rowNum, message: `Empty symptom_fr for ${pid} / ${code} - using fallback "${descFr}"` });
     }
 
     const isVital = toBool(row['is_vital_sign']);
@@ -475,7 +479,7 @@ async function migrate(): Promise<void> {
   } catch (error: unknown) {
     sqlite.exec('ROLLBACK');
     const msg = error instanceof Error ? error.message : String(error);
-    console.error('\nERROR during insert — transaction rolled back:', msg);
+    console.error('\nERROR during insert - transaction rolled back:', msg);
     process.exit(1);
   } finally {
     sqlite.close();

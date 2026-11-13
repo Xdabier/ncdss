@@ -161,8 +161,8 @@ export async function switchProvider(type: LLMProviderType): Promise<void> {
   }
 
   // Dispose current provider if it has a dispose method
-  if (providerInstance && 'dispose' in providerInstance && typeof (providerInstance as any).dispose === 'function') {
-    await (providerInstance as any).dispose();
+  if (providerInstance && 'dispose' in providerInstance && typeof providerInstance.dispose === 'function') {
+    await providerInstance.dispose();
   }
   providerInstance = null;
 
@@ -183,7 +183,7 @@ export function getActiveProviderType(): LLMProviderType {
 /**
  * Check if a local .gguf model file is available (without loading it).
  */
-export async function checkLocalModelAvailable(): Promise<boolean> {
+async function checkLocalModelAvailable(): Promise<boolean> {
   return LlamaCppProvider.hasLocalModel();
 }
 
@@ -206,8 +206,8 @@ export async function getProviderStatus(): Promise<LLMProviderStatus> {
  * Call this when the application is closing to free resources
  */
 export async function disposeLLMProvider(): Promise<void> {
-  if (providerInstance && 'dispose' in providerInstance && typeof (providerInstance as any).dispose === 'function') {
-    await (providerInstance as any).dispose();
+  if (providerInstance && 'dispose' in providerInstance && typeof providerInstance.dispose === 'function') {
+    await providerInstance.dispose();
   }
   providerInstance = null;
 }
@@ -240,13 +240,13 @@ export async function autoDetectProvider(): Promise<void> {
     return;
   }
 
-  // No local model — try Claude
+  // No local model - try Claude
   const claudeAvailable = !!(process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY.length > 0);
   if (claudeAvailable) {
     await switchProvider('claude');
-    console.log('[LLM] Auto-detect: No local model found, ANTHROPIC_API_KEY set — switching to Claude API');
+    console.log('[LLM] Auto-detect: No local model found, ANTHROPIC_API_KEY set - switching to Claude API');
     return;
   }
 
-  console.warn('[LLM] Auto-detect: No local model and no ANTHROPIC_API_KEY — AI features disabled');
+  console.warn('[LLM] Auto-detect: No local model and no ANTHROPIC_API_KEY - AI features disabled');
 }

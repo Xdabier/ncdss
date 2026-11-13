@@ -1,5 +1,5 @@
 /**
- * Standalone migration script
+ * Applies pending database migrations from the command line
  * Run with: npx tsx src/scripts/run-migrations.ts
  */
 

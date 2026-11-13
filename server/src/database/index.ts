@@ -94,11 +94,7 @@ export async function initDatabase() {
   return db;
 }
 
-export function getDb() {
-  // Check for global db (used by standalone server)
-  if ((global as any).__db) {
-    return (global as any).__db;
-  }
+export function getDb(): BetterSQLite3Database<typeof schema> {
   if (!db) throw new Error('Database not initialized');
   return db;
 }
@@ -135,7 +131,7 @@ export function clearPatientData(): number {
   return result;
 }
 
-export async function seedDefaultAdmin() {
+async function seedDefaultAdmin() {
   try {
     const existingUsers = await getDb().select().from(schema.users).limit(1);
 
@@ -161,7 +157,7 @@ export async function seedDefaultAdmin() {
   }
 }
 
-export async function seedDefaultERConfig() {
+async function seedDefaultERConfig() {
   try {
     const existingConfig = await getDb().select().from(schema.erConfiguration).limit(1);
 

@@ -73,27 +73,6 @@ export async function notifyDoctorPatientAssigned(
 }
 
 /**
- * Notify relevant staff about a critical patient (ESI 1-2).
- */
-export async function notifyCriticalPatient(
-  userIds: string[],
-  patientId: string,
-  patientName: string,
-  reason: string
-): Promise<void> {
-  for (const userId of userIds) {
-    await createNotification({
-      userId,
-      type: NotificationType.CRITICAL_PATIENT,
-      title: `CRITIQUE: ${patientName}`,
-      message: reason,
-      priority: NotificationPriority.CRITICAL,
-      relatedPatientId: patientId,
-    });
-  }
-}
-
-/**
  * Notify a doctor that their shift is ending with patients still assigned.
  */
 export async function notifyShiftEnding(
@@ -241,7 +220,7 @@ export async function cleanupExpiredNotifications(): Promise<number> {
       )
     );
 
-  return (result as any).changes ?? 0;
+  return result.changes ?? 0;
 }
 
 // ============================================================================

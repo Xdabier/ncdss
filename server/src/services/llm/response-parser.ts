@@ -195,7 +195,7 @@ export function parseUnifiedAnalysisResponse(
 
 // ─── Utility Functions ────────────────────────────────────────────────────────
 
-export function normalizeUrgency(value: unknown): 'routine' | 'urgent' | 'emergent' {
+function normalizeUrgency(value: unknown): 'routine' | 'urgent' | 'emergent' {
   const normalized = String(value).toLowerCase();
   if (normalized === 'emergent' || normalized === 'émergent') return 'emergent';
   if (normalized === 'urgent') return 'urgent';

@@ -14,7 +14,7 @@ export interface BenchmarkEntry {
   method: 'generatePreDiagnosis' | 'generatePreDiagnosisStream' | 'generateUnifiedAnalysis' | 'generateUnifiedAnalysisStream';
   modelFile: string;
 
-  // Token estimates (approximate — based on output string length / 4)
+  // Token estimates (approximate - based on output string length / 4)
   promptLengthChars: number;
   outputLengthChars: number;
   promptTokenEstimate: number;
@@ -84,7 +84,7 @@ function getLogStream(): fs.WriteStream {
 
 /**
  * Write a benchmark entry to the JSONL log.
- * Non-blocking, fire-and-forget — never throws.
+ * Non-blocking, fire-and-forget - never throws.
  */
 export function logBenchmark(entry: BenchmarkEntry): void {
   try {

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { eq, like, or, and, sql, count, countDistinct } from 'drizzle-orm';
+import { eq, like, or, and, count, countDistinct } from 'drizzle-orm';
 import * as XLSX from 'xlsx';
 import { getDb } from '../../database';
 import {
@@ -9,6 +9,7 @@ import {
   medicalInterventions,
   patients,
 } from '../../database/schema';
+import { AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
@@ -69,12 +70,12 @@ interface ValidationError {
 }
 
 // ---------------------------------------------------------------------------
-// POST /import — Bulk import from Excel (ADMIN/SUPER_ADMIN only)
+// POST /import - Bulk import from Excel (ADMIN/SUPER_ADMIN only)
 // ---------------------------------------------------------------------------
 
 router.post('/import', async (req, res) => {
   try {
-    const { role } = (req as any).user;
+    const { role } = (req as AuthRequest).user!;
     if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
       return res.status(403).json({ error: 'Accès non autorisé' });
     }
@@ -354,7 +355,7 @@ router.post('/import', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// GET /pathologies — List pathologies with filters
+// GET /pathologies - List pathologies with filters
 // ---------------------------------------------------------------------------
 
 router.get('/pathologies', async (req, res) => {
@@ -383,13 +384,13 @@ router.get('/pathologies', async (req, res) => {
       conditions.push(eq(pathologies.triagePriority, triagePriority));
     }
 
-    let query = db.select().from(pathologies);
+    let query = db.select().from(pathologies).$dynamic();
 
     if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any;
+      query = query.where(and(...conditions));
     }
 
-    const result = await (query as any)
+    const result = await query
       .limit(Math.min(Number(limit) || 50, 500))
       .offset(Number(offset) || 0);
 
@@ -401,7 +402,7 @@ router.get('/pathologies', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// GET /pathologies/:id — Single pathology with symptoms + interventions
+// GET /pathologies/:id - Single pathology with symptoms + interventions
 // ---------------------------------------------------------------------------
 
 router.get('/pathologies/:id', async (req, res) => {
@@ -449,7 +450,7 @@ router.get('/pathologies/:id', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// GET /symptoms — All unique symptom codes
+// GET /symptoms - All unique symptom codes
 // ---------------------------------------------------------------------------
 
 router.get('/symptoms', async (req, res) => {
@@ -473,7 +474,7 @@ router.get('/symptoms', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// GET /stats — Counts per table, per category
+// GET /stats - Counts per table, per category
 // ---------------------------------------------------------------------------
 
 router.get('/stats', async (req, res) => {

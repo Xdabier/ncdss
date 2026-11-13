@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs/promises';
+import type { Llama, LlamaModel, LlamaChatSession, LlamaGrammar, GbnfJsonSchema } from 'node-llama-cpp';
 import { LLMProvider, PreDiagnosisContext, PreDiagnosisSuggestion, StreamChunk, UnifiedAnalysisContext, UnifiedAnalysisResult } from '../index';
 import { logBenchmark, estimateTokens, validateUnifiedSchema, validatePreDiagnosisSchema, closeBenchmarkLogger, type BenchmarkEntry } from '../benchmark-logger';
 import {
@@ -19,16 +20,16 @@ import {
 } from '../response-parser';
 
 // Types for node-llama-cpp (dynamically imported)
-type LlamaInstance = any;
-type LlamaModelInstance = any;
-type LlamaChatSessionConstructor = any;
+type LlamaInstance = Llama;
+type LlamaModelInstance = LlamaModel;
+type LlamaChatSessionConstructor = typeof LlamaChatSession;
 
 export class LlamaCppProvider implements LLMProvider {
   private llama: LlamaInstance | null = null;
   private model: LlamaModelInstance | null = null;
   private LlamaChatSession: LlamaChatSessionConstructor | null = null;
-  private responseGrammar: any | null = null;
-  private unifiedResponseGrammar: any | null = null;
+  private responseGrammar: LlamaGrammar | null = null;
+  private unifiedResponseGrammar: LlamaGrammar | null = null;
   private modelsDir: string;
   private modelPath: string;
   private resolvedModelPath: string = '';
@@ -116,7 +117,7 @@ export class LlamaCppProvider implements LLMProvider {
         || resolvedPath.includes('ncdss-medical')
         || resolvedPath.includes('finetuned');
       if (this.isFineTuned) {
-        console.log('[LlamaCpp] Fine-tuned model detected — using optimized prompt and parameters');
+        console.log('[LlamaCpp] Fine-tuned model detected - using optimized prompt and parameters');
       }
 
       // Resolve GPU layers from env or auto-detect
@@ -139,7 +140,7 @@ export class LlamaCppProvider implements LLMProvider {
       // Pre-create JSON schema grammars for constrained decoding
       try {
         this.responseGrammar = await this.llama.createGrammarForJsonSchema(PRE_DIAGNOSIS_JSON_SCHEMA);
-        const unifiedSchema = this.isFineTuned
+        const unifiedSchema: GbnfJsonSchema = this.isFineTuned
           ? UNIFIED_ANALYSIS_JSON_SCHEMA_FINETUNED
           : UNIFIED_ANALYSIS_JSON_SCHEMA_BASE;
         this.unifiedResponseGrammar = await this.llama.createGrammarForJsonSchema(unifiedSchema);

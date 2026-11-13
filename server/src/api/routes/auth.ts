@@ -257,20 +257,12 @@ router.post('/refresh', async (req, res) => {
 router.post('/logout', async (req, res) => {
   try {
     const { refreshToken } = req.body;
-    const ipAddress = req.ip || req.socket?.remoteAddress || 'unknown';
-    const userAgent = req.get('User-Agent') || 'unknown';
 
     if (!refreshToken) {
       return res.status(400).json({ error: 'Refresh token requis' });
     }
 
     const db = getDb();
-
-    // Find the token to get user info for audit
-    const [tokenRecord] = await db
-      .select()
-      .from(refreshTokens)
-      .where(eq(refreshTokens.token, refreshToken));
 
     // Revoke the refresh token
     await db
