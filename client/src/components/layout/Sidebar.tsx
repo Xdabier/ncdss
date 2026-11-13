@@ -10,19 +10,13 @@ import {
   UserCircle,
   BarChart3,
   ClipboardList,
-  Search,
-  BookOpen,
   Activity,
   Stethoscope,
   Heart,
-  HelpCircle,
   Lock,
-  Upload,
   Database,
   Shield,
   UserPlus,
-  Edit,
-  AlertTriangle,
   CalendarClock,
   Monitor,
 } from 'lucide-react';
@@ -96,12 +90,6 @@ const navItems: NavItem[] = [
     path: CLIENT_ROUTES.admin.audit,
     label: "Journal d'Audit",
     icon: Shield,
-    roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
-  },
-  {
-    path: CLIENT_ROUTES.admin.backup,
-    label: 'Sauvegardes',
-    icon: Database,
     roles: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
   },
 
@@ -180,61 +168,11 @@ const navItems: NavItem[] = [
     ],
   },
 
-  // Shared/Lookup section
-  {
-    path: CLIENT_ROUTES.shared.patientSearch,
-    label: 'Recherche Patient',
-    icon: Search,
-    roles: [
-      UserRole.NURSE,
-      UserRole.NURSE_SUPERVISOR,
-      UserRole.DOCTOR,
-      UserRole.ADMIN,
-      UserRole.SUPER_ADMIN,
-    ],
-  },
-  {
-    path: CLIENT_ROUTES.shared.pathologyLookup,
-    label: 'Consultation Pathologies',
-    icon: BookOpen,
-    roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.DOCTOR, UserRole.SUPER_ADMIN],
-  },
-  {
-    path: CLIENT_ROUTES.shared.interventionsLookup,
-    label: 'Consultation Interventions',
-    icon: BookOpen,
-    roles: [UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.DOCTOR, UserRole.SUPER_ADMIN],
-  },
-
   // User settings
   {
     path: CLIENT_ROUTES.profile,
     label: 'Mon Profil',
     icon: UserCircle,
-    roles: [
-      UserRole.NURSE,
-      UserRole.NURSE_SUPERVISOR,
-      UserRole.DOCTOR,
-      UserRole.ADMIN,
-      UserRole.SUPER_ADMIN,
-    ],
-  },
-  {
-    path: CLIENT_ROUTES.settings,
-    label: 'Paramètres',
-    icon: Settings,
-    roles: [
-      UserRole.NURSE,
-      UserRole.NURSE_SUPERVISOR,
-      UserRole.DOCTOR,
-      UserRole.ADMIN,
-      UserRole.SUPER_ADMIN,
-    ],
-  },
-  {
-    path: CLIENT_ROUTES.help,
-    label: 'Aide',
-    icon: HelpCircle,
     roles: [
       UserRole.NURSE,
       UserRole.NURSE_SUPERVISOR,

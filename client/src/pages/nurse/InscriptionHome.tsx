@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Eye, Edit } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { DataTable, Column } from '../../components/ui/DataTable';
@@ -36,11 +36,7 @@ export default function InscriptionHome() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    loadPatients();
-  }, [search]);
-
-  const loadPatients = async () => {
+  const loadPatients = useCallback(async () => {
     try {
       const api = await getApi();
       const params: Record<string, string> = {};
@@ -53,7 +49,11 @@ export default function InscriptionHome() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search]);
+
+  useEffect(() => {
+    loadPatients();
+  }, [loadPatients]);
 
   const columns: Column<Patient>[] = [
     {
@@ -71,7 +71,7 @@ export default function InscriptionHome() {
       key: 'chiefComplaint',
       header: 'Motif',
       width: '25%',
-      render: (p) => p.chiefComplaint || <span className="text-gray-400">—</span>
+      render: (p) => p.chiefComplaint || <span className="text-gray-400">-</span>
     },
     {
       key: 'status',
@@ -96,18 +96,6 @@ export default function InscriptionHome() {
       width: '10%',
       render: (p) => (
         <div className="flex gap-1">
-          {p.status === PatientStatus.REGISTERED && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(CLIENT_ROUTES.nurse.inscription.edit(p.id));
-              }}
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-          )}
           <Button
             size="sm"
             variant="ghost"

@@ -4,8 +4,6 @@ export const CLIENT_ROUTES = {
   lock: '/lock',
   dashboard: '/dashboard',
   profile: '/profile',
-  settings: '/settings',
-  help: '/help',
 
   admin: {
     erConfig: '/admin/er-config',
@@ -17,15 +15,7 @@ export const CLIENT_ROUTES = {
     boxAssignments: '/admin/box-assignments',
     clinicalData: '/admin/clinical-data',
     clinicalDataImport: '/admin/clinical-data/import',
-    // Deprecated: old routes kept for redirect support
-    pathologies: '/admin/pathologies',
-    pathologyImport: '/admin/pathologies/import',
-    pathologyDetail: (id: string | number) => `/admin/pathologies/${id}`,
-    interventions: '/admin/interventions',
-    interventionDetail: (id: string | number) => `/admin/interventions/${id}`,
-    interventionsImport: '/admin/interventions/import',
     audit: '/admin/audit',
-    backup: '/admin/backup',
   },
 
   supervisor: {
@@ -40,18 +30,10 @@ export const CLIENT_ROUTES = {
     inscription: {
       home: '/nurse/inscription',
       register: '/nurse/inscription/register',
-      edit: (id: string | number) => `/nurse/inscription/edit/${id}`,
     },
     triage: {
       queue: '/nurse/triage',
       abcde: (id: string | number) => `/nurse/triage/${id}/abcde`,
-      vitals: (id: string | number) => `/nurse/triage/${id}/vitals`,
-      suggestions: (id: string | number) => `/nurse/triage/${id}/suggestions`, // Legacy: redirects to complete
-      score: (id: string | number) => `/nurse/triage/${id}/score`, // Legacy: redirects to complete
-      complete: (id: string | number) => `/nurse/triage/${id}/complete`,
-      esi: (id: string | number) => `/nurse/triage/${id}/esi`,
-      orientation: (id: string | number) => `/nurse/triage/${id}/orientation`,
-      summary: (id: string | number) => `/nurse/triage/${id}/summary`,
     },
     treatment: {
       queue: '/nurse/treatment',
@@ -66,19 +48,11 @@ export const CLIENT_ROUTES = {
   doctor: {
     patients: '/doctor/patients',
     patientDetail: (id: string | number) => `/doctor/patients/${id}`,
-    patientHistory: (id: string | number) => `/doctor/patients/${id}/history`,
     abcdeReview: (id: string | number) => `/doctor/patients/${id}/abcde`,
-    aiDiagnosis: (id: string | number) => `/doctor/patients/${id}/ai-diagnosis`,
-    diagnosis: (id: string | number) => `/doctor/patients/${id}/diagnosis`,
-    ecg: (id: string | number) => `/doctor/patients/${id}/ecg`,
   },
 
   shared: {
-    patientSearch: '/patients/search',
     patientDetail: (id: string | number) => `/patients/${id}`,
-    patientTimeline: (id: string | number) => `/patients/${id}/timeline`,
-    pathologyLookup: '/lookup/pathologies',
-    interventionsLookup: '/lookup/interventions',
     trackingBoard: '/tracking-board',
   },
 } as const;

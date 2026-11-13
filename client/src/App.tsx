@@ -11,8 +11,6 @@ import Login from './pages/Login';
 import LockScreen from './pages/LockScreen';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
-import Settings from './pages/Settings';
-import Help from './pages/Help';
 
 // Hooks
 import { useInactivityLock } from './hooks/useInactivityLock';
@@ -28,7 +26,6 @@ import BoxAssignments from './pages/admin/BoxAssignments';
 import ClinicalDataPage from './pages/admin/ClinicalDataPage';
 import ClinicalDataImportPage from './pages/admin/ClinicalDataImportPage';
 import AuditLog from './pages/admin/AuditLog';
-import BackupManagement from './pages/admin/BackupManagement';
 
 // Supervisor pages
 import WeeklySchedule from './pages/supervisor/WeeklySchedule';
@@ -40,10 +37,8 @@ import SupervisorPatientDetail from './pages/supervisor/PatientDetail';
 // Nurse pages
 import InscriptionHome from './pages/nurse/InscriptionHome';
 import PatientRegistration from './pages/nurse/PatientRegistration';
-import PatientEdit from './pages/nurse/PatientEdit';
 import TriageQueue from './pages/nurse/triage/TriageQueue';
 import TriageWorkflow from './pages/nurse/triage/TriageWorkflow';
-// TriageComplete functionality absorbed into TriageWorkflow
 import TreatmentQueue from './pages/nurse/treatment/TreatmentQueue';
 import PatientCare from './pages/nurse/treatment/PatientCare';
 import VitalsUpdate from './pages/nurse/treatment/VitalsUpdate';
@@ -54,17 +49,9 @@ import DeteriorationAlert from './pages/nurse/treatment/DeteriorationAlert';
 // Doctor pages
 import MyPatients from './pages/doctor/MyPatients';
 import PatientDetail from './pages/doctor/PatientDetail';
-import PatientHistory from './pages/doctor/PatientHistory';
 import ABCDEReview from './pages/doctor/ABCDEReview';
-import AIPreDiagnosis from './pages/doctor/AIPreDiagnosis';
-import DiagnosisEntry from './pages/doctor/DiagnosisEntry';
-import ECGReview from './pages/doctor/ECGReview';
 
 // Shared pages
-import PatientSearch from './pages/shared/PatientSearch';
-import PatientTimeline from './pages/shared/PatientTimeline';
-import PathologyLookup from './pages/shared/PathologyLookup';
-import InterventionsLookup from './pages/shared/InterventionsLookup';
 import TrackingBoard from './pages/shared/TrackingBoard';
 
 function BackgroundServices() {
@@ -102,22 +89,6 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Profile />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path={CLIENT_ROUTES.settings}
-          element={
-            <ProtectedRoute>
-              <Settings />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path={CLIENT_ROUTES.help}
-          element={
-            <ProtectedRoute>
-              <Help />
             </ProtectedRoute>
           }
         />
@@ -213,48 +184,12 @@ export default function App() {
               </RoleGuard>
             </ProtectedRoute>
           }
-        />
-        {/* Redirects from old pathology/intervention routes */}
-        <Route
-          path={CLIENT_ROUTES.admin.pathologies}
-          element={<Navigate to={CLIENT_ROUTES.admin.clinicalData} replace />}
-        />
-        <Route
-          path={CLIENT_ROUTES.admin.pathologyImport}
-          element={<Navigate to={CLIENT_ROUTES.admin.clinicalDataImport} replace />}
-        />
-        <Route
-          path={CLIENT_ROUTES.admin.pathologyDetail(':id')}
-          element={<Navigate to={CLIENT_ROUTES.admin.clinicalData} replace />}
-        />
-        <Route
-          path={CLIENT_ROUTES.admin.interventions}
-          element={<Navigate to={CLIENT_ROUTES.admin.clinicalData} replace />}
-        />
-        <Route
-          path={CLIENT_ROUTES.admin.interventionDetail(':id')}
-          element={<Navigate to={CLIENT_ROUTES.admin.clinicalData} replace />}
-        />
-        <Route
-          path={CLIENT_ROUTES.admin.interventionsImport}
-          element={<Navigate to={CLIENT_ROUTES.admin.clinicalDataImport} replace />}
-        />
-        <Route
+        />        <Route
           path={CLIENT_ROUTES.admin.audit}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
                 <AuditLog />
-              </RoleGuard>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path={CLIENT_ROUTES.admin.backup}
-          element={
-            <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
-                <BackupManagement />
               </RoleGuard>
             </ProtectedRoute>
           }
@@ -337,18 +272,6 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path={CLIENT_ROUTES.nurse.inscription.edit(':id')}
-          element={
-            <ProtectedRoute>
-              <RoleGuard
-                allowedRoles={[UserRole.NURSE, UserRole.NURSE_SUPERVISOR, UserRole.SUPER_ADMIN]}
-              >
-                <PatientEdit />
-              </RoleGuard>
-            </ProtectedRoute>
-          }
-        />
 
         {/* Nurse - Triage routes */}
         <Route
@@ -374,38 +297,7 @@ export default function App() {
               </RoleGuard>
             </ProtectedRoute>
           }
-        />
-        {/* Legacy vitals route - redirect to ABCDE */}
-        <Route
-          path={CLIENT_ROUTES.nurse.triage.vitals(':id')}
-          element={<Navigate to="../abcde" replace />}
-        />
-        {/* Legacy routes - all redirect to abcde (consolidated workflow) */}
-        <Route
-          path={CLIENT_ROUTES.nurse.triage.suggestions(':id')}
-          element={<Navigate to="../abcde" replace />}
-        />
-        <Route
-          path={CLIENT_ROUTES.nurse.triage.score(':id')}
-          element={<Navigate to="../abcde" replace />}
-        />
-        <Route
-          path={CLIENT_ROUTES.nurse.triage.complete(':id')}
-          element={<Navigate to="../abcde" replace />}
-        />
-        <Route
-          path={CLIENT_ROUTES.nurse.triage.esi(':id')}
-          element={<Navigate to="../abcde" replace />}
-        />
-        <Route
-          path={CLIENT_ROUTES.nurse.triage.orientation(':id')}
-          element={<Navigate to="../abcde" replace />}
-        />
-        <Route
-          path={CLIENT_ROUTES.nurse.triage.summary(':id')}
-          element={<Navigate to="../abcde" replace />}
-        />
-
+        />
         {/* Nurse - Treatment routes */}
         <Route
           path={CLIENT_ROUTES.nurse.treatment.queue}
@@ -502,51 +394,11 @@ export default function App() {
           }
         />
         <Route
-          path={CLIENT_ROUTES.doctor.patientHistory(':id')}
-          element={
-            <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.DOCTOR, UserRole.SUPER_ADMIN]}>
-                <PatientHistory />
-              </RoleGuard>
-            </ProtectedRoute>
-          }
-        />
-        <Route
           path={CLIENT_ROUTES.doctor.abcdeReview(':id')}
           element={
             <ProtectedRoute>
               <RoleGuard allowedRoles={[UserRole.DOCTOR, UserRole.SUPER_ADMIN]}>
                 <ABCDEReview />
-              </RoleGuard>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path={CLIENT_ROUTES.doctor.aiDiagnosis(':id')}
-          element={
-            <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.DOCTOR, UserRole.SUPER_ADMIN]}>
-                <AIPreDiagnosis />
-              </RoleGuard>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path={CLIENT_ROUTES.doctor.diagnosis(':id')}
-          element={
-            <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.DOCTOR, UserRole.SUPER_ADMIN]}>
-                <DiagnosisEntry />
-              </RoleGuard>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path={CLIENT_ROUTES.doctor.ecg(':id')}
-          element={
-            <ProtectedRoute>
-              <RoleGuard allowedRoles={[UserRole.DOCTOR, UserRole.SUPER_ADMIN]}>
-                <ECGReview />
               </RoleGuard>
             </ProtectedRoute>
           }
@@ -564,42 +416,10 @@ export default function App() {
 
         {/* Shared routes (all authenticated users) */}
         <Route
-          path={CLIENT_ROUTES.shared.patientSearch}
-          element={
-            <ProtectedRoute>
-              <PatientSearch />
-            </ProtectedRoute>
-          }
-        />
-        <Route
           path={CLIENT_ROUTES.shared.patientDetail(':id')}
           element={
             <ProtectedRoute>
               <PatientDetail />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path={CLIENT_ROUTES.shared.patientTimeline(':id')}
-          element={
-            <ProtectedRoute>
-              <PatientTimeline />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path={CLIENT_ROUTES.shared.pathologyLookup}
-          element={
-            <ProtectedRoute>
-              <PathologyLookup />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path={CLIENT_ROUTES.shared.interventionsLookup}
-          element={
-            <ProtectedRoute>
-              <InterventionsLookup />
             </ProtectedRoute>
           }
         />
