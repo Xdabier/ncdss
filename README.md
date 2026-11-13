@@ -19,6 +19,18 @@ It is made to run on a hospital local network: one desktop machine hosts the ser
 
 > **Medical disclaimer.** This is research software. It is not a certified medical device and has not been clinically validated. Its suggestions do not replace the judgment of qualified staff. Do not use it for real patient care without your own validation and regulatory approval.
 
+## Screenshots
+
+The patients below are invented for the demo.
+
+| Tracking board | Triage |
+| --- | --- |
+| ![Tracking board with ESI levels, boxes and scores](docs/screenshots/tracking-board.jpg) | ![Triage form with vital signs and live scores](docs/screenshots/triage.jpg) |
+
+| Doctor patient page | Dashboard |
+| --- | --- |
+| ![Doctor view of a patient with vitals, diagnoses and prescriptions](docs/screenshots/doctor-patient.jpg) | ![Dashboard with patient flow](docs/screenshots/dashboard.jpg) |
+
 ## What it does
 
 - Patient registration with chief complaint
