@@ -1,5 +1,16 @@
 # NCDSS
 
+[![CI](https://github.com/Xdabier/ncdss/actions/workflows/ci.yml/badge.svg)](https://github.com/Xdabier/ncdss/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Node 20](https://img.shields.io/badge/node-20-339933?logo=nodedotjs&logoColor=white)](.nvmrc)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Electron 28](https://img.shields.io/badge/Electron-28-47848F?logo=electron&logoColor=white)](https://www.electronjs.org/)
+[![React 18](https://img.shields.io/badge/React-18-20232A?logo=react&logoColor=white)](https://react.dev/)
+[![SQLite](https://img.shields.io/badge/SQLite-Drizzle_ORM-003B57?logo=sqlite&logoColor=white)](https://orm.drizzle.team/)
+[![Runs offline](https://img.shields.io/badge/LLM-runs_offline-6f42c1)](#ai-analysis)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
+[![Built with Claude](https://img.shields.io/badge/built_with-Claude-D97757?logo=claude&logoColor=white)](#how-this-project-was-built)
+
 Nursing Clinical Decision Support System for emergency rooms.
 
 NCDSS helps emergency room staff register patients, run an ABCDE triage, compute clinical scores, and get suggestions for orientation and interventions. It was built for Tunisian hospitals, so the whole user interface is in French.
@@ -46,7 +57,7 @@ Run everything from the repository root unless a step says otherwise.
 
 ```bash
 # 1. Get the code
-git clone <repository-url>
+git clone https://github.com/Xdabier/ncdss.git
 cd ncdss
 
 # 2. Install all workspaces
@@ -208,9 +219,15 @@ The core workflows work end to end. Known gaps:
 - No offline mode, clients need a live connection to the server
 - Role checks on patient routes are done in the client, not on the server (see [SECURITY.md](SECURITY.md))
 
+## How this project was built
+
+Most of the code in this repository was written by Claude, Anthropic's AI model, working through Claude Code. My part was to manage and guide it: I set the goals, made the decisions and steered the work until it reached this version.
+
+I am saying it plainly so you know what you are reading. Review the code the way you would review any other code before you rely on it, and even more so because this is clinical software.
+
 ## Contributing
 
-Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first. Report security issues as described in [SECURITY.md](SECURITY.md).
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first, then look at the [good first issues](https://github.com/Xdabier/ncdss/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22). Report security issues as described in [SECURITY.md](SECURITY.md).
 
 Coding agents should start with [AGENTS.md](AGENTS.md).
 

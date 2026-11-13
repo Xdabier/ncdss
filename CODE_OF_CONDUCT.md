@@ -13,4 +13,4 @@ This applies to issues, pull requests, reviews and any other project space.
 
 ## Reporting
 
-If someone behaves in a way that breaks this code, contact the maintainer privately, using the same channel as in [SECURITY.md](SECURITY.md). Reports are kept confidential.
+If someone behaves in a way that breaks this code, contact the maintainer privately through their [GitHub profile](https://github.com/Xdabier). Reports are kept confidential.

@@ -6,7 +6,7 @@ NCDSS handles health data, so security reports are taken seriously.
 
 Please do not open a public issue for a security problem.
 
-Report it privately to the maintainer, either through the private vulnerability reporting feature of the repository host, or by email to the address of the latest commits on the main branch.
+Report it privately through [GitHub private vulnerability reporting](https://github.com/Xdabier/ncdss/security/advisories/new).
 
 Include what you can of the following:
 
