@@ -87,13 +87,13 @@ export async function auditMiddleware(
   // Capture original json method
   const originalJson = res.json.bind(res);
 
-  res.json = function (data: any) {
+  res.json = function (data: unknown) {
     // Only log successful operations (security failures are handled separately)
     const isSuccess = res.statusCode >= 200 && res.statusCode < 300;
 
     if (isSuccess) {
       // Determine the action before deciding whether to log
-      const action = determineAction(req.method, pathParts, resource);
+      const action = determineAction(req.method, pathParts);
 
       // Only log high-priority actions
       if (shouldLogAction(action, resource)) {
@@ -112,10 +112,14 @@ export async function auditMiddleware(
 /**
  * Determine the action type from request method and path
  */
-function determineAction(method: string, pathParts: string[], resource: string): string {
+function determineAction(method: string, pathParts: string[]): string {
   if (method === 'POST') {
     const subAction = pathParts[pathParts.length - 1];
-    if (['start-triage', 'complete-triage', 'analyze', 'retriage'].includes(subAction)) {
+    if (subAction === 'request-retriage') {
+      return 'TRIAGE_RETRIAGE';
+    } else if (subAction === 'analyze-findings') {
+      return 'TRIAGE_ANALYZE';
+    } else if (['start-triage', 'complete-triage'].includes(subAction)) {
       return `TRIAGE_${subAction.replace('-', '_').toUpperCase()}`;
     } else if (['administer', 'cancel', 'hold'].includes(subAction)) {
       return `PRESCRIPTION_${subAction.toUpperCase()}`;
@@ -189,7 +193,7 @@ function shouldLogAction(action: string, resource: string): boolean {
 export async function logAuditEvent(
   action: string,
   resource: string,
-  details: Record<string, any>,
+  details: Record<string, unknown> & { resourceId?: string | null },
   userId?: string | null,
   username?: string
 ): Promise<void> {
@@ -232,7 +236,7 @@ async function logAuditEntry(
   req: AuditableRequest,
   resource: string,
   pathParts: string[],
-  responseData: any,
+  responseData: unknown,
   statusCode: number,
   action: string
 ): Promise<void> {
@@ -252,10 +256,13 @@ async function logAuditEntry(
     }
 
     // Determine resource ID
-    const resourceId = pathParts[1] || responseData?.id || null;
+    const responseId = typeof responseData === 'object' && responseData !== null
+      ? (responseData as { id?: string }).id
+      : undefined;
+    const resourceId = pathParts[1] || responseId || null;
 
     // Build details object (minimal for reduced storage)
-    const details: Record<string, any> = {
+    const details: Record<string, unknown> = {
       username,
       ipAddress: req.ip || req.socket?.remoteAddress || 'unknown',
     };
@@ -284,7 +291,7 @@ async function logAuditEntry(
 /**
  * Remove sensitive data from audit logs
  */
-function sanitizeBody(body: any): any {
+function sanitizeBody(body: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
   if (!body) return null;
 
   const sanitized = { ...body };

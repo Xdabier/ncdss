@@ -1,9 +1,19 @@
 import { Router } from 'express';
-import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, sql, SQL } from 'drizzle-orm';
 import { getDb } from '../../database';
 import { auditLog, users } from '../../database/schema';
+import { AuthRequest } from '../middleware/auth';
 
 const router = Router();
+
+// Shape of the JSON stored in audit_log.new_values
+interface AuditDetails {
+  username?: string;
+  body?: unknown;
+  ipAddress?: string;
+  userAgent?: string;
+  raw?: string | null;
+}
 
 /**
  * GET /audit-log
@@ -12,7 +22,7 @@ const router = Router();
  */
 router.get('/', async (req, res) => {
   try {
-    const { role } = (req as any).user;
+    const { role } = (req as AuthRequest).user!;
 
     // Check role
     if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
@@ -24,7 +34,7 @@ router.get('/', async (req, res) => {
     const db = getDb();
 
     // Build conditions array
-    const conditions: any[] = [];
+    const conditions: SQL[] = [];
 
     if (startDate) {
       conditions.push(gte(auditLog.createdAt, startDate as string));
@@ -48,7 +58,7 @@ router.get('/', async (req, res) => {
         );
       } else if (action === 'TRIAGE') {
         conditions.push(
-          sql`${auditLog.action} LIKE 'TRIAGE_%' OR ${auditLog.action} LIKE 'ASSESS_%' OR ${auditLog.action} = 'SET_ESI'`
+          sql`(${auditLog.action} LIKE 'TRIAGE_%' OR ${auditLog.action} LIKE 'ASSESS_%' OR ${auditLog.action} = 'SET_ESI')`
         );
       } else {
         conditions.push(eq(auditLog.action, action as string));
@@ -73,17 +83,18 @@ router.get('/', async (req, res) => {
       .from(auditLog)
       .orderBy(desc(auditLog.createdAt))
       .limit(parseInt(limit as string, 10))
-      .offset(parseInt(offset as string, 10));
+      .offset(parseInt(offset as string, 10))
+      .$dynamic();
 
     if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any;
+      query = query.where(and(...conditions));
     }
 
     const entries = await query;
 
     // Parse details JSON and add username
     const enrichedEntries = entries.map((entry: typeof entries[number]) => {
-      let details: any = {};
+      let details: AuditDetails = {};
       try {
         details = entry.details ? JSON.parse(entry.details) : {};
       } catch {
@@ -132,7 +143,7 @@ router.get('/', async (req, res) => {
  */
 router.get('/users', async (req, res) => {
   try {
-    const { role } = (req as any).user;
+    const { role } = (req as AuthRequest).user!;
 
     if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
       return res.status(403).json({ error: 'Accès non autorisé' });
@@ -162,7 +173,7 @@ router.get('/users', async (req, res) => {
  */
 router.get('/export', async (req, res) => {
   try {
-    const { role } = (req as any).user;
+    const { role } = (req as AuthRequest).user!;
 
     if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
       return res.status(403).json({ error: 'Accès non autorisé' });
@@ -173,7 +184,7 @@ router.get('/export', async (req, res) => {
     const db = getDb();
 
     // Build conditions
-    const conditions: any[] = [];
+    const conditions: SQL[] = [];
 
     if (startDate) {
       conditions.push(gte(auditLog.createdAt, startDate as string));
@@ -208,10 +219,11 @@ router.get('/export', async (req, res) => {
       })
       .from(auditLog)
       .orderBy(desc(auditLog.createdAt))
-      .limit(10000); // Limit export to 10k entries
+      .limit(10000) // Limit export to 10k entries
+      .$dynamic();
 
     if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any;
+      query = query.where(and(...conditions));
     }
 
     const entries = await query;
@@ -228,7 +240,7 @@ router.get('/export', async (req, res) => {
     ];
 
     const csvRows = entries.map((entry: typeof entries[number]) => {
-      let details: any = {};
+      let details: AuditDetails = {};
       try {
         details = entry.details ? JSON.parse(entry.details) : {};
       } catch {
