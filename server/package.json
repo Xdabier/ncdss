@@ -1,6 +1,6 @@
 {
   "name": "ncdss-server",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "NCDSS server: Electron app with embedded Express API and SQLite",
   "main": "dist-electron/main/index.js",
   "scripts": {
@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
-    "@ncdss/shared": "^1.0.0",
+    "@ncdss/shared": "^0.1.0",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^9.6.0",
     "cors": "^2.8.5",

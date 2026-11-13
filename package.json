@@ -1,6 +1,6 @@
 {
   "name": "ncdss",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Nursing Clinical Decision Support System for emergency rooms",
   "private": true,
   "workspaces": [
