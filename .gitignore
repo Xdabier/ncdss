@@ -3,68 +3,75 @@ node_modules/
 .pnp
 .pnp.js
 
-# Testing
-coverage/
-
-# Production
+# Build output
 build/
 dist/
 dist-electron/
+dist-scripts/
 out/
-android/
 release/
+coverage/
 
-# Misc
-.DS_Store
-*.pem
-nul
+# Native mobile projects, generated with "npx cap add"
+android/
+ios/
 
-# Debug
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# Environment Variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# IDE
+# OS and editors
+.DS_Store
+Thumbs.db
+nul
 .idea/
 .vscode/
 *.swp
 *.swo
 *.iml
 
-# Database
+# Local tool settings
+.claude/settings.local.json
+.claude/worktrees/
+.serena/
+
+# Secrets
+*.pem
+*.key
+
+# Databases
 *.db
 *.db-shm
 *.db-wal
 *.sqlite
 *.sqlite3
 
-# Capacitor / Mobile
-# We track the platform folders (android/ios) but ignore their build artifacts and pods
-# If you prefer to ignore the platforms entirely (generating them on CI), uncomment the next two lines:
-# client/android/
-# client/ios/
-client/android/app/build/
-client/android/.gradle/
-client/ios/App/App/public/
-client/ios/App/Pods/
-
-# Electron
-server/dist-electron/
-server/release/
-
-# LLM Models (large files, download separately)
+# LLM models (large files, downloaded separately)
 server/models/
 *.gguf
 
-# Benchmark logs (JSONL, generated during inference)
+# Benchmark logs generated during inference
 server/benchmark-logs/
 
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Fine-tuning data and outputs
 finetuning/training-data/
+server/training-data/
+finetuning/ncdss-*/
+
+# Clinical datasets are not shipped with the repository
+*.xlsx

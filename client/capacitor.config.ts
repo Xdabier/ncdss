@@ -8,13 +8,6 @@ const config: CapacitorConfig = {
     androidScheme: 'http',
     cleartext: true,
   },
-  plugins: {
-    CapacitorSQLite: {
-      iosDatabaseLocation: 'Library/CapacitorDatabase',
-      iosIsEncryption: false,
-      androidIsEncryption: false,
-    },
-  },
 };
 
 export default config;

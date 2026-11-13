@@ -1,7 +1,7 @@
 {
   "name": "ncdss-server",
   "version": "1.0.0",
-  "description": "NCDSS Server - Electron + Express",
+  "description": "NCDSS server: Electron app with embedded Express API and SQLite",
   "main": "dist-electron/main/index.js",
   "scripts": {
     "dev": "vite",
@@ -15,11 +15,9 @@
     "db:generate": "npm run rebuild:node && drizzle-kit generate",
     "db:push": "npm run rebuild:node && drizzle-kit push",
     "db:studio": "npm run rebuild:node && drizzle-kit studio",
-    "db:seed": "npm run rebuild:node && tsx src/scripts/seed-reference-data.ts",
-    "server:standalone": "npm run rebuild:node && tsx src/scripts/standalone-server.ts",
-    "models:pull": "node-llama-cpp pull --dir ./models hf:Qwen/Qwen2.5-1.5B-Instruct:",
-    "models:pull-light": "node-llama-cpp pull --dir ./models hf:Qwen/Qwen3-4B-GGUF:Q4_K_M",
-    "gpu:check": "npx --no node-llama-cpp inspect gpu"
+    "db:seed": "npm run rebuild:node && tsx src/scripts/migrate-clinical-data.ts",
+    "gpu:check": "npx --no node-llama-cpp inspect gpu",
+    "models:pull": "node-llama-cpp pull --dir ./models hf:Qwen/Qwen3-4B-GGUF:Q4_K_M"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
@@ -30,8 +28,7 @@
     "drizzle-orm": "^0.45.1",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
-    "node-llama-cpp": "^3.3.0",
-    "uuid": "^13.0.0"
+    "node-llama-cpp": "^3.3.0"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.2",
@@ -43,28 +40,27 @@
     "@types/node": "^20.11.5",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
-    "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.17",
-    "axios": "^1.6.5",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "drizzle-kit": "^0.31.8",
     "electron": "^28.1.0",
     "electron-builder": "^24.9.1",
-    "lucide-react": "^0.312.0",
     "postcss": "^8.4.33",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "tailwind-merge": "^2.2.0",
     "tailwindcss": "^3.4.1",
     "tailwindcss-animate": "^1.0.7",
-    "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "^5.3.3",
     "vite": "^5.0.11",
     "vite-plugin-electron": "^0.15.5",
     "vite-plugin-electron-renderer": "^0.14.5",
     "xlsx": "^0.18.5"
-  }
+  },
+  "author": "Badii Boutar",
+  "license": "MIT",
+  "private": true
 }

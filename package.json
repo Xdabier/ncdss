@@ -1,7 +1,7 @@
 {
   "name": "ncdss",
   "version": "1.0.0",
-  "description": "Nursing Clinical Decision Support System",
+  "description": "Nursing Clinical Decision Support System for emergency rooms",
   "private": true,
   "workspaces": [
     "server",
@@ -11,7 +11,6 @@
   "scripts": {
     "dev:server": "npm run dev --workspace=server",
     "dev:client": "npm run dev --workspace=client",
-    "dev": "npm run dev:server & npm run dev:client",
     "build:server": "npm run build --workspace=server",
     "build:client": "npm run build --workspace=client",
     "build": "npm run build --workspace=shared && npm run build:server && npm run build:client",
@@ -27,21 +26,26 @@
     "nursing",
     "clinical",
     "decision-support",
-    "healthcare"
+    "healthcare",
+    "triage",
+    "emergency",
+    "electron",
+    "react"
   ],
-  "author": "",
+  "author": "Badii Boutar",
   "license": "MIT",
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^8.53.0",
-    "@typescript-eslint/parser": "^8.53.0",
+    "@eslint/js": "^9.39.2",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^17.0.0",
     "prettier": "^3.8.0",
     "typescript-eslint": "^8.53.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

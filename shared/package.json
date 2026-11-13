@@ -1,7 +1,7 @@
 {
   "name": "@ncdss/shared",
   "version": "1.0.0",
-  "description": "Shared types for NCDSS",
+  "description": "Shared types and route constants for NCDSS",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -10,9 +10,10 @@
     "dev": "tsc --watch"
   },
   "keywords": [],
-  "author": "",
+  "author": "Badii Boutar",
   "license": "MIT",
   "devDependencies": {
     "typescript": "^5.3.3"
-  }
+  },
+  "private": true
 }
