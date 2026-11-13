@@ -1,4 +1,4 @@
-"""Phase 1.5 — Variation augmentation: multiple valid responses per patient.
+"""Variation augmentation: multiple valid responses per patient.
 
 Generates 3 different labels for each selected patient using different
 temperatures and prompt suffixes, teaching the model that different phrasings
@@ -8,7 +8,7 @@ Supports two modes:
 - **Batch mode** (default): Submits all ~1,500 requests (500 patients x 3
   variations) as a single Anthropic batch for ~50% cost savings.
 - **Real-time mode** (``--realtime``): Uses ``client.messages.create()`` with
-  async concurrency — the original behavior.
+  async concurrency - the original behavior.
 
 Usage:
     python -m scripts.augment_variations
@@ -76,7 +76,7 @@ VARIATIONS = [
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Phase 1.5 — Variation augmentation (multiple labels per patient)"
+        description="Variation augmentation (multiple labels per patient)"
     )
     parser.add_argument(
         "--count",
@@ -661,7 +661,7 @@ async def main() -> None:
         patient_data = format_patient_prompt(patient, language)
 
         print("=" * 80)
-        print("DRY RUN — Variation Augmentation")
+        print("DRY RUN - Variation Augmentation")
         print(f"Selected {len(selected)} patients")
         print(f"Each gets {len(VARIATIONS)} variations")
         print(f"Total expected output: {len(selected) * len(VARIATIONS)} labels")
@@ -764,7 +764,7 @@ async def main() -> None:
         est_cost = (est_input_tokens * 3 + est_output_tokens * 15) / 1_000_000
 
     else:
-        # ---- Batch mode (default — 50% cost savings) ----
+        # ---- Batch mode (default - 50% cost savings) ----
         sync_client = get_anthropic_client()
 
         success, failed, total_variations = run_variations_batch(

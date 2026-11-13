@@ -1,7 +1,7 @@
 """Local fine-tuning script for NCDSS clinical decision support model.
 
 Fine-tunes Apollo2-0.5B (or Apollo-1.8B fallback) using QLoRA with Unsloth
-on an RTX 3050 Laptop GPU (4GB VRAM). Implements Phase 2 of the fine-tuning plan.
+on a GPU with as little as 4 GB of VRAM.
 
 Usage:
   python -m scripts.train
@@ -22,20 +22,20 @@ import time
 from pathlib import Path
 from typing import Any
 
-# Fix Windows cp1252 console encoding — Unsloth prints emoji (🦥) that cp1252 can't handle.
+# Fix Windows cp1252 console encoding - Unsloth prints emoji (🦥) that cp1252 can't handle.
 if sys.platform == "win32" and hasattr(sys.stdout, "buffer"):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-# Disable torch.compile/dynamo — causes graph break errors on Windows + Python 3.13 + torch 2.6.
+# Disable torch.compile/dynamo - causes graph break errors on Windows + Python 3.13 + torch 2.6.
 # Unsloth's fused CE loss uses @torch.compile internally, which hits unsupported builtins on
 # this platform. Monkey-patching torch.compile to a no-op forces eager mode throughout.
 # Training works correctly without it; dynamo is just an optional speed optimization.
 os.environ["TORCHDYNAMO_DISABLE"] = "1"
-# Fix Windows cp1252 console encoding — Unsloth prints emoji (🦥) that cp1252 can't handle.
+# Fix Windows cp1252 console encoding - Unsloth prints emoji (🦥) that cp1252 can't handle.
 os.environ["PYTHONIOENCODING"] = "utf-8"
 
-import torch  # noqa: E402 — must patch before unsloth import
+import torch  # noqa: E402 - must patch before unsloth import
 
 torch._dynamo.config.suppress_errors = True
 
@@ -403,7 +403,7 @@ def main() -> None:
     default_data_dir = finetuning_root.parent / "finetuning" / "training-data"
 
     parser = argparse.ArgumentParser(
-        description="Fine-tune Apollo2-0.5B for NCDSS clinical decision support (RTX 3050 4GB VRAM)",
+        description="Fine-tune Apollo2-0.5B for NCDSS clinical decision support",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -470,7 +470,7 @@ Examples:
     lora_alpha = args.lora_rank * 2  # Convention: 2x rank
 
     print("=" * 60)
-    print("NCDSS FINE-TUNING — LOCAL GPU TRAINING")
+    print("NCDSS FINE-TUNING - LOCAL GPU TRAINING")
     print("=" * 60)
     print(f"  Model:             {args.model_name}")
     print(f"  Training data:     {args.training_data}")
@@ -604,7 +604,7 @@ Examples:
     print_vram("After LoRA adapters")
 
     # -----------------------------------------------------------------------
-    # Dry run — stop here
+    # Dry run - stop here
     # -----------------------------------------------------------------------
     if args.dry_run:
         total_steps = (len(train_dataset) // (args.batch_size * args.grad_accum)) * args.epochs

@@ -1,15 +1,15 @@
-"""Phase 1.4 — Cross-lingual alignment: generate aligned FR/EN training pairs.
+"""Cross-lingual alignment: generate aligned FR/EN training pairs.
 
 Selects the highest-quality French labels and produces English translations
 of both the patient profiles and the unified labels, creating aligned pairs
 that teach the model language-invariant clinical reasoning.
 
 Supports two modes:
-- **Batch mode** (default): Two-phase batch pipeline — (1) translate FR
+- **Batch mode** (default): Two-phase batch pipeline - (1) translate FR
   patient profiles to EN, (2) distill EN labels for translated patients.
   Each phase uses the Anthropic Message Batches API for ~50% cost savings.
 - **Real-time mode** (``--realtime``): Uses ``client.messages.create()`` with
-  async concurrency — the original behavior.
+  async concurrency - the original behavior.
 
 Usage:
     python -m scripts.augment_crosslingual
@@ -59,7 +59,7 @@ MAX_RETRIES = 3
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Phase 1.4 — Cross-lingual alignment augmentation"
+        description="Cross-lingual alignment augmentation"
     )
     parser.add_argument(
         "--count",
@@ -601,7 +601,7 @@ def run_crosslingual_batch(
         ))
 
     if not distill_requests:
-        logger.warning("No translations succeeded — nothing to distill.")
+        logger.warning("No translations succeeded - nothing to distill.")
         _clear_translations_temp(data_dir)
         return 0, len(record_lookup)
 
@@ -759,7 +759,7 @@ async def main() -> None:
         label_prompt = prompt_template_en.replace("{PATIENT_DATA}", patient_data_en)
 
         print("=" * 80)
-        print("DRY RUN — Cross-lingual Alignment")
+        print("DRY RUN - Cross-lingual Alignment")
         print(f"Selected {len(selected)} patients for alignment")
         print(f"SAUV cases: {orientations.get('SAUV', 0)}")
         print(f"Mode: {'realtime' if args.realtime else 'batch'}")
@@ -854,7 +854,7 @@ async def main() -> None:
         est_cost = (est_input_tokens * 3 + est_output_tokens * 15) / 1_000_000
 
     else:
-        # ---- Batch mode (default — 50% cost savings) ----
+        # ---- Batch mode (default - 50% cost savings) ----
         sync_client = get_anthropic_client()
 
         success, failed = run_crosslingual_batch(

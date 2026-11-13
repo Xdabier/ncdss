@@ -1,6 +1,6 @@
-# NCDSS Fine-Tuning Configuration — Apollo2-0.5B (Primary)
+# NCDSS Fine-Tuning Configuration - Apollo2-0.5B (Primary)
 #
-# Target hardware: RTX 3050 Laptop GPU (4GB VRAM)
+# Target hardware: GPU with 4 GB of VRAM
 # Training method: QLoRA (4-bit quantized base + LoRA adapters)
 # Estimated VRAM usage: ~3.4 GB
 # Estimated training time: 2-3 hours (6 epochs, ~6,460 examples)

@@ -1,4 +1,4 @@
-"""Phase 1.1 — Generate synthetic patient profiles via Claude Sonnet.
+"""Generate synthetic patient profiles via Claude Sonnet.
 
 Generates ~4,600 patient profiles across 13 clinical categories in French
 and English, by calling Claude Sonnet in batches of 10 patients per API call.
@@ -94,7 +94,7 @@ def get_batch_diversity_instruction(batch_index: int, total_batches: int) -> str
     if batch_index % 5 == 0 and batch_index > 0:
         parts.append("Include at least 3 atypical presentations")
 
-    return " — ".join(parts)
+    return " - ".join(parts)
 
 
 def get_edge_case_instruction() -> str:
@@ -155,7 +155,7 @@ def extract_json_array(text: str, truncated: bool = False) -> list[dict]:
         if not truncated:
             raise
 
-    # Truncated response — salvage complete objects.
+    # Truncated response - salvage complete objects.
     # Walk backwards from the end to find the last complete object boundary
     # (a closing brace `}` followed optionally by whitespace/comma before truncation).
     logger.info("Attempting to salvage complete objects from truncated JSON...")
@@ -503,7 +503,7 @@ async def main() -> None:
         total_batches = math.ceil(target / BATCH_SIZE)
         prompt = build_prompt(template, cat, lang, 0, total_batches)
         print("=" * 80)
-        print(f"DRY RUN — Category: {cat['id']}, Language: {lang}")
+        print(f"DRY RUN - Category: {cat['id']}, Language: {lang}")
         print(f"Target: {target} patients, Batches: {total_batches}")
         print("=" * 80)
         print(prompt)

@@ -18,7 +18,7 @@ For each patient, provide:
    - Disability: GCS components (E/V/M), pupil reactivity, lateralizing signs, blood glucose, etc.
    - Exposure: temperature, rashes, wounds, edema, abdominal findings, etc.
 5. Relevant medical history and allergies
-6. Clinical scores (NEWS, GCS, qSOFA) — calculate correctly from vitals
+6. Clinical scores (NEWS, GCS, qSOFA) - calculate correctly from vitals
 
 Requirements:
 - Within this category, vary acuity levels (ESI 1-5)

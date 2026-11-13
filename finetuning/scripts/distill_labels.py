@@ -1,4 +1,4 @@
-"""Phase 1.3 — Distill unified ground-truth labels via Claude Sonnet.
+"""Distill unified ground-truth labels via Claude Sonnet.
 
 For each synthetic patient profile, calls Claude Sonnet to produce the unified
 JSON output (orientation, pathologies, interventions, tests, warnings) that the
@@ -9,7 +9,7 @@ Supports two modes:
   cost savings.  Requests are submitted as a batch, polled until completion,
   then validated with automatic retries.
 - **Real-time mode** (``--realtime``): Uses ``client.messages.create()`` with
-  async concurrency — the original behavior, useful for debugging or small runs.
+  async concurrency - the original behavior, useful for debugging or small runs.
 
 Usage:
     python -m scripts.distill_labels
@@ -393,7 +393,7 @@ def load_patients_file(filepath: str | Path) -> list[dict]:
     lines = text.splitlines()
     first_line = lines[0].strip()
     if first_line.startswith("{") and first_line.endswith("}"):
-        # Looks like proper JSONL — each line is a complete object
+        # Looks like proper JSONL - each line is a complete object
         records = []
         for line in lines:
             line = line.strip()
@@ -440,7 +440,7 @@ def _fix_json(text: str) -> str:
     # 1. Remove trailing commas before } or ]
     text = re.sub(r",\s*([}\]])", r"\1", text)
     # 2. Insert missing commas between any JSON value end and the next key.
-    #    Matches: ", ], }, digits, true, false, null — followed by newline + indent + "
+    #    Matches: ", ], }, digits, true, false, null - followed by newline + indent + "
     text = re.sub(
         r'(["\]\}]|true|false|null|\d)\s*\n(\s*")',
         r"\1,\n\2",
@@ -623,7 +623,7 @@ def log_distillation_error(
 
 
 # ---------------------------------------------------------------------------
-# Core processing — real-time mode (--realtime)
+# Core processing - real-time mode (--realtime)
 # ---------------------------------------------------------------------------
 
 
@@ -861,7 +861,7 @@ def build_distill_retry_request(
     system_text, user_text = split_prompt_for_caching(prompt_template, patient_data)
 
     if response_text is None:
-        # API-level failure — just re-send the original request
+        # API-level failure - just re-send the original request
         from scripts.batch_utils import build_batch_request
         return build_batch_request(
             custom_id=custom_id,
@@ -1078,7 +1078,7 @@ async def main() -> None:
         filled = prompt_template.replace("{PATIENT_DATA}", patient_data)
         system_text, user_text = split_prompt_for_caching(prompt_template, patient_data)
         print("=" * 80)
-        print(f"DRY RUN — Category: {cat_id}, Language: {lang}")
+        print(f"DRY RUN - Category: {cat_id}, Language: {lang}")
         print(f"Patient file: {filepath} ({len(patients)} patients)")
         print(f"Template: {template_name}")
         print(f"Mode: {'realtime' if args.realtime else 'batch'}")
@@ -1131,7 +1131,7 @@ async def main() -> None:
             )
             all_results.append(result)
     else:
-        # ---- Batch mode (default — 50% cost savings) ----
+        # ---- Batch mode (default - 50% cost savings) ----
         sync_client = get_anthropic_client()
 
         for cat_id, lang, filepath in patient_files:

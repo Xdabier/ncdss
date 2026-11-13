@@ -1,4 +1,4 @@
-"""Phase 1.6 — Dosage-focused training examples.
+"""Dosage-focused training examples.
 
 Generates 500 training examples where the distillation prompt emphasizes
 correct posologies. Selects patients where dosage accuracy matters most:
@@ -9,7 +9,7 @@ Supports two modes:
   cost savings.  Schema failures and dosage-insufficient results are merged
   into a single retry batch.
 - **Real-time mode** (``--realtime``): Uses ``client.messages.create()`` with
-  async concurrency — the original behavior.
+  async concurrency - the original behavior.
 
 Usage:
     python -m scripts.generate_dosage_examples
@@ -87,7 +87,7 @@ DOSAGE_RETRY_INSTRUCTION = (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Phase 1.6 — Dosage-focused training example generation"
+        description="Dosage-focused training example generation"
     )
     parser.add_argument(
         "--count",
@@ -550,7 +550,7 @@ def run_dosage_batch(
         response_text, error_msg = schema_retry_data[pid]
 
         if response_text is None:
-            # API-level failure — resend original
+            # API-level failure - resend original
             retry_requests.append(build_batch_request(
                 custom_id=pid,
                 model=MODEL,
@@ -751,7 +751,7 @@ async def main() -> None:
         filled = prompt_template.replace("{PATIENT_DATA}", patient_data)
 
         print("=" * 80)
-        print("DRY RUN — Dosage-Focused Examples")
+        print("DRY RUN - Dosage-Focused Examples")
         print(f"Selected {len(selected)} patients")
         print(f"Pediatric: {peds_count}")
         print(f"Categories: {dict(categories)}")
@@ -853,7 +853,7 @@ async def main() -> None:
         est_cost = (est_input_tokens * 3 + est_output_tokens * 15) / 1_000_000
 
     else:
-        # ---- Batch mode (default — 50% cost savings) ----
+        # ---- Batch mode (default - 50% cost savings) ----
         sync_client = get_anthropic_client()
 
         success, failed, total_dosage_hits = run_dosage_batch(

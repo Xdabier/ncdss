@@ -30,7 +30,7 @@ VALID_ORIENTATIONS = {"SAUV", "DECHOCAGE", "MEDICAL", "SURGICAL", "TRAUMA", "PED
 
 
 # ---------------------------------------------------------------------------
-# Patient data formatting — matches buildPromptFinetuned() (Plan Section 4.2)
+# Patient data formatting - matches buildPromptFinetuned() (Plan Section 4.2)
 # ---------------------------------------------------------------------------
 
 def format_patient_prompt(patient: dict, language: str) -> str:

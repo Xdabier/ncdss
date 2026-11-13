@@ -1,6 +1,6 @@
 """Evaluate a fine-tuned GGUF model against the held-out evaluation set.
 
-Computes all metrics from Phase 3 of the fine-tuning plan:
+Computes these metrics:
   - Structure: JSON validity, schema compliance
   - Orientation: accuracy, SAUV sensitivity/specificity, confusion matrix
   - Pathologies: top-1/top-3 accuracy, urgency, ICD-10, emergent sensitivity
@@ -8,8 +8,8 @@ Computes all metrics from Phase 3 of the fine-tuning plan:
   - Performance: latency P50/P95/mean, tokens per second
 
 Outputs:
-  - evaluation_report.md   — human-readable report with pass/fail verdicts
-  - evaluation_results.json — machine-readable per-sample results + aggregated metrics
+  - evaluation_report.md   - human-readable report with pass/fail verdicts
+  - evaluation_results.json - machine-readable per-sample results + aggregated metrics
 
 Usage:
   python -m scripts.evaluate_model [--eval-file PATH] [--model-path PATH]
@@ -210,7 +210,7 @@ def run_inference(
     """Run inference with JSON schema grammar constraint.
 
     Uses create_chat_completion() with response_format to enforce valid JSON
-    output matching the unified schema. This is critical for small models —
+    output matching the unified schema. This is critical for small models -
     without grammar constraint they generate unstructured text.
 
     The grammar_schema must be pre-stripped of unsupported keys (pattern,
@@ -411,7 +411,7 @@ def compute_metrics(results: list[SampleResult]) -> dict[str, Any]:
         if gt_o in orientation_cm and pred_o in orientation_cm.get(gt_o, {}):
             orientation_cm[gt_o][pred_o] += 1
 
-    # Pathologies — only on samples that have pathologies in both GT and prediction
+    # Pathologies - only on samples that have pathologies in both GT and prediction
     has_pathologies = [r for r in valid_results if r.ground_truth.get("pathologies") and r.prediction.get("pathologies")]
     n_pathologies = len(has_pathologies)
 
@@ -646,7 +646,7 @@ def format_example(label: str, r: SampleResult | None) -> str:
     pred_top = r.prediction.get("pathologies", [{}])[0].get("name", "?") if r.prediction.get("pathologies") else "?"
     lines.append(f"- **Top pathology:** GT=`{gt_top}` Pred=`{pred_top}` {'MATCH' if r.top1_correct else 'MISMATCH'}")
     lines.append(f"- **Urgency:** GT=`{r.gt_urgency}` Pred=`{r.pred_urgency}` {'CORRECT' if r.urgency_correct else 'WRONG'}")
-    lines.append(f"- **Jaccard — nursing:** {r.nursing_jaccard:.2f} | **medical:** {r.medical_jaccard:.2f} | **tests:** {r.tests_jaccard:.2f}")
+    lines.append(f"- **Jaccard - nursing:** {r.nursing_jaccard:.2f} | **medical:** {r.medical_jaccard:.2f} | **tests:** {r.tests_jaccard:.2f}")
 
     if r.error:
         lines.append(f"- **Error:** {r.error}")
@@ -944,9 +944,9 @@ def main() -> None:
         sys.exit(1)
 
     if levenshtein_distance is None:
-        logger.warning("Levenshtein package not installed — falling back to substring matching for fuzzy match.")
+        logger.warning("Levenshtein package not installed - falling back to substring matching for fuzzy match.")
     if unidecode is None:
-        logger.warning("unidecode package not installed — accent stripping disabled.")
+        logger.warning("unidecode package not installed - accent stripping disabled.")
 
     # --- Load evaluation data ---
     eval_path = Path(args.eval_file)
