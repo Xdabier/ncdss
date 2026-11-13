@@ -1,4 +1,4 @@
-import './load-env'; // Must be first — loads .env into process.env
+import './load-env'; // Must be first - loads .env into process.env
 import { app, BrowserWindow, ipcMain, shell, clipboard, dialog } from 'electron';
 import path from 'path';
 import { startServer, stopServer, getServerStatus } from './server';
@@ -22,7 +22,7 @@ import {
   getRecentLogsAsText,
 } from '../utils/logger';
 
-// Initialize logger immediately — patches console.* before any other code runs
+// Initialize logger immediately - patches console.* before any other code runs
 initLogger();
 
 let mainWindow: BrowserWindow | null = null;
@@ -60,12 +60,40 @@ function createWindow() {
   });
 }
 
+function isPortInUse(error: unknown): boolean {
+  return (error as NodeJS.ErrnoException)?.code === 'EADDRINUSE';
+}
+
+// A second instance would fight for the same port and database
+const hasInstanceLock = app.requestSingleInstanceLock();
+if (!hasInstanceLock) {
+  app.quit();
+}
+
+app.on('second-instance', () => {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.focus();
+});
+
 app.whenReady().then(async () => {
+  if (!hasInstanceLock) return;
+
   createWindow();
 
   // Auto-start server
   const ip = getLocalIP();
-  await startServer(PORT);
+  try {
+    await startServer(PORT);
+  } catch (error) {
+    const reason = isPortInUse(error)
+      ? `Le port ${PORT} est déjà utilisé par une autre application. Fermez-la puis relancez NCDSS Server.`
+      : `Le serveur n'a pas pu démarrer : ${error instanceof Error ? error.message : String(error)}`;
+    console.error('Server failed to start:', error);
+    dialog.showErrorBox('NCDSS Server', reason);
+    app.quit();
+    return;
+  }
 
   // Start background shift monitor
   startShiftMonitor();
@@ -78,7 +106,6 @@ app.whenReady().then(async () => {
   mainWindow?.webContents.send('server-status', {
     running: true,
     ip: `${ip}:${PORT}`,
-    connectedClients: 0,
     llmStatus: 'not_loaded',
     llmProvider: providerStatus.activeType,
   });
@@ -103,7 +130,6 @@ ipcMain.handle('start-server', async () => {
   mainWindow?.webContents.send('server-status', {
     running: true,
     ip: `${ip}:${PORT}`,
-    connectedClients: 0,
     llmStatus: 'not_loaded',
   });
 });
@@ -114,7 +140,6 @@ ipcMain.handle('stop-server', () => {
   mainWindow?.webContents.send('server-status', {
     running: false,
     ip: `${ip}:${PORT}`,
-    connectedClients: 0,
     llmStatus: 'not_loaded',
   });
 });
@@ -136,10 +161,6 @@ ipcMain.handle('switch-llm-provider', async (_event, type: LLMProviderType) => {
     ...status,
     ip: `${ip}:${PORT}`,
   });
-});
-
-ipcMain.handle('trigger-backup', () => {
-  console.log('Sauvegarde non implémentée');
 });
 
 ipcMain.handle('open-logs', () => {

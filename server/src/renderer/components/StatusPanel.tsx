@@ -5,7 +5,6 @@ import { Badge } from '../../components/ui/badge';
 interface Props {
   status: {
     running: boolean;
-    connectedClients: number;
     llmStatus: string;
     llmProvider?: 'local' | 'claude';
   };
@@ -30,11 +29,6 @@ export function StatusPanel({ status }: Props) {
               ARRÊTÉ
             </Badge>
           )}
-        </div>
-
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Clients connectés:</span>
-          <Badge variant="outline">{status.connectedClients}</Badge>
         </div>
 
         <div className="flex items-center justify-between">

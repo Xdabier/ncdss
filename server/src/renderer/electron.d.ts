@@ -12,10 +12,16 @@ export interface LLMProviderStatus {
   claudeAvailable: boolean;
 }
 
+export interface ServerStatusEvent {
+  running: boolean;
+  ip: string;
+  llmStatus: 'not_loaded' | 'loading' | 'ready' | 'error';
+  llmProvider?: LLMProviderType;
+}
+
 export interface ElectronAPI {
   getServerStatus: () => Promise<{
     running: boolean;
-    connectedClients: number;
     llmStatus: 'not_loaded' | 'loading' | 'ready' | 'error';
     llmProvider: LLMProviderType;
     ip: string;
@@ -23,7 +29,6 @@ export interface ElectronAPI {
   startServer: () => Promise<void>;
   stopServer: () => Promise<void>;
   getIP: () => Promise<string>;
-  triggerBackup: () => Promise<void>;
   openLogs: () => void;
   openDataFolder: () => void;
   getRecentLogs: () => Promise<LogEntry[]>;
@@ -32,7 +37,7 @@ export interface ElectronAPI {
   clearPatientData: () => Promise<boolean>;
   getLLMProviderStatus: () => Promise<LLMProviderStatus>;
   switchLLMProvider: (type: LLMProviderType) => Promise<void>;
-  onServerStatus: (callback: (status: any) => void) => void;
+  onServerStatus: (callback: (status: ServerStatusEvent) => void) => void;
   onLogEntry: (callback: (entry: LogEntry) => void) => void;
 }
 

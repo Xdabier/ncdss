@@ -10,7 +10,6 @@ import type { LogEntry, LLMProviderType, LLMProviderStatus } from './electron.d'
 interface ServerStatus {
   running: boolean;
   ip: string;
-  connectedClients: number;
   llmStatus: 'not_loaded' | 'loading' | 'ready' | 'error';
   llmProvider?: LLMProviderType;
 }
@@ -19,7 +18,6 @@ export default function App() {
   const [status, setStatus] = useState<ServerStatus>({
     running: false,
     ip: '...',
-    connectedClients: 0,
     llmStatus: 'not_loaded',
   });
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -114,9 +112,6 @@ export default function App() {
           }}
           onStop={async () => {
             await window.electron.stopServer();
-          }}
-          onBackup={async () => {
-            await window.electron.triggerBackup();
           }}
           onOpenLogs={() => window.electron.openLogs()}
           onOpenData={() => window.electron.openDataFolder()}

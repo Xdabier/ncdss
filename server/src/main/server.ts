@@ -3,7 +3,6 @@ import cors from 'cors';
 import { Server } from 'http';
 import { authRouter } from '../api/routes/auth';
 import { usersRouter } from '../api/routes/users';
-import { syncRouter } from '../api/routes/sync';
 import { configRouter } from '../api/routes/config';
 import { scheduleRouter } from '../api/routes/schedule';
 import { boxAssignmentsRouter } from '../api/routes/box-assignments';
@@ -23,7 +22,6 @@ import { initDatabase } from '../database';
 import { getActiveProviderType } from '../services/llm';
 
 let server: Server | null = null;
-let connectedClients = 0;
 
 // CORS Configuration
 const allowedOrigins = process.env.CORS_ORIGINS
@@ -71,7 +69,6 @@ export async function startServer(port: number): Promise<void> {
 
   // Protected routes
   app.use('/api/users', authMiddleware, usersRouter);
-  app.use('/api/sync', authMiddleware, syncRouter);
   app.use('/api/config', authMiddleware, configRouter);
   app.use('/api/schedule', authMiddleware, scheduleRouter);
   app.use('/api/box-assignments', authMiddleware, boxAssignmentsRouter);
@@ -86,8 +83,14 @@ export async function startServer(port: number): Promise<void> {
   app.use('/api/exams', authMiddleware, examsRouter);
   app.use('/api/profile', authMiddleware, profileRouter);
 
-  server = app.listen(port, '0.0.0.0', () => {
-    console.log(`✓ Server running on port ${port}`);
+  await new Promise<void>((resolve, reject) => {
+    const listening = app.listen(port, '0.0.0.0');
+    listening.once('listening', () => {
+      server = listening;
+      console.log(`✓ Server running on port ${port}`);
+      resolve();
+    });
+    listening.once('error', reject);
   });
 }
 
@@ -102,16 +105,7 @@ export function stopServer(): void {
 export function getServerStatus() {
   return {
     running: server !== null,
-    connectedClients,
     llmStatus: 'not_loaded',
     llmProvider: getActiveProviderType(),
   };
-}
-
-export function incrementClients() {
-  connectedClients++;
-}
-
-export function decrementClients() {
-  connectedClients--;
 }

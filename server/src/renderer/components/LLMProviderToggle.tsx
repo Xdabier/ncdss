@@ -17,9 +17,9 @@ export function LLMProviderToggle({ providerStatus, onSwitch, switching }: Props
   // Determine info/warning message
   let infoText: string | null = null;
   if (!localAvailable && activeType === 'claude') {
-    infoText = 'Modele local non detecte — Claude API active';
+    infoText = 'Modele local non detecte - Claude API active';
   } else if (!claudeAvailable && !localAvailable) {
-    infoText = 'Aucun fournisseur LLM disponible — fonctionnalites IA desactivees';
+    infoText = 'Aucun fournisseur LLM disponible - fonctionnalites IA desactivees';
   } else if (!claudeAvailable) {
     infoText = 'ANTHROPIC_API_KEY non definie';
   }
