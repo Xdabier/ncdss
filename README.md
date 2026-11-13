@@ -231,6 +231,10 @@ The core workflows work end to end. Known gaps:
 - No offline mode, clients need a live connection to the server
 - Role checks on patient routes are done in the client, not on the server (see [SECURITY.md](SECURITY.md))
 
+## Research behind the project
+
+The design choices in NCDSS draw on a corpus of fifteen literature reviews about triage scales, clinical scores, offline AI, usability and regulation. It is published separately as [cdss_research](https://github.com/Xdabier/cdss_research), together with an audit of its citations. The reviews are AI-generated and not peer reviewed, so read the reliability notes there first.
+
 ## How this project was built
 
 Most of the code in this repository was written by Claude, Anthropic's AI model, working through Claude Code. My part was to manage and guide it: I set the goals, made the decisions and steered the work until it reached this version.
