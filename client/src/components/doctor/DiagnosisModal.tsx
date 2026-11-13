@@ -3,13 +3,6 @@ import { X, Stethoscope, Loader2, Sparkles, CheckCircle, FileText, HelpCircle, I
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select';
 import { getApi } from '../../services/api';
 import { API_ROUTES, Diagnosis } from '@ncdss/shared';
 
@@ -88,7 +81,7 @@ export function DiagnosisModal({
 }: DiagnosisModalProps): React.ReactElement | null {
   const isEditMode = !!editDiagnosis;
 
-  const getInitialFormData = (): FormData => {
+  const getInitialFormData = React.useCallback((): FormData => {
     if (editDiagnosis) {
       return {
         diagnosisCode: editDiagnosis.diagnosisCode || '',
@@ -105,7 +98,7 @@ export function DiagnosisModal({
       severity: initialData?.severity || '',
       notes: initialData?.notes || '',
     };
-  };
+  }, [editDiagnosis, initialData]);
 
   const [formData, setFormData] = useState<FormData>(getInitialFormData());
   const [errors, setErrors] = useState<FormErrors>({});
@@ -116,7 +109,7 @@ export function DiagnosisModal({
     if (isOpen) {
       setFormData(getInitialFormData());
     }
-  }, [isOpen, initialData, editDiagnosis]);
+  }, [isOpen, getInitialFormData]);
 
   if (!isOpen) return null;
 
@@ -208,6 +201,7 @@ export function DiagnosisModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div
+        role="presentation"
         className="absolute inset-0 bg-black/50"
         onClick={handleClose}
       />

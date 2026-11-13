@@ -4,7 +4,6 @@ import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '../../components/ui/card';
@@ -13,7 +12,6 @@ import { Badge } from '../../components/ui/badge';
 import {
   ArrowLeft,
   User,
-  Clock,
   AlertTriangle,
   Loader2,
   Activity,
@@ -26,7 +24,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { getApi } from '../../services/api';
-import { Patient, PatientStatus, Sex, Orientation, API_ROUTES } from '@ncdss/shared';
+import { Patient, API_ROUTES } from '@ncdss/shared';
 
 const statusLabels: Record<string, string> = {
   REGISTERED: 'Inscrit',
@@ -129,15 +127,6 @@ export default function SupervisorPatientDetail() {
 
   const isCritical = (patient.esiLevel && patient.esiLevel <= 2) ||
     (patient.newsScore && patient.newsScore >= 7);
-
-  const parseABCDE = (jsonString: string | null | undefined) => {
-    if (!jsonString) return null;
-    try {
-      return JSON.parse(jsonString);
-    } catch {
-      return null;
-    }
-  };
 
   return (
     <DashboardLayout>

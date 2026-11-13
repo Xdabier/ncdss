@@ -3,7 +3,7 @@ import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { DataTable, Column } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/badge';
 import { getApi } from '../../services/api';
-import { Box, BoxType, API_ROUTES } from '@ncdss/shared';
+import { Box, API_ROUTES } from '@ncdss/shared';
 import { cn } from '../../lib/utils';
 
 const boxTypeLabels: Record<string, string> = {
@@ -89,7 +89,8 @@ export default function BoxManagement() {
         {/* Summary Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 mb-6">
           {Object.entries(boxTypeLabels).map(([type, label]) => (
-            <div
+            <button
+              type="button"
               key={type}
               className={cn(
                 "bg-white rounded-lg shadow p-4 text-center cursor-pointer transition-colors hover:bg-gray-50",
@@ -97,9 +98,9 @@ export default function BoxManagement() {
               )}
               onClick={() => setFilter(filter === type ? 'all' : type)}
             >
-              <div className="text-2xl font-bold">{summary[type] || 0}</div>
-              <div className="text-sm text-gray-500">{label}</div>
-            </div>
+              <span className="block text-2xl font-bold">{summary[type] || 0}</span>
+              <span className="block text-sm text-gray-500">{label}</span>
+            </button>
           ))}
         </div>
 

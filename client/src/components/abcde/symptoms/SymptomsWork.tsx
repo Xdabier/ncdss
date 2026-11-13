@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Label } from '../../ui/label';
 import { MultiSelectCombobox } from '../../ui/MultiSelectCombobox';
 
@@ -29,11 +29,9 @@ export function SymptomsWork({ signesLutte, pauseRespiratoire, onSignesLutteChan
     undefined;
 
   // Once props reflect the explicit selection, let derivation take over.
-  useEffect(() => {
-    if (explicitMode !== undefined && derivedMode === explicitMode) {
-      setExplicitMode(undefined);
-    }
-  }, [derivedMode, explicitMode]);
+  if (explicitMode !== undefined && derivedMode === explicitMode) {
+    setExplicitMode(undefined);
+  }
 
   const currentMode = explicitMode ?? derivedMode;
 

@@ -35,7 +35,3 @@ export function getCountryList(): CountryEntry[] {
   cachedList = [...priorityEntries, ...remaining];
   return cachedList;
 }
-
-export function getCountryName(code: string): string {
-  return countries.getName(code, 'fr') || code;
-}

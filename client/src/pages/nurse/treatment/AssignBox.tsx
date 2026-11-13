@@ -105,7 +105,7 @@ export default function AssignBox() {
               const doctors = Array.isArray(doctorRes.data) ? doctorRes.data : [];
               return {
                 ...box,
-                currentDoctors: doctors.map((d: any) => ({ doctorId: d.doctorId, doctorName: d.doctorName })),
+                currentDoctors: doctors.map((d: { doctorId: string; doctorName: string }) => ({ doctorId: d.doctorId, doctorName: d.doctorName })),
               };
             } catch {
               return { ...box, currentDoctors: [] };
@@ -253,11 +253,11 @@ export default function AssignBox() {
       let successMessage: string;
       if (assignedDoctorName) {
         successMessage = selectedBox
-          ? `Patient assigné à ${selectedBox.name} — Dr. ${assignedDoctorName} auto-assigné`
-          : `Patient pris en charge — Dr. ${assignedDoctorName} auto-assigné`;
+          ? `Patient assigné à ${selectedBox.name} - Dr. ${assignedDoctorName} auto-assigné`
+          : `Patient pris en charge - Dr. ${assignedDoctorName} auto-assigné`;
       } else {
         successMessage = selectedBox
-          ? `Patient assigné à ${selectedBox.name} — Aucun médecin assigné à ce box`
+          ? `Patient assigné à ${selectedBox.name} - Aucun médecin assigné à ce box`
           : 'Patient pris en charge sans box';
       }
 
@@ -341,7 +341,7 @@ export default function AssignBox() {
                 <div
                   className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg ${esiColors[patient.esiLevel ?? 5]}`}
                 >
-                  <span className="text-2xl font-bold">{patient.esiLevel ?? '—'}</span>
+                  <span className="text-2xl font-bold">{patient.esiLevel ?? '-'}</span>
                   <span className="text-sm font-medium opacity-90">ESI</span>
                 </div>
                 {/* Orientation Badge */}
@@ -376,7 +376,7 @@ export default function AssignBox() {
                         : 'text-green-600'
                   }`}
                 >
-                  {patient.newsScore ?? '—'}
+                  {patient.newsScore ?? '-'}
                 </span>
               </div>
               <div>
@@ -384,7 +384,7 @@ export default function AssignBox() {
                 <span
                   className={`ml-2 font-semibold ${(patient.gcsScore ?? 15) < 12 ? 'text-red-600' : ''}`}
                 >
-                  {patient.gcsScore ?? '—'}/15
+                  {patient.gcsScore ?? '-'}/15
                 </span>
               </div>
               <div>
@@ -392,7 +392,7 @@ export default function AssignBox() {
                 <span
                   className={`ml-2 font-semibold ${(patient.qsofaScore ?? 0) >= 2 ? 'text-red-600' : ''}`}
                 >
-                  {patient.qsofaScore ?? '—'}
+                  {patient.qsofaScore ?? '-'}
                 </span>
               </div>
             </div>

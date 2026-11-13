@@ -158,7 +158,7 @@ export default function TreatmentQueue() {
         <span
           className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${esiColors[p.esiLevel ?? 5]}`}
         >
-          {p.esiLevel ?? '—'}
+          {p.esiLevel ?? '-'}
         </span>
       ),
     },
@@ -181,7 +181,7 @@ export default function TreatmentQueue() {
       width: '16%',
       render: (p) => (
         <div className="truncate max-w-[120px] sm:max-w-[200px]" title={p.chiefComplaint || ''}>
-          {p.chiefComplaint || <span className="text-gray-400">—</span>}
+          {p.chiefComplaint || <span className="text-gray-400">-</span>}
         </div>
       ),
     },
@@ -194,7 +194,7 @@ export default function TreatmentQueue() {
         p.finalOrientation ? (
           <Badge variant="outline">{orientationLabels[p.finalOrientation] || p.finalOrientation}</Badge>
         ) : (
-          <span className="text-gray-400">—</span>
+          <span className="text-gray-400">-</span>
         ),
     },
     {
@@ -204,7 +204,7 @@ export default function TreatmentQueue() {
       hiddenOnMobile: true,
       render: (p) => {
         const score = p.newsScore ?? null;
-        if (score === null) return <span className="text-gray-400">—</span>;
+        if (score === null) return <span className="text-gray-400">-</span>;
 
         let colorClass = 'text-green-600';
         if (score >= 7) colorClass = 'text-red-600 font-bold';

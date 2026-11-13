@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import {
@@ -28,6 +29,7 @@ import { getApi } from '../services/api';
 import { API_ROUTES } from '@ncdss/shared';
 import { CLIENT_ROUTES } from '../routes';
 import { useAuthStore } from '../stores/auth.store';
+import { getApiErrorMessage } from '../utils/apiError';
 
 const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: 'Super Administrateur',
@@ -165,11 +167,14 @@ export default function Profile() {
           }, 1500);
         }
       }
-    } catch (e: any) {
-      if (e.response?.data?.errors) {
-        setProfileErrors(e.response.data.errors);
+    } catch (e) {
+      const fieldErrors = axios.isAxiosError<{ errors?: Record<string, string> }>(e)
+        ? e.response?.data?.errors
+        : undefined;
+      if (fieldErrors) {
+        setProfileErrors(fieldErrors);
       } else {
-        setProfileError(e.response?.data?.error || 'Erreur de sauvegarde du profil');
+        setProfileError(getApiErrorMessage(e, 'Erreur de sauvegarde du profil'));
       }
     } finally {
       setProfileLoading(false);
@@ -205,8 +210,8 @@ export default function Profile() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (e: any) {
-      setPasswordError(e.response?.data?.error || 'Erreur de changement de mot de passe');
+    } catch (e) {
+      setPasswordError(getApiErrorMessage(e, 'Erreur de changement de mot de passe'));
     } finally {
       setPasswordLoading(false);
     }
@@ -250,8 +255,8 @@ export default function Profile() {
           navigate(CLIENT_ROUTES.dashboard, { replace: true });
         }, 1500);
       }
-    } catch (e: any) {
-      setPinError(e.response?.data?.error || 'Erreur de création du PIN');
+    } catch (e) {
+      setPinError(getApiErrorMessage(e, 'Erreur de création du PIN'));
     } finally {
       setPinLoading(false);
     }

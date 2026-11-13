@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Pin, ChevronUp, ChevronDown } from 'lucide-react';
 import { useTriageAccordion } from './TriageAccordion';
 import type { LucideIcon } from 'lucide-react';
@@ -26,11 +26,9 @@ export function TriageAccordionSection({
 
   // After expand animation completes, allow overflow so dropdowns aren't clipped
   const [expanded, setExpanded] = useState(isOpen);
-  useEffect(() => {
-    if (!isOpen) {
-      setExpanded(false);
-    }
-  }, [isOpen]);
+  if (!isOpen && expanded) {
+    setExpanded(false);
+  }
 
   const handleTransitionEnd = (): void => {
     if (isOpen) setExpanded(true);

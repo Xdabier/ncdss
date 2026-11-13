@@ -8,7 +8,6 @@ interface Props {
   message: string;
   confirmText?: string;
   cancelText?: string;
-  confirmColor?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -19,7 +18,6 @@ export function ConfirmDialog({
   message,
   confirmText = 'Confirmer',
   cancelText = 'Annuler',
-  confirmColor = 'danger',
   onConfirm,
   onCancel,
 }: Props) {
@@ -29,6 +27,7 @@ export function ConfirmDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div
+        role="presentation"
         className="absolute inset-0 bg-black/50"
         onClick={onCancel}
       />

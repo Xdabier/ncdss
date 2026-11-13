@@ -313,19 +313,19 @@ export default function VitalsUpdate() {
               <div>
                 <p className="text-sm text-gray-600">ESI</p>
                 <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${esiColors[patient.esiLevel ?? 5]}`}>
-                  {patient.esiLevel ?? '—'}
+                  {patient.esiLevel ?? '-'}
                 </span>
               </div>
               <div>
                 <p className="text-sm text-gray-600">NEWS actuel</p>
                 <p className={`font-semibold ${(patient.newsScore ?? 0) >= 7 ? 'text-red-600' : (patient.newsScore ?? 0) >= 5 ? 'text-orange-600' : 'text-green-600'}`}>
-                  {patient.newsScore ?? '—'}
+                  {patient.newsScore ?? '-'}
                 </p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">GCS actuel</p>
                 <p className={`font-semibold ${(patient.gcsScore ?? 15) < 12 ? 'text-red-600' : ''}`}>
-                  {patient.gcsScore ?? '—'}/15
+                  {patient.gcsScore ?? '-'}/15
                 </p>
               </div>
             </div>
@@ -392,7 +392,7 @@ export default function VitalsUpdate() {
                       <div className="flex items-center gap-3">
                         <span className="font-semibold text-gray-900">{score.name}</span>
                         <span className="text-gray-500">
-                          {score.previous ?? '—'} → {score.current ?? '—'}
+                          {score.previous ?? '-'} → {score.current ?? '-'}
                         </span>
                       </div>
                       <div className={`flex items-center gap-1 font-semibold ${changeColor}`}>

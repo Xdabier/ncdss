@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -22,7 +22,6 @@ import {
   XCircle,
   Pause,
   HelpCircle,
-  Ban,
   PlayCircle,
   CheckSquare,
   ArrowRightLeft,
@@ -53,7 +52,7 @@ import {
 } from '../../../components/ui/dialog';
 import { getApi } from '../../../services/api';
 import { CLIENT_ROUTES } from '../../../routes';
-import { Patient, PatientStatus, Box, User as UserType, Prescription, MedicationRoute, AdministrationStatus, PrescriptionStatus, ComplementaryExam, ExamType, ExamStatus, ExamPriority, API_ROUTES } from '@ncdss/shared';
+import { Patient, PatientStatus, Box, User as UserType, Prescription, MedicationRoute, AdministrationStatus, PrescriptionStatus, ComplementaryExam, ExamStatus, API_ROUTES } from '@ncdss/shared';
 import { formatDateTime } from '../../../utils/dateUtils';
 import { ReassignBoxModal } from '../../../components/shared/ReassignBoxModal';
 import { SuggestedInterventionsCard } from '../../../components/shared/SuggestedInterventionsCard';
@@ -163,12 +162,6 @@ export default function PatientCare() {
   const [selectedExam, setSelectedExam] = useState<ComplementaryExam | null>(null);
   const [showTreatmentReadyModal, setShowTreatmentReadyModal] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      loadData();
-    }
-  }, [id]);
-
   // Auto-dismiss success message after 6 seconds
   useEffect(() => {
     if (successMessage) {
@@ -177,7 +170,7 @@ export default function PatientCare() {
     }
   }, [successMessage]);
 
-  const loadData = async (): Promise<void> => {
+  const loadData = useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
       const api = await getApi();
@@ -212,7 +205,13 @@ export default function PatientCare() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      loadData();
+    }
+  }, [id, loadData]);
 
   const handleAddNote = async (): Promise<void> => {
     if (!newNote.trim() || !id) return;
@@ -406,9 +405,9 @@ export default function PatientCare() {
       const api = await getApi();
       await api.post(API_ROUTES.patients.treatmentReady(id!), { markAllComplete });
       setShowTreatmentReadyModal(false);
-      setSuccessMessage('Patient marqué comme prêt — le médecin a été notifié.');
+      setSuccessMessage('Patient marqué comme prêt - le médecin a été notifié.');
       await loadData();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error marking treatment ready:', error);
       setShowTreatmentReadyModal(false);
     } finally {
@@ -532,7 +531,7 @@ export default function PatientCare() {
                   <div className="text-right space-y-2">
                     {/* ESI Badge */}
                     <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg ${esiColors[patient.esiLevel ?? 5]}`}>
-                      <span className="text-2xl font-bold">{patient.esiLevel ?? '—'}</span>
+                      <span className="text-2xl font-bold">{patient.esiLevel ?? '-'}</span>
                       <span className="text-sm font-medium opacity-90">ESI</span>
                     </div>
                     {/* Orientation Badge */}
@@ -639,7 +638,7 @@ export default function PatientCare() {
                   <div className="text-center p-3 bg-gray-50 rounded-lg">
                     <Thermometer className="h-5 w-5 mx-auto text-red-400 mb-1" />
                     <div className="text-2xl font-bold">
-                      {patient.temperature ? `${patient.temperature}°` : '—'}
+                      {patient.temperature ? `${patient.temperature}°` : '-'}
                     </div>
                     <div className="text-xs text-gray-500">Temp (°C)</div>
                   </div>
@@ -647,7 +646,7 @@ export default function PatientCare() {
                   {/* Heart rate */}
                   <div className="text-center p-3 bg-gray-50 rounded-lg">
                     <Heart className="h-5 w-5 mx-auto text-pink-400 mb-1" />
-                    <div className="text-2xl font-bold">{patient.heartRate ?? '—'}</div>
+                    <div className="text-2xl font-bold">{patient.heartRate ?? '-'}</div>
                     <div className="text-xs text-gray-500">FC (bpm)</div>
                   </div>
 
@@ -656,8 +655,8 @@ export default function PatientCare() {
                     <Activity className="h-5 w-5 mx-auto text-blue-400 mb-1" />
                     <div className="text-2xl font-bold">
                       {patient.systolicBP || patient.diastolicBP
-                        ? `${patient.systolicBP ?? '—'}/${patient.diastolicBP ?? '—'}`
-                        : '—'}
+                        ? `${patient.systolicBP ?? '-'}/${patient.diastolicBP ?? '-'}`
+                        : '-'}
                     </div>
                     <div className="text-xs text-gray-500">TA (mmHg)</div>
                   </div>
@@ -666,7 +665,7 @@ export default function PatientCare() {
                   <div className="text-center p-3 bg-gray-50 rounded-lg">
                     <Wind className="h-5 w-5 mx-auto text-cyan-400 mb-1" />
                     <div className="text-2xl font-bold">
-                      {patient.oxygenSaturation ? `${patient.oxygenSaturation}%` : '—'}
+                      {patient.oxygenSaturation ? `${patient.oxygenSaturation}%` : '-'}
                     </div>
                     <div className="text-xs text-gray-500">SpO2</div>
                   </div>
@@ -685,7 +684,7 @@ export default function PatientCare() {
                             : 'text-green-600'
                       }`}
                     >
-                      {patient.newsScore ?? '—'}
+                      {patient.newsScore ?? '-'}
                     </div>
                     <div className="text-xs text-gray-500">NEWS</div>
                     {(patient.newsScore ?? 0) >= 7 && (
@@ -702,7 +701,7 @@ export default function PatientCare() {
                         (patient.gcsScore ?? 15) < 12 ? 'text-red-600' : 'text-gray-700'
                       }`}
                     >
-                      {patient.gcsScore ?? '—'}
+                      {patient.gcsScore ?? '-'}
                     </div>
                     <div className="text-xs text-gray-500">GCS</div>
                     {(patient.gcsScore ?? 15) < 9 && (
@@ -719,7 +718,7 @@ export default function PatientCare() {
                         (patient.qsofaScore ?? 0) >= 2 ? 'text-red-600' : 'text-gray-700'
                       }`}
                     >
-                      {patient.qsofaScore ?? '—'}
+                      {patient.qsofaScore ?? '-'}
                     </div>
                     <div className="text-xs text-gray-500">qSOFA</div>
                     {(patient.qsofaScore ?? 0) >= 2 && (
@@ -1196,11 +1195,11 @@ export default function PatientCare() {
                 {patient.status === PatientStatus.TRIAGED && (
                   <div className="space-y-3">
                     <div>
-                      <label className="text-sm text-gray-500 block mb-2">
+                      <label htmlFor="start-treatment-box" className="text-sm text-gray-500 block mb-2">
                         Assigner un box (optionnel):
                       </label>
                       <Select onValueChange={(boxId) => handleStartTreatment(boxId)} disabled={actionLoading}>
-                        <SelectTrigger>
+                        <SelectTrigger id="start-treatment-box">
                           <SelectValue placeholder="Sélectionner un box..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -1521,14 +1520,16 @@ function ReTriageModal({ onConfirm, onCancel, loading }: ReTriageModalProps) {
             Le patient sera remis dans la file de triage pour une nouvelle évaluation. Cette action
             est irréversible.
           </p>
-          <label className="block text-sm font-medium mb-2">
+          <label htmlFor="retriage-reason" className="block text-sm font-medium mb-2">
             Raison (optionnel)
           </label>
           <textarea
+            id="retriage-reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Décrivez la raison du re-triage..."
             className="w-full border rounded-lg p-3 min-h-[100px] focus:outline-none focus:ring-2 focus:ring-orange-500"
+            // eslint-disable-next-line jsx-a11y/no-autofocus -- dialog opens on user action
             autoFocus
           />
         </div>
@@ -1574,9 +1575,9 @@ function DischargeModal({ onConfirm, onCancel, loading }: DischargeModalProps) {
         </div>
         <div className="p-4 space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Type de sortie</label>
+            <label htmlFor="discharge-type" className="block text-sm font-medium mb-2">Type de sortie</label>
             <Select value={dischargeType} onValueChange={setDischargeType}>
-              <SelectTrigger>
+              <SelectTrigger id="discharge-type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1589,8 +1590,9 @@ function DischargeModal({ onConfirm, onCancel, loading }: DischargeModalProps) {
             </Select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">Notes de sortie</label>
+            <label htmlFor="discharge-notes" className="block text-sm font-medium mb-2">Notes de sortie</label>
             <textarea
+              id="discharge-notes"
               value={dischargeNotes}
               onChange={(e) => setDischargeNotes(e.target.value)}
               placeholder="Notes additionnelles (optionnel)..."
@@ -1680,7 +1682,7 @@ function AdministrationModal({ prescription, isOpen, onClose, onSuccess }: Admin
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
+      <div role="presentation" className="absolute inset-0 bg-black/50" onClick={handleClose} />
 
       {/* Modal Content */}
       <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 z-10">
@@ -1720,9 +1722,9 @@ function AdministrationModal({ prescription, isOpen, onClose, onSuccess }: Admin
 
           {/* Status selection */}
           <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700">
+            <span className="block text-sm font-medium text-gray-700">
               Statut de l'administration <span className="text-red-500">*</span>
-            </label>
+            </span>
             {administrationOptions.map((option) => (
               <label
                 key={option.value}
@@ -1740,10 +1742,12 @@ function AdministrationModal({ prescription, isOpen, onClose, onSuccess }: Admin
                   onChange={(e) => setStatus(e.target.value as AdministrationStatus)}
                   className="mt-1 text-purple-600 focus:ring-purple-500"
                   disabled={loading}
+                  aria-label={option.label}
+                  aria-describedby={`administration-status-${option.value}-description`}
                 />
                 <div>
                   <p className="font-medium text-gray-900">{option.label}</p>
-                  <p className="text-sm text-gray-500">{option.description}</p>
+                  <p id={`administration-status-${option.value}-description`} className="text-sm text-gray-500">{option.description}</p>
                 </div>
               </label>
             ))}
@@ -1751,10 +1755,11 @@ function AdministrationModal({ prescription, isOpen, onClose, onSuccess }: Admin
 
           {/* Notes */}
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">
+            <label htmlFor="administration-notes" className="block text-sm font-medium text-gray-700">
               Notes (optionnel)
             </label>
             <textarea
+              id="administration-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Notes supplémentaires..."
@@ -1825,14 +1830,16 @@ function HoldPrescriptionModal({ prescription, onConfirm, onCancel, loading }: H
           <p className="text-sm text-gray-500 mb-4">
             La prescription sera suspendue jusqu'à ce qu'elle soit reprise. Les administrations ne pourront plus être enregistrées tant que la prescription est en pause.
           </p>
-          <label className="block text-sm font-medium mb-2">
+          <label htmlFor="hold-reason" className="block text-sm font-medium mb-2">
             Raison de la suspension <span className="text-red-500">*</span>
           </label>
           <textarea
+            id="hold-reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Ex: Attente résultats labo, intolérance suspectée, réévaluation nécessaire..."
             className="w-full border rounded-lg p-3 min-h-[100px] focus:outline-none focus:ring-2 focus:ring-amber-500"
+            // eslint-disable-next-line jsx-a11y/no-autofocus -- dialog opens on user action
             autoFocus
             disabled={loading}
           />
@@ -1900,14 +1907,16 @@ function ExamResultsModal({ exam, onConfirm, onCancel, loading }: ExamResultsMod
         </div>
 
         <div className="p-4">
-          <label className="block text-sm font-medium mb-2">
+          <label htmlFor="exam-results" className="block text-sm font-medium mb-2">
             Résultats de l'examen
           </label>
           <textarea
+            id="exam-results"
             value={results}
             onChange={(e) => setResults(e.target.value)}
             placeholder="Saisir les résultats de l'examen..."
             className="w-full border rounded-lg p-3 min-h-[120px] focus:outline-none focus:ring-2 focus:ring-green-500"
+            // eslint-disable-next-line jsx-a11y/no-autofocus -- dialog opens on user action
             autoFocus
             disabled={loading}
           />

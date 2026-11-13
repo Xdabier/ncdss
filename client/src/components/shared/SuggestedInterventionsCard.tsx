@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { getApi } from '../../services/api';
 import { hashString } from '../../utils/hashUtils';
-import { API_ROUTES } from '@ncdss/shared';
+import { API_ROUTES, MedicalIntervention, NursingIntervention } from '@ncdss/shared';
 
 // ============================================================================
 // Types
@@ -148,7 +148,7 @@ export function SuggestedInterventionsCard({ patientId }: SuggestedInterventions
     try {
       const api = await getApi();
 
-      // 1) Try LLM unified analysis first — this is the primary source
+      // 1) Try LLM unified analysis first - this is the primary source
       try {
         const uRes = await api.get(API_ROUTES.patients.unifiedAnalysis(patientId));
         const uData = uRes.data;
@@ -171,7 +171,7 @@ export function SuggestedInterventionsCard({ patientId }: SuggestedInterventions
           }
         }
       } catch {
-        // unified analysis may not exist — fall through
+        // unified analysis may not exist - fall through
       }
 
       // 2) Fallback: rule-based analysis
@@ -181,12 +181,12 @@ export function SuggestedInterventionsCard({ patientId }: SuggestedInterventions
         const nArr = rData?.suggestedNursingInterventions || [];
         const mArr = rData?.suggestedMedicalInterventions || [];
         if (rData?.hasAnalysis && (nArr.length > 0 || mArr.length > 0)) {
-          setNursingItems(nArr.map((n: any) => ({
+          setNursingItems(nArr.map((n: NursingIntervention) => ({
             key: interventionKey(n.descriptionFr),
             label: n.descriptionFr,
             priority: n.priorityOrder ?? 99,
           })));
-          setMedicalItems(mArr.map((m: any) => ({
+          setMedicalItems(mArr.map((m: MedicalIntervention) => ({
             key: interventionKey(m.descriptionFr),
             label: m.descriptionFr,
             isSurgical: m.isSurgical,
@@ -196,7 +196,7 @@ export function SuggestedInterventionsCard({ patientId }: SuggestedInterventions
           return;
         }
       } catch {
-        // rule-based analysis may not exist — fall through
+        // rule-based analysis may not exist - fall through
       }
 
       setFound(false);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import {
   Card,
@@ -8,7 +8,6 @@ import {
   CardTitle,
 } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -73,7 +72,30 @@ interface DashboardStats {
   };
 }
 
-const ESI_COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6'];
+interface ExportedPatient {
+  id: string;
+  fullName: string;
+  age: number;
+  sex: string;
+  status: string;
+  esiLevel: number | null;
+  newsScore: number | null;
+  gcsScore: number | null;
+  qsofaScore: number | null;
+  finalOrientation: string | null;
+  chiefComplaint: string | null;
+  createdAt: string;
+  triageStartedAt: string | null;
+  triageCompletedAt: string | null;
+  treatmentStartedAt: string | null;
+  dischargedAt: string | null;
+  dischargeType: string | null;
+  triageWaitMinutes: number | null;
+  triageDurationMinutes: number | null;
+  totalPassageMinutes: number | null;
+}
+
+const ESI_COLORS =['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6'];
 const ORIENTATION_COLORS: Record<string, string> = {
   SAUV: '#ef4444',
   MEDICAL: '#3b82f6',
@@ -105,7 +127,7 @@ export default function DepartmentStats() {
   });
   const [shift, setShift] = useState<string>('all');
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     setLoading(true);
     try {
       const api = await getApi();
@@ -120,11 +142,11 @@ export default function DepartmentStats() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [startDate, endDate, shift]);
 
   useEffect(() => {
     loadStats();
-  }, [startDate, endDate, shift]);
+  }, [loadStats]);
 
   const handleExport = async () => {
     setExporting(true);
@@ -148,7 +170,7 @@ export default function DepartmentStats() {
 
       const csvRows = [headers.join(',')];
 
-      data.forEach((p: any) => {
+      data.forEach((p: ExportedPatient) => {
         const row = [
           p.id,
           `"${p.fullName}"`,

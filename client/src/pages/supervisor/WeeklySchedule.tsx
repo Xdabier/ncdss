@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Save, AlertCircle, Clock } from 'lucide-react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Button } from '../../components/ui/button';
@@ -104,11 +104,7 @@ export default function WeeklySchedulePage(): React.ReactElement {
   const [dialogShiftStart, setDialogShiftStart] = useState<string>('08:00');
   const [dialogShiftEnd, setDialogShiftEnd] = useState<string>('20:00');
 
-  useEffect(() => {
-    loadSchedule();
-  }, [weekStart]);
-
-  const loadSchedule = async (): Promise<void> => {
+  const loadSchedule = useCallback(async (): Promise<void> => {
     setLoading(true);
     try {
       const api = await getApi();
@@ -135,7 +131,11 @@ export default function WeeklySchedulePage(): React.ReactElement {
     } finally {
       setLoading(false);
     }
-  };
+  }, [weekStart]);
+
+  useEffect(() => {
+    loadSchedule();
+  }, [loadSchedule]);
 
   const handlePrevWeek = (): void => {
     setWeekStart(addWeeks(weekStart, -1));
@@ -392,7 +392,7 @@ export default function WeeklySchedulePage(): React.ReactElement {
             <DialogHeader>
               <DialogTitle>Modifier l'affectation</DialogTitle>
               <DialogDescription>
-                {editingNurseName} — {editingDayName}
+                {editingNurseName} - {editingDayName}
               </DialogDescription>
             </DialogHeader>
 

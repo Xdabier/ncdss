@@ -19,7 +19,6 @@ import {
   Diagnosis,
   DiagnosisType,
   DiagnosisStatus,
-  PrescriptionStatus,
   API_ROUTES,
 } from '@ncdss/shared';
 import {
@@ -30,7 +29,6 @@ import {
   CheckCircle,
   FileText,
   HelpCircle,
-  Pill,
 } from 'lucide-react';
 
 interface DoctorDischargeModalProps {
@@ -68,12 +66,6 @@ const diagnosisTypeLabels: Record<DiagnosisType, string> = {
   [DiagnosisType.DIFFERENTIAL]: 'Différentiel',
 };
 
-const diagnosisStatusLabels: Record<DiagnosisStatus, string> = {
-  [DiagnosisStatus.ACTIVE]: 'Actif',
-  [DiagnosisStatus.RESOLVED]: 'Résolu',
-  [DiagnosisStatus.RULED_OUT]: 'Écarté',
-};
-
 export function DoctorDischargeModal({
   isOpen,
   onClose,
@@ -94,9 +86,6 @@ export function DoctorDischargeModal({
       d.diagnosisType === DiagnosisType.PRIMARY &&
       (d.status === DiagnosisStatus.ACTIVE || d.confirmedAt)
   );
-
-  // Count active prescriptions (for display)
-  const activePrescriptionsCount = 0; // Prescriptions are not passed to this modal, we'll show diagnoses instead
 
   // Get type icon
   const getTypeIcon = (type: DiagnosisType) => {
@@ -304,5 +293,3 @@ export function DoctorDischargeModal({
     </div>
   );
 }
-
-export default DoctorDischargeModal;

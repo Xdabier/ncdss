@@ -177,7 +177,7 @@ export default function TriageQueue() {
       key: 'chiefComplaint',
       header: 'Motif',
       width: '30%',
-      render: (p) => p.chiefComplaint || <span className="text-gray-400">—</span>
+      render: (p) => p.chiefComplaint || <span className="text-gray-400">-</span>
     },
     {
       key: 'status',

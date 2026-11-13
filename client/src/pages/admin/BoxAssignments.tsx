@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Clock, Calendar, Filter } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { X, Plus, Trash2, Clock, Filter } from 'lucide-react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { DataTable, Column } from '../../components/ui/DataTable';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -18,6 +18,7 @@ import { Alert, AlertDescription } from '../../components/ui/alert';
 import { getApi } from '../../services/api';
 import { Box, User, AssignmentPreset, ASSIGNMENT_PRESETS, API_ROUTES } from '@ncdss/shared';
 import { cn } from '../../lib/utils';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface BoxAssignmentWithDetails {
   id: string;
@@ -66,10 +67,6 @@ export default function BoxAssignments() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadData();
-  }, [filterMode, filterDate]);
-
-  useEffect(() => {
     // Update end date/time when preset or start date changes
     if (selectedPreset !== AssignmentPreset.CUSTOM) {
       const preset = ASSIGNMENT_PRESETS[selectedPreset];
@@ -84,7 +81,7 @@ export default function BoxAssignments() {
     }
   }, [selectedPreset, startDate]);
 
-  const loadData = async (): Promise<void> => {
+  const loadData = useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
       const api = await getApi();
@@ -105,12 +102,16 @@ export default function BoxAssignments() {
       setAssignments(assignmentsRes.data);
       setBoxes(boxesRes.data.filter((b: Box) => b.isActive && b.boxType !== 'TRIAGE'));
       setDoctors(doctorsRes.data);
-    } catch (e) {
+    } catch {
       setError('Erreur de chargement');
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterMode, filterDate]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleCreate = async (): Promise<void> => {
     if (!selectedBox || !selectedDoctor || !startDate || !startTime || !endDate || !endTime) {
@@ -137,8 +138,8 @@ export default function BoxAssignments() {
       setShowModal(false);
       resetForm();
       loadData();
-    } catch (e: any) {
-      setError(e.response?.data?.error || 'Erreur de création');
+    } catch (e) {
+      setError(getApiErrorMessage(e, 'Erreur de création'));
     } finally {
       setSaving(false);
     }
@@ -152,7 +153,7 @@ export default function BoxAssignments() {
       await api.delete(API_ROUTES.boxAssignments.remove(deleteAssignment.id));
       setDeleteAssignment(null);
       loadData();
-    } catch (e) {
+    } catch {
       setError('Erreur de suppression');
     }
   };
@@ -166,15 +167,6 @@ export default function BoxAssignments() {
     setEndDate('');
     setEndTime('08:00');
     setError(null);
-  };
-
-  const formatDateTime = (isoString: string): string => {
-    const d = new Date(isoString);
-    const day = d.getDate().toString().padStart(2, '0');
-    const month = (d.getMonth() + 1).toString().padStart(2, '0');
-    const hours = d.getHours().toString().padStart(2, '0');
-    const minutes = d.getMinutes().toString().padStart(2, '0');
-    return `${day}/${month} ${hours}:${minutes}`;
   };
 
   const formatTimeRange = (start: string, end: string): string => {
@@ -341,6 +333,7 @@ export default function BoxAssignments() {
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             {/* Backdrop */}
             <div
+              role="presentation"
               className="absolute inset-0 bg-black/50"
               onClick={() => {
                 setShowModal(false);

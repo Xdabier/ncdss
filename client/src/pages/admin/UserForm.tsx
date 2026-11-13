@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Save, X, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
@@ -22,6 +22,7 @@ import {
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { getApi } from '../../services/api';
 import { UserRole, API_ROUTES } from '@ncdss/shared';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 const roleOptions = [
   { value: UserRole.NURSE, label: 'Infirmier(ère)' },
@@ -61,13 +62,7 @@ export default function UserForm() {
   const [loadingUser, setLoadingUser] = useState(isEditing);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isEditing) {
-      loadUser();
-    }
-  }, [id]);
-
-  const loadUser = async () => {
+  const loadUser = useCallback(async () => {
     try {
       const api = await getApi();
       const response = await api.get(API_ROUTES.users.byId(id!));
@@ -78,12 +73,18 @@ export default function UserForm() {
         fullName: user.fullName,
         role: user.role,
       });
-    } catch (e) {
+    } catch {
       setError('Erreur de chargement');
     } finally {
       setLoadingUser(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    if (isEditing) {
+      loadUser();
+    }
+  }, [isEditing, loadUser]);
 
   const validate = (): boolean => {
     const newErrors: FormErrors = {};
@@ -131,8 +132,8 @@ export default function UserForm() {
       }
 
       navigate(-1);
-    } catch (e: any) {
-      setError(e.response?.data?.error || 'Erreur de sauvegarde');
+    } catch (e) {
+      setError(getApiErrorMessage(e, 'Erreur de sauvegarde'));
     } finally {
       setLoading(false);
     }

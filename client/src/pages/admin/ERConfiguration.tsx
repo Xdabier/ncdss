@@ -31,7 +31,7 @@ export default function ERConfigurationPage() {
       const api = await getApi();
       const response = await api.get(API_ROUTES.config.er);
       setConfig(response.data);
-    } catch (e) {
+    } catch {
       setError('Erreur de chargement de la configuration');
     } finally {
       setLoading(false);
@@ -50,7 +50,7 @@ export default function ERConfigurationPage() {
       await api.put(API_ROUTES.config.er, config);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    } catch (e) {
+    } catch {
       setError('Erreur lors de la sauvegarde');
     } finally {
       setSaving(false);

@@ -45,7 +45,7 @@ const KNOWN_FIELDS: AnalysisFieldKey[] = [
  * Repair truncated JSON by closing unclosed strings, arrays, and objects.
  * Ported from server/src/services/llm/providers/llamacpp.ts
  */
-export function repairTruncatedJson(json: string): string {
+function repairTruncatedJson(json: string): string {
   let repaired = json.trim();
 
   // Fast path: already valid
@@ -87,7 +87,7 @@ export function repairTruncatedJson(json: string): string {
  * Fields whose key appears and is followed by another key are 'complete'.
  * The last detected key is 'active'. Missing keys are 'not_started'.
  */
-export function detectFieldStatuses(rawJson: string): Record<AnalysisFieldKey, FieldStatus> {
+function detectFieldStatuses(rawJson: string): Record<AnalysisFieldKey, FieldStatus> {
   const statuses: Record<AnalysisFieldKey, FieldStatus> = {} as Record<AnalysisFieldKey, FieldStatus>;
   for (const f of KNOWN_FIELDS) {
     statuses[f] = 'not_started';
@@ -153,7 +153,7 @@ export function parseIncremental(rawJson: string): IncrementalParseResult {
       };
     }
   } catch {
-    // Parse failed — fieldStatuses are still useful from key detection
+    // Parse failed - fieldStatuses are still useful from key detection
   }
 
   return { partial, fieldStatuses, started, rawLength: rawJson.length };

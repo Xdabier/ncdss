@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { getApi } from '../../services/api';
+import { getApiErrorMessage } from '../../utils/apiError';
 import {
   ComplementaryExam,
   ExamType,
@@ -114,8 +115,8 @@ export function AIQuickOrderPopover({ testName, patientId, onSuccess, onClose }:
         source: ExamSource.AI_RECOMMENDATION,
       });
       onSuccess();
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Erreur lors de la demande');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Erreur lors de la demande'));
     } finally {
       setLoading(false);
     }
@@ -255,8 +256,8 @@ function ExamRequestModal({ patientId, onClose, onSuccess, editExam }: ExamReque
         });
       }
       onSuccess();
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Erreur lors de l'enregistrement");
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Erreur lors de l'enregistrement"));
     } finally {
       setLoading(false);
     }
@@ -385,7 +386,7 @@ export function ExamsPanel({ patientId, aiRecommendedTests, refreshKey }: ExamsP
       const api = await getApi();
       const response = await api.get(API_ROUTES.exams.byPatient(patientId));
       setExams(response.data);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error loading exams:', err);
     } finally {
       setLoading(false);
@@ -415,7 +416,7 @@ export function ExamsPanel({ patientId, aiRecommendedTests, refreshKey }: ExamsP
         status: ExamStatus.CANCELLED,
       });
       await loadExams();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error cancelling exam:', err);
     } finally {
       setActionLoading(null);

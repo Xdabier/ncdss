@@ -24,9 +24,8 @@ import {
 
 type FilterTab = 'mine' | 'waiting' | 'all';
 
-interface PatientListItem extends Patient {
-  // Full patient data from API
-}
+// Full patient data from API
+type PatientListItem = Patient;
 
 interface ToastMessage {
   id: string;

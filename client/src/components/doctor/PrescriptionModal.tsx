@@ -60,7 +60,7 @@ export function PrescriptionModal({
 }: PrescriptionModalProps): React.ReactElement | null {
   const isEditMode = !!editPrescription;
 
-  const getInitialFormData = (): FormData => {
+  const getInitialFormData = React.useCallback((): FormData => {
     if (editPrescription) {
       return {
         medicationName: editPrescription.medicationName || '',
@@ -81,7 +81,7 @@ export function PrescriptionModal({
       instructions: '',
       administeredInBox: false,
     };
-  };
+  }, [editPrescription]);
 
   const [formData, setFormData] = useState<FormData>(getInitialFormData);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -93,7 +93,7 @@ export function PrescriptionModal({
       setFormData(getInitialFormData());
       setErrors({});
     }
-  }, [editPrescription, isOpen]);
+  }, [getInitialFormData, isOpen]);
 
   if (!isOpen) return null;
 
@@ -198,6 +198,7 @@ export function PrescriptionModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div
+        role="presentation"
         className="absolute inset-0 bg-black/50"
         onClick={handleClose}
       />
@@ -231,6 +232,7 @@ export function PrescriptionModal({
           )}
 
           {/* Administered in box checkbox */}
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- wraps its checkbox, text is nested deeper than the rule looks */}
           <label
             className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${
               formData.administeredInBox

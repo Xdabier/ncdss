@@ -35,7 +35,6 @@ import {
   Patient,
   PatientStatus,
   Sex,
-  HoldStatus,
   Prescription,
   Diagnosis,
   DiagnosisType,
@@ -49,12 +48,11 @@ import {
   API_ROUTES,
   UnifiedClinicalAnalysis,
   GetUnifiedAnalysisResponse,
-  UnifiedPathology,
 } from '@ncdss/shared';
 import { CLIENT_ROUTES } from '../../routes';
+import { getApiErrorMessage } from '../../utils/apiError';
 import {
   ArrowLeft,
-  ArrowRight,
   RefreshCw,
   User,
   AlertTriangle,
@@ -143,7 +141,7 @@ const holdStatusLabels: Record<string, string> = {
   waiting_for_exams: "En attente d'examens complémentaires",
   waiting_for_specialist: "En attente d'un spécialiste",
   patient_absent: "Patient absent à l'appel",
-  treatment_done: 'Soins terminés — prêt à reprendre',
+  treatment_done: 'Soins terminés - prêt à reprendre',
 };
 
 // ESI colors
@@ -194,8 +192,8 @@ function PrescriptionEntryModal({ patientId, onClose, onSuccess, initialData }: 
       const api = await getApi();
       await api.post(API_ROUTES.prescriptions.create, form);
       onSuccess();
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Erreur lors de la création de la prescription');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Erreur lors de la création de la prescription'));
     } finally {
       setLoading(false);
     }
@@ -341,8 +339,8 @@ function CancelPrescriptionModal({ prescription, onClose, onSuccess }: CancelPre
       const api = await getApi();
       await api.post(API_ROUTES.prescriptions.cancel(prescription.id), { reason });
       onSuccess();
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Erreur lors de l\'annulation');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Erreur lors de l\'annulation'));
     } finally {
       setLoading(false);
     }
@@ -453,8 +451,8 @@ function TransferModal({ patient, onClose, onSuccess }: TransferModalProps) {
         reason: reason || undefined,
       });
       onSuccess();
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Erreur lors du transfert');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Erreur lors du transfert'));
     } finally {
       setLoading(false);
     }
@@ -557,7 +555,6 @@ export default function PatientDetail() {
 
   // Unified analysis state
   const [unifiedAnalysis, setUnifiedAnalysis] = useState<UnifiedClinicalAnalysis | null>(null);
-  const [unifiedAnalysisLoading, setUnifiedAnalysisLoading] = useState(false);
 
   // Collapsible sections (true = collapsed)
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
@@ -599,8 +596,8 @@ export default function PatientDetail() {
       const api = await getApi();
       const response = await api.get(API_ROUTES.patients.byId(id));
       setPatient(response.data);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Erreur lors du chargement du patient');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Erreur lors du chargement du patient'));
     }
   }, [id]);
 
@@ -611,7 +608,7 @@ export default function PatientDetail() {
       const api = await getApi();
       const response = await api.get(API_ROUTES.diagnoses.byPatient(id));
       setDiagnoses(response.data);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error loading diagnoses:', err);
     }
   }, [id]);
@@ -623,7 +620,7 @@ export default function PatientDetail() {
       const api = await getApi();
       const response = await api.get(API_ROUTES.prescriptions.byPatient(id));
       setPrescriptions(response.data);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error loading prescriptions:', err);
     }
   }, [id]);
@@ -634,7 +631,7 @@ export default function PatientDetail() {
       const api = await getApi();
       const response = await api.get(API_ROUTES.exams.byPatient(id));
       setExams(response.data);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error loading exams:', err);
     }
   }, [id]);
@@ -727,7 +724,7 @@ export default function PatientDetail() {
       const api = await getApi();
       await api.post(API_ROUTES.patients.resumeHold(id));
       await loadPatient();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error resuming hold:', err);
     } finally {
       setActionLoading(null);
@@ -747,9 +744,9 @@ export default function PatientDetail() {
       setRedirectSuccess('Patient redirigé vers le box de soins avec succès');
       await loadAll();
       setTimeout(() => setRedirectSuccess(null), 5000);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error redirecting to treatment:', err);
-      setError(err.response?.data?.error || 'Erreur lors de la redirection');
+      setError(getApiErrorMessage(err, 'Erreur lors de la redirection'));
     } finally {
       setActionLoading(null);
     }
@@ -825,7 +822,7 @@ export default function PatientDetail() {
       const api = await getApi();
       await api.post(API_ROUTES.diagnoses.confirm(diagnosisId));
       await loadDiagnoses();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error confirming diagnosis:', err);
     } finally {
       setActionLoading(null);
@@ -839,7 +836,7 @@ export default function PatientDetail() {
       const api = await getApi();
       await api.put(API_ROUTES.diagnoses.update(diagnosisId), { status: DiagnosisStatus.RULED_OUT });
       await loadDiagnoses();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error ruling out diagnosis:', err);
     } finally {
       setActionLoading(null);
@@ -853,7 +850,7 @@ export default function PatientDetail() {
       const api = await getApi();
       await api.put(API_ROUTES.diagnoses.update(diagnosisId), { status: 'RESOLVED' });
       await loadDiagnoses();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error resolving diagnosis:', err);
     } finally {
       setActionLoading(null);
@@ -1060,21 +1057,21 @@ export default function PatientDetail() {
           </Button>
         </div>
 
-        {/* Vitals — compact full-width strip */}
+        {/* Vitals - compact full-width strip */}
         <div className="mb-3 p-2.5 bg-white border rounded-lg shadow-sm">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             {((() => {
               const items: { icon: typeof Thermometer; label: string; value: string; alert?: boolean; warn?: boolean; unit?: string }[] = [
-                { icon: Thermometer, label: 'T°', value: patient.temperature ? `${patient.temperature}°C` : '—',
+                { icon: Thermometer, label: 'T°', value: patient.temperature ? `${patient.temperature}°C` : '-',
                   alert: !!(patient.temperature && (patient.temperature < 36 || patient.temperature > 38)) },
-                { icon: Heart, label: 'FC', value: patient.heartRate ? `${patient.heartRate}` : '—',
+                { icon: Heart, label: 'FC', value: patient.heartRate ? `${patient.heartRate}` : '-',
                   alert: !!(patient.heartRate && (patient.heartRate < 60 || patient.heartRate > 100)), unit: 'bpm' },
-                { icon: Activity, label: 'FR', value: patient.respiratoryRate ? `${patient.respiratoryRate}` : '—',
+                { icon: Activity, label: 'FR', value: patient.respiratoryRate ? `${patient.respiratoryRate}` : '-',
                   alert: !!(patient.respiratoryRate && (patient.respiratoryRate < 12 || patient.respiratoryRate > 20)), unit: '/min' },
-                { icon: Activity, label: 'TA', value: patient.systolicBP && patient.diastolicBP ? `${patient.systolicBP}/${patient.diastolicBP}` : '—', unit: 'mmHg' },
-                { icon: Droplets, label: 'SpO2', value: patient.oxygenSaturation ? `${patient.oxygenSaturation}%` : '—',
+                { icon: Activity, label: 'TA', value: patient.systolicBP && patient.diastolicBP ? `${patient.systolicBP}/${patient.diastolicBP}` : '-', unit: 'mmHg' },
+                { icon: Droplets, label: 'SpO2', value: patient.oxygenSaturation ? `${patient.oxygenSaturation}%` : '-',
                   alert: !!(patient.oxygenSaturation && patient.oxygenSaturation < 94) },
-                { icon: AlertTriangle, label: 'EVA', value: patient.painLevel !== undefined ? `${patient.painLevel}/10` : '—',
+                { icon: AlertTriangle, label: 'EVA', value: patient.painLevel !== undefined ? `${patient.painLevel}/10` : '-',
                   alert: !!(patient.painLevel && patient.painLevel >= 7), warn: !!(patient.painLevel && patient.painLevel >= 4 && patient.painLevel < 7) },
               ];
               return items;
@@ -1085,7 +1082,7 @@ export default function PatientDetail() {
                 <span className={`text-sm font-bold ${v.alert ? 'text-red-600' : v.warn ? 'text-amber-600' : 'text-gray-900'}`}>
                   {v.value}
                 </span>
-                {v.unit && v.value !== '—' && <span className="text-[10px] text-gray-400">{v.unit}</span>}
+                {v.unit && v.value !== '-' && <span className="text-[10px] text-gray-400">{v.unit}</span>}
               </div>
             ))}
 
@@ -1104,13 +1101,13 @@ export default function PatientDetail() {
                 title={s.score !== undefined ? getScoreLabel(s.score, s.type) : undefined}
               >
                 <span className="text-[10px] font-medium opacity-70">{s.label}</span>
-                <span>{s.score ?? '—'}</span>
+                <span>{s.score ?? '-'}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* ABCDE — compact full-width strip */}
+        {/* ABCDE - compact full-width strip */}
         {(() => {
           const parseABCDE = (json: string | undefined): Record<string, unknown> | null => {
             if (!json) return null;
@@ -1131,23 +1128,23 @@ export default function PatientDetail() {
           const hasAny = a || b || c || d || e;
           if (!hasAny) return null;
 
-          const summaryA = !a ? '—' : critA ? (a.obstructed ? 'Obstruées' : a.stridor ? 'Stridor' : 'Non libres') : 'Libres';
-          const summaryB = !b ? '—' : [
+          const summaryA = !a ? '-' : critA ? (a.obstructed ? 'Obstruées' : a.stridor ? 'Stridor' : 'Non libres') : 'Libres';
+          const summaryB = !b ? '-' : [
             typeof b.respiratoryRate === 'number' ? `FR ${b.respiratoryRate}` : null,
             typeof b.oxygenSaturation === 'number' ? `SpO2 ${b.oxygenSaturation}%` : null,
             b.cyanosis ? 'Cyanose' : null,
           ].filter(Boolean).join(' · ') || 'RAS';
-          const summaryC = !c ? '—' : [
+          const summaryC = !c ? '-' : [
             typeof c.heartRate === 'number' ? `FC ${c.heartRate}` : null,
             c.bloodPressure ? `TA ${c.bloodPressure}` : null,
             c.bleeding ? 'Saignement' : null,
           ].filter(Boolean).join(' · ') || 'RAS';
-          const summaryD = !d ? '—' : [
+          const summaryD = !d ? '-' : [
             (typeof d.gcsEye === 'number' && typeof d.gcsVerbal === 'number' && typeof d.gcsMotor === 'number')
               ? `GCS ${d.gcsEye + d.gcsVerbal + d.gcsMotor}` : null,
             d.pupils ? (d.pupils === 'PEARL' ? 'Pupilles N' : `Pupilles ${d.pupils}`) : null,
           ].filter(Boolean).join(' · ') || 'RAS';
-          const summaryE = !e ? '—' : [
+          const summaryE = !e ? '-' : [
             typeof e.temperature === 'number' ? `${e.temperature}°C` : null,
             e.rash ? 'Rash' : null,
             e.wounds ? 'Plaies' : null,
@@ -1171,7 +1168,7 @@ export default function PatientDetail() {
                     className={`flex items-center gap-2 px-2 py-1.5 rounded-md border ${
                       cat.critical ? 'border-red-300 bg-red-50' : 'border-gray-100 bg-gray-50'
                     }`}
-                    title={`${cat.letter} — ${cat.summary}`}
+                    title={`${cat.letter} - ${cat.summary}`}
                   >
                     <div className={`p-1 rounded ${cat.color} shrink-0`}>
                       <cat.icon className="h-3 w-3 text-white" />
@@ -1180,7 +1177,7 @@ export default function PatientDetail() {
                       <div className="flex items-center gap-1">
                         <span className="text-xs font-bold text-gray-700">{cat.letter}</span>
                         {cat.critical && <AlertTriangle className="h-3 w-3 text-red-500" />}
-                        {!cat.critical && cat.summary !== '—' && <CheckCircle className="h-3 w-3 text-green-500" />}
+                        {!cat.critical && cat.summary !== '-' && <CheckCircle className="h-3 w-3 text-green-500" />}
                       </div>
                       <p className={`text-[10px] leading-tight truncate ${cat.critical ? 'text-red-700 font-medium' : 'text-gray-500'}`}>
                         {cat.summary}
@@ -1230,8 +1227,8 @@ export default function PatientDetail() {
                   <div>
                     <p className={`font-semibold ${isTreatmentDone ? 'text-green-800' : 'text-amber-800'}`}>
                       {isTreatmentDone
-                        ? 'Soins terminés — Patient prêt à reprendre la consultation'
-                        : `Patient en attente — ${holdStatusLabels[patient.holdStatus] || patient.holdStatus}`}
+                        ? 'Soins terminés - Patient prêt à reprendre la consultation'
+                        : `Patient en attente - ${holdStatusLabels[patient.holdStatus] || patient.holdStatus}`}
                     </p>
                     {!isTreatmentDone && patient.holdReason && (
                       <p className="text-sm text-amber-700 mt-0.5">{patient.holdReason}</p>
@@ -1409,7 +1406,7 @@ export default function PatientDetail() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 pt-2">
-                  {/* Medical Interventions — compact bullets */}
+                  {/* Medical Interventions - compact bullets */}
                   {unifiedAnalysis.medicalInterventions.length > 0 && (
                     <div>
                       <p className="text-xs font-semibold text-blue-800 mb-1 flex items-center gap-1">
@@ -1427,7 +1424,7 @@ export default function PatientDetail() {
                     </div>
                   )}
 
-                  {/* Pathology Hypotheses — top 1 expanded, rest compact */}
+                  {/* Pathology Hypotheses - top 1 expanded, rest compact */}
                   {unifiedAnalysis.pathologies.length > 0 && (
                     <div className="pt-2 border-t border-purple-100">
                       <p className="text-xs font-semibold text-purple-800 mb-1.5 flex items-center gap-1">
@@ -1435,7 +1432,7 @@ export default function PatientDetail() {
                         Hypothèses diagnostiques ({unifiedAnalysis.pathologies.length})
                       </p>
 
-                      {/* Top pathology — expanded */}
+                      {/* Top pathology - expanded */}
                       {(() => {
                         const top = unifiedAnalysis.pathologies[0];
                         return (
@@ -1480,7 +1477,7 @@ export default function PatientDetail() {
                         );
                       })()}
 
-                      {/* Remaining pathologies — compact, expandable */}
+                      {/* Remaining pathologies - compact, expandable */}
                       {unifiedAnalysis.pathologies.length > 1 && (
                         <>
                           {!collapsedSections.morePathologies ? (
@@ -1542,7 +1539,7 @@ export default function PatientDetail() {
                     </div>
                   )}
 
-                  {/* Warnings — collapsible, default closed */}
+                  {/* Warnings - collapsible, default closed */}
                   {unifiedAnalysis.warnings.length > 0 && (
                     <div className="pt-2 border-t border-purple-100">
                       <button
@@ -1573,7 +1570,7 @@ export default function PatientDetail() {
               </Card>
             )}
 
-            {/* AI Pre-Diagnosis Panel (generate/streaming) — shown when no unified analysis */}
+            {/* AI Pre-Diagnosis Panel (generate/streaming) - shown when no unified analysis */}
             {!unifiedAnalysis && (
               <AIPreDiagnosisPanel
                 patientId={patient.id}

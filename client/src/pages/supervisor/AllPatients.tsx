@@ -1,12 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -32,7 +29,7 @@ import {
   X,
 } from 'lucide-react';
 import { getApi } from '../../services/api';
-import { PatientStatus, Orientation, Sex, API_ROUTES } from '@ncdss/shared';
+import { API_ROUTES } from '@ncdss/shared';
 import { CLIENT_ROUTES } from '../../routes';
 
 interface PatientSummary {
@@ -145,7 +142,7 @@ export default function AllPatients() {
   });
   const [showFilters, setShowFilters] = useState(false);
 
-  const loadPatients = async () => {
+  const loadPatients = useCallback(async () => {
     setLoading(true);
     try {
       const api = await getApi();
@@ -156,7 +153,7 @@ export default function AllPatients() {
         params.status = statusFilter;
       }
       if (dateFilter) {
-        params.today = 'true';
+        params.date = dateFilter;
       }
 
       const response = await api.get(API_ROUTES.patients.list, { params });
@@ -182,11 +179,11 @@ export default function AllPatients() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, statusFilter, esiFilter, orientationFilter, dateFilter]);
 
   useEffect(() => {
     loadPatients();
-  }, [search, statusFilter, esiFilter, orientationFilter, dateFilter]);
+  }, [loadPatients]);
 
   const handleExport = async () => {
     setExporting(true);

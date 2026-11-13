@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -18,7 +18,7 @@ import { Badge } from '../../../components/ui/badge';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { VitalsForm, VitalsData } from '../../../components/abcde/VitalsForm';
-import { ExposureForm } from '../../../components/abcde/ExposureForm';
+import { ExposureForm, ExposureData } from '../../../components/abcde/ExposureForm';
 import { MedicalHistoryForm, MedicalHistoryData } from '../../../components/abcde/MedicalHistoryForm';
 import { SymptomsForm } from '../../../components/abcde/SymptomsForm';
 import { TriageAccordion, useTriageAccordion } from '../../../components/triage/TriageAccordion';
@@ -30,9 +30,18 @@ import { splitSymptomsToABCDE, extractSymptomsFromABCDE } from '../../../utils/s
 import { getApi } from '../../../services/api';
 import { CLIENT_ROUTES } from '../../../routes';
 import { Patient, Orientation as OrientationType, OrientationSource, API_ROUTES } from '@ncdss/shared';
-import type { ClinicalAnalysisResult, SymptomsFormData, UnifiedClinicalAnalysis } from '@ncdss/shared';
+import type {
+  ClinicalAnalysisResult,
+  SymptomsFormData,
+  UnifiedClinicalAnalysis,
+  AirwayObservations,
+  BreathingObservations,
+  CirculationObservations,
+  DisabilityObservations,
+} from '@ncdss/shared';
 import { useFeatureFlagsStore } from '../../../stores/feature-flags.store';
 import { suggestESI } from '../../../utils/scoreUtils';
+import { getApiErrorMessage } from '../../../utils/apiError';
 
 // ---------------------------------------------------------------------------
 // Section metadata
@@ -45,11 +54,19 @@ const sectionsMeta = [
   { id: 'antecedents', label: 'Antecedents', icon: ClipboardList },
 ];
 
+interface AbcdeData {
+  A: Partial<AirwayObservations>;
+  B: Partial<BreathingObservations>;
+  C: Partial<CirculationObservations>;
+  D: Partial<DisabilityObservations>;
+  E: Partial<ExposureData>;
+}
+
 // ---------------------------------------------------------------------------
 // Critical findings helpers
 // ---------------------------------------------------------------------------
 
-function hasCriticalVitals(vitals: Record<string, any>): boolean {
+function hasCriticalVitals(vitals: Partial<VitalsData>): boolean {
   return !!(
     (vitals.temperature != null && (vitals.temperature < 35 || vitals.temperature > 39)) ||
     (vitals.heartRate != null && (vitals.heartRate < 50 || vitals.heartRate > 120)) ||
@@ -59,7 +76,7 @@ function hasCriticalVitals(vitals: Record<string, any>): boolean {
   );
 }
 
-function hasCriticalABCDE(symptoms: Partial<SymptomsFormData>, abcde: Record<string, any>, vitals: Record<string, any>): boolean {
+function hasCriticalABCDE(symptoms: Partial<SymptomsFormData>, abcde: AbcdeData, vitals: Partial<VitalsData>): boolean {
   const E = abcde.E || {};
   const gcs = (vitals.gcsEye || 0) + (vitals.gcsVerbal || 0) + (vitals.gcsMotor || 0);
 
@@ -85,7 +102,7 @@ const NORMAL_DEFAULTS: Record<string, unknown> = {
   gcsMotor: 6,
 };
 
-function countFilledFields(data: Record<string, any>): number {
+function countFilledFields(data: object): number {
   return Object.entries(data).filter(
     ([k, v]) =>
       v !== undefined && v !== null && v !== '' && v !== false &&
@@ -120,7 +137,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
 
   // Triage result (shown after confirmation instead of navigating away)
   const [triageResult, setTriageResult] = useState<{
-    patient: any;
+    patient: Patient;
     autoAssignment: {
       assigned: boolean;
       boxName?: string;
@@ -136,7 +153,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
     gcsVerbal: 5,
     gcsMotor: 6,
   });
-  const [abcdeData, setAbcdeData] = useState<Record<string, any>>({
+  const [abcdeData, setAbcdeData] = useState<AbcdeData>({
     A: {}, B: {}, C: {}, D: {}, E: {},
   });
   const [symptomsData, setSymptomsData] = useState<Partial<SymptomsFormData>>({
@@ -166,7 +183,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
       scores: {},
     };
     setSuggestion(newSuggestion);
-    // AI suggestion becomes the authoritative orientation — no override reason needed
+    // AI suggestion becomes the authoritative orientation - no override reason needed
     setSelectedOrientation(analysis.orientation as OrientationType);
     setOverrideReason('');
   }, []);
@@ -197,12 +214,12 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
   const symptomesRef = useRef<HTMLDivElement>(null);
   const etatGeneralRef = useRef<HTMLDivElement>(null);
   const antecedentsRef = useRef<HTMLDivElement>(null);
-  const sectionRefs: Record<string, React.RefObject<HTMLDivElement>> = {
+  const sectionRefs = useMemo<Record<string, React.RefObject<HTMLDivElement>>>(() => ({
     'signes-vitaux': signesVitauxRef,
     'symptomes': symptomesRef,
     'etat-general': etatGeneralRef,
     'antecedents': antecedentsRef,
-  };
+  }), []);
 
   // Analysis debounce
   const analysisTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -371,9 +388,6 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
       );
       setSymptomsData(symptoms);
 
-      // Load ESI and orientation
-      setSelectedESI(p.esiLevel ?? null);
-
       // Load orientation suggestion
       try {
         const suggestionRes = await api.get(API_ROUTES.patients.suggestOrientation(id));
@@ -396,9 +410,10 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
         painLevel: p.painLevel ?? undefined,
       });
       setSuggestedESI(esi);
-      setSelectedESI(esi);
+      // A level already saved by the nurse wins over the suggestion
+      setSelectedESI(p.esiLevel ?? esi);
 
-      // Auto-run analysis if patient has ABCDE data (skip in unified mode — panel manages its own)
+      // Auto-run analysis if patient has ABCDE data (skip in unified mode - panel manages its own)
       const hasABCDEData = !!(p.abcdeAirway || p.abcdeBreathing || p.abcdeCirculation || p.abcdeDisability || p.abcdeExposure);
       if (hasABCDEData && !useUnifiedAnalysis) {
         runAnalysis();
@@ -451,7 +466,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
         };
         setSuggestion(newSuggestion);
       }
-    } catch (e: any) {
+    } catch (e) {
       console.error('Analysis error:', e);
     } finally {
       setAnalyzing(false);
@@ -576,7 +591,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
 
         dirtyRef.current[sectionId] = false;
         return true;
-      } catch (e: any) {
+      } catch (e) {
         console.error(`Save error for ${sectionId}:`, e);
         return false;
       }
@@ -643,7 +658,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
       await saveAllDirtyRef.current();
       unifiedHandleRef.current?.regenerate();
     }
-    // If no debounce pending, the stream is either already running or completed — do nothing
+    // If no debounce pending, the stream is either already running or completed - do nothing
   }, [useUnifiedAnalysis]);
 
   // Cleanup unified debounce timer on unmount
@@ -691,7 +706,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
   }, [scheduleUnifiedAnalysis]);
 
   const handleAbcdeChange = useCallback(
-    (category: string, data: any) => {
+    (category: keyof AbcdeData, data: AbcdeData[keyof AbcdeData]) => {
       setAbcdeData((prev) => ({ ...prev, [category]: data }));
       if (category === 'E') {
         dirtyRef.current['etat-general'] = true;
@@ -763,14 +778,14 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
         patient: response.data,
         autoAssignment: response.data.autoAssignment || { assigned: false, reason: 'Affectation non disponible' },
       });
-    } catch (e: any) {
-      setError(e.response?.data?.error || 'Erreur lors de la finalisation du triage');
+    } catch (e) {
+      setError(getApiErrorMessage(e, 'Erreur lors de la finalisation du triage'));
     } finally {
       setSaving(false);
     }
   }, [
     id, selectedESI, selectedOrientation, isOrientationOverride, overrideReason,
-    suggestion, patient, navigate, saveAllDirty,
+    suggestion, saveAllDirty,
   ]);
 
   // -----------------------------------------------------------------------
@@ -781,7 +796,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
     switch (sectionId) {
       case 'signes-vitaux': {
         const filled = countFilledFields(vitalsData);
-        const critical = hasCriticalVitals(vitalsData as Record<string, any>);
+        const critical = hasCriticalVitals(vitalsData);
         if (critical) return <span className="text-red-600 font-medium text-xs">⚠ Critiques</span>;
         if (filled > 0) return <span className="text-green-600 text-xs">✓ {filled}/{countTotalFields(sectionId)}</span>;
         return <span className="text-gray-400 text-xs">── vide ──</span>;
@@ -901,7 +916,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
         </div>
 
         {/* Critical alerts banner */}
-        {(hasCriticalVitals(vitalsData as Record<string, any>) || hasCriticalABCDE(symptomsData, abcdeData, vitalsData as Record<string, any>)) && (
+        {(hasCriticalVitals(vitalsData) || hasCriticalABCDE(symptomsData, abcdeData, vitalsData)) && (
           <div className="px-4 pb-2">
             <Alert className="bg-red-50 border-red-300 py-2">
               <AlertTriangle className="h-4 w-4 text-red-600" />
@@ -1011,7 +1026,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
     </div>
 
     {/* ============================================================= */}
-    {/* Decision panel — fixed layer, independent of workflow scroll   */}
+    {/* Decision panel - fixed layer, independent of workflow scroll   */}
     {/* ============================================================= */}
     {!triageResult && (
       <DecisionPanel
@@ -1109,7 +1124,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0" />
                     <span className="text-sm text-orange-700">
-                      En attente — {triageResult.autoAssignment.reason}
+                      En attente - {triageResult.autoAssignment.reason}
                     </span>
                   </div>
                   <p className="text-xs text-gray-500">
@@ -1146,7 +1161,7 @@ function TriageWorkflowContent({ collapseHandlerRef }: { collapseHandlerRef: Rea
 }
 
 // ---------------------------------------------------------------------------
-// Main export — wraps TriageAccordion around the inner content
+// Main export - wraps TriageAccordion around the inner content
 // ---------------------------------------------------------------------------
 
 export default function TriageWorkflow(): React.ReactElement {

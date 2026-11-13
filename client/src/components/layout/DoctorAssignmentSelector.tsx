@@ -14,6 +14,7 @@ import {
 } from '../ui/dialog';
 import { useAuthStore, DoctorBoxAssignment } from '../../stores/auth.store';
 import { getApi } from '../../services/api';
+import { getApiErrorMessage } from '../../utils/apiError';
 import { boxTypeLabels, boxTypeColors, presetLabels } from '../../utils/roleUtils';
 import { cn } from '../../lib/utils';
 
@@ -177,8 +178,8 @@ export function DoctorAssignmentSelector({
       await setDoctorBoxAssignment(response.data as DoctorBoxAssignment);
       setIsOpen(false);
       onAssignmentChange?.();
-    } catch (err: any) {
-      const message = err.response?.data?.error || 'Erreur lors du changement';
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Erreur lors du changement');
       setError(message);
     } finally {
       setIsLoading(false);
@@ -194,8 +195,8 @@ export function DoctorAssignmentSelector({
       await api.delete(API_ROUTES.boxAssignments.myAssignment);
       await setDoctorBoxAssignment(null);
       setIsOpen(false);
-    } catch (err: any) {
-      const message = err.response?.data?.error || 'Erreur lors de la terminaison';
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Erreur lors de la terminaison');
       setError(message);
     } finally {
       setIsLoading(false);
@@ -340,7 +341,6 @@ export function DoctorAssignmentSelector({
             <Label className="text-sm font-medium text-gray-700">Durée</Label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {selectablePresets.map((preset) => {
-                const config = ASSIGNMENT_PRESETS[preset];
                 return (
                   <button
                     key={preset}

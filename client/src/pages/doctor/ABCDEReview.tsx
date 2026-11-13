@@ -9,6 +9,7 @@ import { ABCDEReviewComponent } from '../../components/doctor/ABCDEReview';
 import { getApi } from '../../services/api';
 import { Patient, Sex, API_ROUTES } from '@ncdss/shared';
 import { CLIENT_ROUTES } from '../../routes';
+import { getApiErrorMessage } from '../../utils/apiError';
 import {
   ArrowLeft,
   RefreshCw,
@@ -42,8 +43,8 @@ export default function ABCDEReview() {
       const api = await getApi();
       const response = await api.get(API_ROUTES.patients.byId(id));
       setPatient(response.data);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Erreur lors du chargement du patient');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Erreur lors du chargement du patient'));
     } finally {
       setLoading(false);
     }

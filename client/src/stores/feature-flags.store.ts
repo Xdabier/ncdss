@@ -17,7 +17,7 @@ const DEFAULT_FLAGS: FeatureFlags = {
   useUnifiedAnalysis: true,
 };
 
-export const useFeatureFlagsStore = create<FeatureFlagsState>((set, get) => ({
+export const useFeatureFlagsStore = create<FeatureFlagsState>((set) => ({
   useUnifiedAnalysis: true,
 
   setUseUnifiedAnalysis: async (value: boolean) => {

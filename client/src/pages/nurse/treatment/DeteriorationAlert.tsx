@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../../../components/layout/DashboardLayout';
 import {
@@ -100,7 +100,7 @@ function ScoreChange({ label, current, previous, higherIsBetter = false, critica
       <div className="text-xs text-gray-500 mb-1">{label}</div>
       <div className="flex items-center justify-between">
         <span className={`text-2xl font-bold ${isCritical ? 'text-red-600' : 'text-gray-900'}`}>
-          {current ?? '—'}
+          {current ?? '-'}
         </span>
         {hasDiff && (
           <div className={`flex items-center gap-1 ${changeColor}`}>
@@ -137,13 +137,7 @@ export default function DeteriorationAlert() {
   const [selectedEscalation, setSelectedEscalation] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
 
-  useEffect(() => {
-    if (id) {
-      loadPatient();
-    }
-  }, [id]);
-
-  const loadPatient = async (): Promise<void> => {
+  const loadPatient = useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
       const api = await getApi();
@@ -155,7 +149,13 @@ export default function DeteriorationAlert() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      loadPatient();
+    }
+  }, [id, loadPatient]);
 
   const handleActionToggle = (actionId: string): void => {
     setCheckedActions((prev) => ({
@@ -387,23 +387,23 @@ export default function DeteriorationAlert() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t">
                 <div className="text-center">
                   <div className="text-xs text-gray-500">Température</div>
-                  <div className="font-semibold">{patient.temperature ? `${patient.temperature}°C` : '—'}</div>
+                  <div className="font-semibold">{patient.temperature ? `${patient.temperature}°C` : '-'}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-xs text-gray-500">FC</div>
-                  <div className="font-semibold">{patient.heartRate ? `${patient.heartRate} bpm` : '—'}</div>
+                  <div className="font-semibold">{patient.heartRate ? `${patient.heartRate} bpm` : '-'}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-xs text-gray-500">TA</div>
                   <div className="font-semibold">
                     {patient.systolicBP && patient.diastolicBP
                       ? `${patient.systolicBP}/${patient.diastolicBP}`
-                      : '—'}
+                      : '-'}
                   </div>
                 </div>
                 <div className="text-center">
                   <div className="text-xs text-gray-500">FR</div>
-                  <div className="font-semibold">{patient.respiratoryRate ? `${patient.respiratoryRate}/min` : '—'}</div>
+                  <div className="font-semibold">{patient.respiratoryRate ? `${patient.respiratoryRate}/min` : '-'}</div>
                 </div>
               </div>
             </CardContent>
@@ -422,6 +422,7 @@ export default function DeteriorationAlert() {
                 {actionItems.map((action) => (
                   <label
                     key={action.id}
+                    htmlFor={`deterioration-action-${action.id}`}
                     className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                       checkedActions[action.id]
                         ? 'bg-green-50 border-green-200'
@@ -429,6 +430,7 @@ export default function DeteriorationAlert() {
                     }`}
                   >
                     <Checkbox
+                      id={`deterioration-action-${action.id}`}
                       checked={checkedActions[action.id] || false}
                       onCheckedChange={() => handleActionToggle(action.id)}
                     />

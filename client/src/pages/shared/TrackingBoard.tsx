@@ -96,7 +96,6 @@ export default function TrackingBoard() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>('all');
   const [search, setSearch] = useState('');
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [secondsSinceRefresh, setSecondsSinceRefresh] = useState(0);
   const { user } = useAuthStore();
   const navigate = useNavigate();
@@ -113,7 +112,6 @@ export default function TrackingBoard() {
       ]);
       setPatients(boardRes.data);
       setStats(statsRes.data);
-      setLastRefresh(new Date());
       setSecondsSinceRefresh(0);
     } catch (err) {
       console.error('Error loading tracking data:', err);
@@ -178,7 +176,7 @@ export default function TrackingBoard() {
         navigate(CLIENT_ROUTES.nurse.triage.abcde(p.id));
       }
     } else {
-      navigate(CLIENT_ROUTES.shared.patientTimeline(p.id));
+      navigate(CLIENT_ROUTES.shared.patientDetail(p.id));
     }
   };
 
@@ -191,7 +189,7 @@ export default function TrackingBoard() {
         <span
           className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${esiColors[p.esiLevel ?? 5] || 'bg-gray-300 text-gray-700'}`}
         >
-          {p.esiLevel ?? '—'}
+          {p.esiLevel ?? '-'}
         </span>
       ),
     },
@@ -203,7 +201,7 @@ export default function TrackingBoard() {
         <div>
           <div className="font-medium">{p.fullName}</div>
           <div className="text-xs text-gray-500">
-            {p.age != null ? `${p.age} ans` : '—'}{p.sex ? `, ${p.sex === 'MALE' ? 'H' : 'F'}` : ''}
+            {p.age != null ? `${p.age} ans` : '-'}{p.sex ? `, ${p.sex === 'MALE' ? 'H' : 'F'}` : ''}
           </div>
         </div>
       ),
@@ -218,7 +216,7 @@ export default function TrackingBoard() {
             {p.boxName}
           </Badge>
         ) : (
-          <span className="text-gray-400 text-xs">—</span>
+          <span className="text-gray-400 text-xs">-</span>
         ),
     },
     {
@@ -227,7 +225,7 @@ export default function TrackingBoard() {
       width: '16%',
       render: (p) => (
         <div className="truncate max-w-[200px]" title={p.chiefComplaint || ''}>
-          {p.chiefComplaint || <span className="text-gray-400">—</span>}
+          {p.chiefComplaint || <span className="text-gray-400">-</span>}
         </div>
       ),
     },
@@ -242,7 +240,7 @@ export default function TrackingBoard() {
             {orientationLabels[p.finalOrientation] || p.finalOrientation}
           </Badge>
         ) : (
-          <span className="text-gray-400 text-xs">—</span>
+          <span className="text-gray-400 text-xs">-</span>
         ),
     },
     {
@@ -269,7 +267,7 @@ export default function TrackingBoard() {
       hiddenOnMobile: true,
       render: (p) => {
         if (p.newsScore == null && p.gcsScore == null) {
-          return <span className="text-gray-400 text-xs">—</span>;
+          return <span className="text-gray-400 text-xs">-</span>;
         }
         return (
           <div className="text-xs space-y-0.5">
@@ -442,7 +440,7 @@ export default function TrackingBoard() {
                 <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0 animate-pulse" />
                 <p className="text-sm font-semibold text-red-800">
                   {criticalCount} patient{criticalCount > 1 ? 's' : ''} critique
-                  {criticalCount > 1 ? 's' : ''} (ESI 1-2) — Prise en charge prioritaire
+                  {criticalCount > 1 ? 's' : ''} (ESI 1-2) - Prise en charge prioritaire
                 </p>
               </div>
             </CardContent>

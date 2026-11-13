@@ -10,7 +10,3 @@ export async function getServerUrl(): Promise<string | null> {
 export async function setServerUrl(url: string): Promise<void> {
   await Preferences.set({ key: SERVER_URL_KEY, value: url });
 }
-
-export async function clearServerUrl(): Promise<void> {
-  await Preferences.remove({ key: SERVER_URL_KEY });
-}

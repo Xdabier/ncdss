@@ -364,51 +364,55 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap items-center justify-between text-center py-4 gap-1">
-              <div
+              <button
+                type="button"
                 className="flex-1 cursor-pointer hover:bg-gray-50 rounded-lg p-3 transition-colors"
                 onClick={() => navigate(CLIENT_ROUTES.nurse.inscription.home)}
               >
-                <div className="text-2xl font-bold text-yellow-600">
+                <span className="block text-2xl font-bold text-yellow-600">
                   {loading ? '...' : stats?.today.waitingTriage || 0}
-                </div>
-                <div className="text-sm text-gray-500 mt-1">Inscription</div>
-              </div>
+                </span>
+                <span className="block text-sm text-gray-500 mt-1">Inscription</span>
+              </button>
 
               <ArrowRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
 
-              <div
+              <button
+                type="button"
                 className="flex-1 cursor-pointer hover:bg-gray-50 rounded-lg p-3 transition-colors"
                 onClick={() => navigate(CLIENT_ROUTES.nurse.triage.queue)}
               >
-                <div className="text-2xl font-bold text-orange-600">
+                <span className="block text-2xl font-bold text-orange-600">
                   {loading ? '...' : stats?.today.inTriage || 0}
-                </div>
-                <div className="text-sm text-gray-500 mt-1">Triage</div>
-              </div>
+                </span>
+                <span className="block text-sm text-gray-500 mt-1">Triage</span>
+              </button>
 
               <ArrowRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
 
-              <div
+              <button
+                type="button"
                 className="flex-1 cursor-pointer hover:bg-gray-50 rounded-lg p-3 transition-colors"
                 onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.queue)}
               >
-                <div className="text-2xl font-bold text-blue-600">
+                <span className="block text-2xl font-bold text-blue-600">
                   {loading ? '...' : stats?.today.waitingTreatment || 0}
-                </div>
-                <div className="text-sm text-gray-500 mt-1">Attente soins</div>
-              </div>
+                </span>
+                <span className="block text-sm text-gray-500 mt-1">Attente soins</span>
+              </button>
 
               <ArrowRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
 
-              <div
+              <button
+                type="button"
                 className="flex-1 cursor-pointer hover:bg-gray-50 rounded-lg p-3 transition-colors"
                 onClick={() => navigate(CLIENT_ROUTES.nurse.treatment.queue)}
               >
-                <div className="text-2xl font-bold text-purple-600">
+                <span className="block text-2xl font-bold text-purple-600">
                   {loading ? '...' : stats?.today.inTreatment || 0}
-                </div>
-                <div className="text-sm text-gray-500 mt-1">En soins</div>
-              </div>
+                </span>
+                <span className="block text-sm text-gray-500 mt-1">En soins</span>
+              </button>
 
               <ArrowRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
 

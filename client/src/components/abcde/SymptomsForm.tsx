@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useLayoutEffect, useRef } from 'react';
 import type { SymptomsFormData } from '@ncdss/shared';
 import { Label } from '../ui/label';
 import {
@@ -21,9 +21,11 @@ interface Props {
 export function SymptomsForm({ data, onChange }: Props): React.ReactElement {
   // Ref tracks the latest data so that sequential update() calls within
   // the same tick each see the result of the previous call, preventing
-  // stale-closure overwrites.
+  // stale-closure overwrites. Synced after every render, before any handler runs.
   const dataRef = useRef(data);
-  dataRef.current = data;
+  useLayoutEffect(() => {
+    dataRef.current = data;
+  });
 
   const update = <K extends keyof SymptomsFormData>(field: K, value: SymptomsFormData[K]): void => {
     const updated = { ...dataRef.current, [field]: value };

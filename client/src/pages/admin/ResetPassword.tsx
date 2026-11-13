@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import {
@@ -14,14 +14,15 @@ import { Label } from '../../components/ui/label';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { AlertCircle, Key, X, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { getApi } from '../../services/api';
-import { API_ROUTES } from '@ncdss/shared';
+import { User, API_ROUTES } from '@ncdss/shared';
 import { CLIENT_ROUTES } from '../../routes';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
 
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -31,21 +32,21 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  useEffect(() => {
-    loadUser();
-  }, [id]);
-
-  const loadUser = async () => {
+  const loadUser = useCallback(async () => {
     try {
       const api = await getApi();
       const response = await api.get(API_ROUTES.users.byId(id!));
       setUser(response.data);
-    } catch (e) {
+    } catch {
       setError("Erreur de chargement de l'utilisateur");
     } finally {
       setLoadingUser(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    loadUser();
+  }, [loadUser]);
 
   const handleSubmit = async () => {
     setError(null);
@@ -74,8 +75,8 @@ export default function ResetPassword() {
       setTimeout(() => {
         navigate(CLIENT_ROUTES.admin.users);
       }, 2000);
-    } catch (e: any) {
-      setError(e.response?.data?.error || 'Erreur de réinitialisation');
+    } catch (e) {
+      setError(getApiErrorMessage(e, 'Erreur de réinitialisation'));
     } finally {
       setLoading(false);
     }

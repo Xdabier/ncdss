@@ -162,7 +162,7 @@ export function DecisionPanel({
   return (
     <>
       {/* ================================================================= */}
-      {/* Expanding overlay — fixed, rises from behind the bar              */}
+      {/* Expanding overlay - fixed, rises from behind the bar              */}
       {/* z-40 so the bar (z-50) stays visually on top during animation     */}
       {/* ================================================================= */}
       <div
@@ -209,7 +209,7 @@ export function DecisionPanel({
           {/* Controls section */}
           <div className="border-b bg-gray-50">
             <div className="px-4 py-4 max-w-6xl mx-auto space-y-4">
-              {/* Recommendation line (hidden in unified mode — UnifiedAnalysisPanel has its own) */}
+              {/* Recommendation line (hidden in unified mode - UnifiedAnalysisPanel has its own) */}
               {!useUnifiedAnalysis && (
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
@@ -318,7 +318,7 @@ export function DecisionPanel({
       </div>
 
       {/* ================================================================= */}
-      {/* Bar — fixed at viewport bottom, always on top (z-50 > z-40)       */}
+      {/* Bar - fixed at viewport bottom, always on top (z-50 > z-40)       */}
       {/* ================================================================= */}
       <div className="fixed bottom-0 left-0 right-0 lg:left-72 z-50 bg-white border-t-2 border-blue-200 shadow-[0_-2px_8px_rgba(0,0,0,0.08)]">
         <div className="px-4 py-2.5 flex items-center justify-between max-w-6xl mx-auto w-full">

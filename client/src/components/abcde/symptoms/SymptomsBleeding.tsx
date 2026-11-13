@@ -33,19 +33,24 @@ export function SymptomsBleeding({
   onExterioriseeChange,
   onTypesChange,
 }: Props): React.ReactElement {
+  const interneId = React.useId();
+  const exterioriseeId = React.useId();
+
   return (
     <div className="space-y-3">
       <Label className="text-base font-semibold">Saignement</Label>
       <div className="flex items-center gap-6">
-        <label className="flex items-center gap-2 cursor-pointer">
+        <label htmlFor={interneId} className="flex items-center gap-2 cursor-pointer">
           <Checkbox
+            id={interneId}
             checked={interne ?? false}
             onCheckedChange={(checked) => onInterneChange(checked === true)}
           />
           <span className="text-sm">Interne</span>
         </label>
-        <label className="flex items-center gap-2 cursor-pointer">
+        <label htmlFor={exterioriseeId} className="flex items-center gap-2 cursor-pointer">
           <Checkbox
+            id={exterioriseeId}
             checked={exteriorisee ?? false}
             onCheckedChange={(checked) => {
               const val = checked === true;

@@ -64,7 +64,7 @@ export default function LockScreen() {
       setFailedAttempts(0);
       await setLocked(false);
       navigate(CLIENT_ROUTES.dashboard, { replace: true });
-    } catch (e: any) {
+    } catch {
       const newAttempts = failedAttempts + 1;
       setFailedAttempts(newAttempts);
       setDigits(['', '', '', '']);

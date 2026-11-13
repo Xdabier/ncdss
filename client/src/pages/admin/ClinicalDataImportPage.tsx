@@ -309,6 +309,15 @@ export default function ClinicalDataImportPage(): React.ReactElement {
                 />
 
                 <div
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      fileInputRef.current?.click();
+                    }
+                  }}
                   className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
                     isDragOver
                       ? 'border-blue-500 bg-blue-50'
@@ -440,7 +449,7 @@ export default function ClinicalDataImportPage(): React.ReactElement {
         {/* Confirmation Modal */}
         {showConfirm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/50" onClick={() => setShowConfirm(false)} />
+            <div role="presentation" className="absolute inset-0 bg-black/50" onClick={() => setShowConfirm(false)} />
             <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 z-10 p-6">
               <div className="flex items-center gap-4 mb-4">
                 <div className="p-3 rounded-full bg-amber-100">

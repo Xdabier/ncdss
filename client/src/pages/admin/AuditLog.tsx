@@ -54,7 +54,7 @@ interface AuditEntry {
   action: string;
   resource: string;
   resourceId: string | null;
-  details: any;
+  details: unknown;
   ipAddress: string;
   userAgent: string;
   createdAt: string;

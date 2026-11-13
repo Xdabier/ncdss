@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Edit, Key, UserX, UserCheck } from 'lucide-react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
@@ -44,11 +44,7 @@ export default function UserManagement() {
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  useEffect(() => {
-    loadUsers();
-  }, [search, roleFilter, statusFilter]);
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
       const api = await getApi();
@@ -64,7 +60,11 @@ export default function UserManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, roleFilter, statusFilter]);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
 
   const handleToggleStatus = async (user: User) => {
     try {

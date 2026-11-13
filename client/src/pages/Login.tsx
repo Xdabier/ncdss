@@ -11,6 +11,7 @@ import { getApi, setAuthToken, clearApi } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 import { API_ROUTES } from '@ncdss/shared';
 import { CLIENT_ROUTES } from '../routes';
+import { getApiErrorMessage } from '../utils/apiError';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -53,7 +54,7 @@ export default function Login() {
 
       await setServerUrl(serverAddress);
       setShowServerInput(false);
-    } catch (e) {
+    } catch {
       setError("Impossible de se connecter au serveur. Vérifiez l'adresse.");
     } finally {
       setLoading(false);
@@ -73,8 +74,8 @@ export default function Login() {
       await setAuth(user, accessToken, refreshToken, todayAssignment, todayShiftInfo);
 
       navigate(CLIENT_ROUTES.dashboard);
-    } catch (e: any) {
-      setError(e.response?.data?.error || 'Erreur de connexion');
+    } catch (e) {
+      setError(getApiErrorMessage(e, 'Erreur de connexion'));
     } finally {
       setLoading(false);
     }

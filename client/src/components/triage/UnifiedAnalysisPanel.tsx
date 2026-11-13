@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { getApi } from '../../services/api';
 import { getServerUrl } from '../../services/config';
 import { useAuthStore } from '../../stores/auth.store';
@@ -116,6 +116,40 @@ const RIGHT_COLUMN = SECTION_ORDER.filter((_, i) => i % 2 !== 0);
 
 /** Throttle interval for incremental parsing (ms) */
 const PARSE_THROTTLE_MS = 200;
+
+/** Display state built from the history of incremental parses of one stream */
+interface StreamProgress {
+  /** Last successfully parsed partial, used when the current parse fails */
+  lastPartial: Record<string, unknown> | null;
+  /** Fields already shown as complete, they never go back to 'active' */
+  completedFields: ReadonlySet<AnalysisFieldKey>;
+  /** Fields that reached 'complete' with the latest parse */
+  newlyCompletedFields: ReadonlySet<AnalysisFieldKey>;
+}
+
+const EMPTY_STREAM_PROGRESS: StreamProgress = {
+  lastPartial: null,
+  completedFields: new Set(),
+  newlyCompletedFields: new Set(),
+};
+
+function advanceStreamProgress(prev: StreamProgress, parsed: IncrementalParseResult): StreamProgress {
+  const lastPartial = parsed.partial ?? prev.lastPartial;
+  const newlyCompletedFields = new Set<AnalysisFieldKey>();
+
+  if (parsed.started && lastPartial) {
+    for (const { key } of SECTION_ORDER) {
+      if (parsed.fieldStatuses[key] === 'complete' && !prev.completedFields.has(key)) {
+        newlyCompletedFields.add(key);
+      }
+    }
+  }
+
+  const completedFields = new Set(prev.completedFields);
+  newlyCompletedFields.forEach((key) => completedFields.add(key));
+
+  return { lastPartial, completedFields, newlyCompletedFields };
+}
 
 /** Bouncing dots indicator for active sections */
 function BouncingDots(): React.ReactElement {
@@ -472,20 +506,25 @@ export function UnifiedAnalysisPanel({
   const [showTests, setShowTests] = useState(false);
   const [showPathologies, setShowPathologies] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  // Mirrors "rawJsonRef.current is not empty" for rendering
+  const [responseStarted, setResponseStarted] = useState(false);
+  const [streamProgress, setStreamProgress] = useState<StreamProgress>(EMPTY_STREAM_PROGRESS);
 
   const rawJsonRef = useRef<string>('');
   const lastParseTimeRef = useRef<number>(0);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const completedFieldsRef = useRef<Set<string>>(new Set());
-  const lastPartialRef = useRef<Record<string, unknown> | null>(null);
   const generateStreamRef = useRef<() => Promise<void>>();
   const stopStreamRef = useRef<() => void>();
   const abortControllerRef = useRef<AbortController | null>(null);
   const onAnalysisReadyRef = useRef(onAnalysisReady);
-  onAnalysisReadyRef.current = onAnalysisReady;
   const onOrientationSuggestedRef = useRef(onOrientationSuggested);
-  onOrientationSuggestedRef.current = onOrientationSuggested;
   const orientationFiredRef = useRef(false);
+
+  // Keep the latest callbacks for the stream and polling handlers
+  useLayoutEffect(() => {
+    onAnalysisReadyRef.current = onAnalysisReady;
+    onOrientationSuggestedRef.current = onOrientationSuggested;
+  });
 
   const checkAiStatus = useCallback(async (): Promise<void> => {
     try {
@@ -515,7 +554,7 @@ export function UnifiedAnalysisPanel({
         setError(data.errorMessage);
       }
     } catch {
-      // Silently fail on load — user can trigger manually
+      // Silently fail on load - user can trigger manually
     }
   }, [patientId]);
 
@@ -606,9 +645,9 @@ export function UnifiedAnalysisPanel({
       setIncrementalResult(null);
       setCheckedInterventions(new Set());
       rawJsonRef.current = '';
+      setResponseStarted(false);
       lastParseTimeRef.current = 0;
-      completedFieldsRef.current = new Set();
-      lastPartialRef.current = null;
+      setStreamProgress(EMPTY_STREAM_PROGRESS);
       orientationFiredRef.current = false;
 
       const serverUrl = await getServerUrl();
@@ -639,7 +678,6 @@ export function UnifiedAnalysisPanel({
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      let thinkingPhase = true;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -655,8 +693,8 @@ export function UnifiedAnalysisPanel({
               const data = JSON.parse(line.slice(6));
 
               if (data.type === 'response') {
-                thinkingPhase = false;
                 rawJsonRef.current += data.content;
+                setResponseStarted(rawJsonRef.current.length > 0);
 
                 // Throttled incremental parse
                 const now = Date.now();
@@ -664,6 +702,7 @@ export function UnifiedAnalysisPanel({
                   lastParseTimeRef.current = now;
                   const parsed = parseIncremental(rawJsonRef.current);
                   setIncrementalResult(parsed);
+                  setStreamProgress((prev) => advanceStreamProgress(prev, parsed));
 
                   // Fire early orientation suggestion as soon as the field is complete
                   if (
@@ -679,13 +718,13 @@ export function UnifiedAnalysisPanel({
                   }
                 }
               } else if (data.type === 'thinking') {
-                // Still in thinking phase — no JSON yet
+                // Still in thinking phase - no JSON yet
               } else if (data.type === 'done') {
                 const raw = data.unifiedResult?.analysis as UnifiedClinicalAnalysis | undefined;
 
                 // All state updates are batched by React 18, so clearing
                 // incrementalResult and setting result happen in the same
-                // render — no flash back to the loading spinner.
+                // render - no flash back to the loading spinner.
                 if (raw) {
                   const normalized = normalizeAnalysis(raw);
                   setResult(normalized);
@@ -694,12 +733,14 @@ export function UnifiedAnalysisPanel({
                 }
                 setIncrementalResult(null);
                 rawJsonRef.current = '';
+                setResponseStarted(false);
                 setLoading(false);
                 return;
               } else if (data.type === 'error') {
                 setError(data.error);
                 setIncrementalResult(null);
                 rawJsonRef.current = '';
+                setResponseStarted(false);
                 setLoading(false);
                 return;
               }
@@ -710,41 +751,44 @@ export function UnifiedAnalysisPanel({
         }
       }
 
-      // Stream ended without done event — connection interrupted
+      // Stream ended without done event - connection interrupted
       setError('L\'analyse a ete interrompue. Veuillez relancer.');
       setIncrementalResult(null);
       rawJsonRef.current = '';
-      lastPartialRef.current = null;
+      setResponseStarted(false);
+      setStreamProgress(EMPTY_STREAM_PROGRESS);
       setLoading(false);
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') {
-        // Stream was intentionally stopped — don't set error
+        // Stream was intentionally stopped - don't set error
         return;
       }
       setError('Erreur lors de la generation de l\'analyse');
       setIncrementalResult(null);
       rawJsonRef.current = '';
-      lastPartialRef.current = null;
+      setResponseStarted(false);
+      setStreamProgress(EMPTY_STREAM_PROGRESS);
       setLoading(false);
     }
   };
-  generateStreamRef.current = generateStream;
-
   const stopStream = useCallback((): void => {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
     setLoading(false);
     setIncrementalResult(null);
     rawJsonRef.current = '';
-    lastPartialRef.current = null;
+    setResponseStarted(false);
+    setStreamProgress(EMPTY_STREAM_PROGRESS);
   }, []);
-  stopStreamRef.current = stopStream;
+
+  // Keep the handle given to the parent pointing at the latest functions
+  useLayoutEffect(() => {
+    generateStreamRef.current = generateStream;
+    stopStreamRef.current = stopStream;
+  });
 
   const handleStop = (): void => {
-    setLoading(false);
-    setIncrementalResult(null);
-    rawJsonRef.current = '';
-    lastPartialRef.current = null;
+    stopStream();
     // Restore previous saved result from database
     loadSaved();
   };
@@ -770,23 +814,24 @@ export function UnifiedAnalysisPanel({
     config: SectionConfig,
     fieldStatuses: Record<AnalysisFieldKey, FieldStatus>,
     partial: Record<string, unknown> | null,
+    animateEntry: boolean,
   ): React.ReactElement | null => {
     // Monotonic: once a field reaches 'complete', prevent regression to 'active'
     // (the incremental parser can oscillate due to nested closing braces)
     let primaryStatus = fieldStatuses[config.key];
-    if (completedFieldsRef.current.has(config.key)) {
+    if (streamProgress.completedFields.has(config.key)) {
       primaryStatus = 'complete';
     }
 
     // Use cached partial as fallback when current parse failed
-    const effectivePartial = partial ?? lastPartialRef.current;
+    const effectivePartial = partial ?? streamProgress.lastPartial;
 
     if (primaryStatus === 'not_started') {
       return <SectionSkeleton key={config.key} config={config} status="not_started" />;
     }
 
     if (primaryStatus === 'active') {
-      // Special case: orientation block — show partial data while active
+      // Special case: orientation block - show partial data while active
       if (config.key === 'orientation' && effectivePartial) {
         return (
           <div key={config.key}>
@@ -803,10 +848,7 @@ export function UnifiedAnalysisPanel({
     }
 
     // Only animate entry the first time a field transitions to 'complete'
-    const shouldAnimate = !completedFieldsRef.current.has(config.key);
-    if (shouldAnimate) {
-      completedFieldsRef.current.add(config.key);
-    }
+    const shouldAnimate = animateEntry && streamProgress.newlyCompletedFields.has(config.key);
 
     switch (config.key) {
       case 'criticalAlerts': {
@@ -912,7 +954,7 @@ export function UnifiedAnalysisPanel({
 
   // Loading state (streaming) with progressive rendering
   if (loading) {
-    // Thinking phase or no incremental data yet — show the animated spinner
+    // Thinking phase or no incremental data yet - show the animated spinner
     if (!incrementalResult || !incrementalResult.started) {
       return (
         <div className="border rounded-lg border-purple-200 bg-gradient-to-br from-purple-50 to-white p-4">
@@ -924,9 +966,9 @@ export function UnifiedAnalysisPanel({
             </Badge>
           </div>
           <AILoadingAnimation
-            streamActivity={rawJsonRef.current.length > 0 ? 10 : 0}
+            streamActivity={responseStarted ? 10 : 0}
             thinkingActive={true}
-            responseActive={rawJsonRef.current.length > 0}
+            responseActive={responseStarted}
           />
           <div className="flex justify-center">
             <Button
@@ -943,20 +985,15 @@ export function UnifiedAnalysisPanel({
       );
     }
 
-    // Progressive rendering — JSON generation has started
+    // Progressive rendering - JSON generation has started
     const { partial, fieldStatuses } = incrementalResult;
-
-    // Cache latest successful partial data for stability
-    if (partial) {
-      lastPartialRef.current = partial;
-    }
 
     return (
       <div className="px-4 lg:px-8 py-2 max-w-6xl mx-auto">
         {/* Mobile: single column in stream order */}
         <div className="flex flex-col gap-3 lg:hidden">
           {SECTION_ORDER.map((config) =>
-            renderStreamingSection(config, fieldStatuses, partial)
+            renderStreamingSection(config, fieldStatuses, partial, true)
           )}
         </div>
 
@@ -964,12 +1001,12 @@ export function UnifiedAnalysisPanel({
         <div className="hidden lg:grid lg:grid-cols-2 gap-3 items-start">
           <div className="space-y-3">
             {LEFT_COLUMN.map((config) =>
-              renderStreamingSection(config, fieldStatuses, partial)
+              renderStreamingSection(config, fieldStatuses, partial, false)
             )}
           </div>
           <div className="space-y-3">
             {RIGHT_COLUMN.map((config) =>
-              renderStreamingSection(config, fieldStatuses, partial)
+              renderStreamingSection(config, fieldStatuses, partial, false)
             )}
           </div>
         </div>
@@ -1011,7 +1048,7 @@ export function UnifiedAnalysisPanel({
     );
   }
 
-  // Empty state — no result yet
+  // Empty state - no result yet
   if (!result) {
     return (
       <div className="border rounded-lg border-dashed border-purple-200 bg-purple-50/30 p-6">

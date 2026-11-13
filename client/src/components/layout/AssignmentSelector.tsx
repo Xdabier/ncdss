@@ -19,6 +19,7 @@ import {
 } from '../ui/dialog';
 import { useAuthStore, NurseShiftInfo } from '../../stores/auth.store';
 import { getApi } from '../../services/api';
+import { getApiErrorMessage } from '../../utils/apiError';
 import { assignmentLabels, assignmentColors } from '../../utils/roleUtils';
 import { cn } from '../../lib/utils';
 
@@ -121,8 +122,8 @@ export function AssignmentSelector({
       await setTodayAssignment(selectedAssignment, shiftInfo);
       setIsOpen(false);
       onAssignmentChange?.();
-    } catch (err: any) {
-      const message = err.response?.data?.error || 'Erreur lors du changement';
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Erreur lors du changement');
       setError(message);
     } finally {
       setIsLoading(false);

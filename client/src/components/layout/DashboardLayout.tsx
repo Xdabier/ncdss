@@ -14,6 +14,7 @@ export function DashboardLayout({ children }: Props) {
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
+          role="presentation"
           className="fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300"
           onClick={() => setSidebarOpen(false)}
         />

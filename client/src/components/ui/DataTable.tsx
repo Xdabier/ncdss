@@ -69,7 +69,7 @@ export function DataTable<T>({
                   key={String(col.key)}
                   className={`px-2 sm:px-4 py-2 sm:py-3 text-sm${col.hiddenOnMobile ? ' hidden sm:table-cell' : ''}`}
                 >
-                  {col.render ? col.render(item) : String((item as any)[col.key] ?? '')}
+                  {col.render ? col.render(item) : String((item as Record<PropertyKey, unknown>)[col.key] ?? '')}
                 </td>
               ))}
             </tr>

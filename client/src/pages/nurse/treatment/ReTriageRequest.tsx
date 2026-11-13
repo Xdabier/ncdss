@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { DashboardLayout } from '../../../components/layout/DashboardLayout';
 import {
@@ -62,13 +62,7 @@ export default function ReTriageRequest() {
   const [reason, setReason] = useState('');
   const [urgency, setUrgency] = useState('normal');
 
-  useEffect(() => {
-    if (id) {
-      loadPatient();
-    }
-  }, [id]);
-
-  const loadPatient = async (): Promise<void> => {
+  const loadPatient = useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
       const api = await getApi();
@@ -80,7 +74,13 @@ export default function ReTriageRequest() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      loadPatient();
+    }
+  }, [id, loadPatient]);
 
   const handleSubmit = async (): Promise<void> => {
     if (!id) return;
@@ -234,7 +234,7 @@ export default function ReTriageRequest() {
                 <div className="text-center p-3 bg-gray-50 rounded-lg">
                   <Thermometer className="h-5 w-5 mx-auto text-red-400 mb-1" />
                   <div className="text-xl font-bold">
-                    {patient.temperature ? `${patient.temperature}°` : '—'}
+                    {patient.temperature ? `${patient.temperature}°` : '-'}
                   </div>
                   <div className="text-xs text-gray-500">Temp (°C)</div>
                 </div>
@@ -242,7 +242,7 @@ export default function ReTriageRequest() {
                 {/* Heart rate */}
                 <div className="text-center p-3 bg-gray-50 rounded-lg">
                   <Heart className="h-5 w-5 mx-auto text-pink-400 mb-1" />
-                  <div className="text-xl font-bold">{patient.heartRate ?? '—'}</div>
+                  <div className="text-xl font-bold">{patient.heartRate ?? '-'}</div>
                   <div className="text-xs text-gray-500">FC (bpm)</div>
                 </div>
 
@@ -251,8 +251,8 @@ export default function ReTriageRequest() {
                   <Activity className="h-5 w-5 mx-auto text-blue-400 mb-1" />
                   <div className="text-xl font-bold">
                     {patient.systolicBP || patient.diastolicBP
-                      ? `${patient.systolicBP ?? '—'}/${patient.diastolicBP ?? '—'}`
-                      : '—'}
+                      ? `${patient.systolicBP ?? '-'}/${patient.diastolicBP ?? '-'}`
+                      : '-'}
                   </div>
                   <div className="text-xs text-gray-500">TA (mmHg)</div>
                 </div>
@@ -261,7 +261,7 @@ export default function ReTriageRequest() {
                 <div className="text-center p-3 bg-gray-50 rounded-lg">
                   <Wind className="h-5 w-5 mx-auto text-cyan-400 mb-1" />
                   <div className="text-xl font-bold">
-                    {patient.oxygenSaturation ? `${patient.oxygenSaturation}%` : '—'}
+                    {patient.oxygenSaturation ? `${patient.oxygenSaturation}%` : '-'}
                   </div>
                   <div className="text-xs text-gray-500">SpO2</div>
                 </div>
@@ -279,7 +279,7 @@ export default function ReTriageRequest() {
                           : 'text-green-600'
                     }`}
                   >
-                    {patient.newsScore ?? '—'}
+                    {patient.newsScore ?? '-'}
                   </div>
                   <div className="text-xs text-gray-500">NEWS</div>
                 </div>
@@ -289,7 +289,7 @@ export default function ReTriageRequest() {
                       (patient.gcsScore ?? 15) < 12 ? 'text-red-600' : 'text-gray-700'
                     }`}
                   >
-                    {patient.gcsScore ?? '—'}
+                    {patient.gcsScore ?? '-'}
                   </div>
                   <div className="text-xs text-gray-500">GCS</div>
                 </div>
@@ -299,7 +299,7 @@ export default function ReTriageRequest() {
                       (patient.qsofaScore ?? 0) >= 2 ? 'text-red-600' : 'text-gray-700'
                     }`}
                   >
-                    {patient.qsofaScore ?? '—'}
+                    {patient.qsofaScore ?? '-'}
                   </div>
                   <div className="text-xs text-gray-500">qSOFA</div>
                 </div>
@@ -329,11 +329,11 @@ export default function ReTriageRequest() {
 
               {/* Urgency selection */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
+                <label htmlFor="retriage-urgency" className="block text-sm font-medium text-gray-700">
                   Niveau d'urgence
                 </label>
                 <Select value={urgency} onValueChange={setUrgency}>
-                  <SelectTrigger>
+                  <SelectTrigger id="retriage-urgency">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -351,10 +351,11 @@ export default function ReTriageRequest() {
 
               {/* Reason textarea */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
+                <label htmlFor="retriage-request-reason" className="block text-sm font-medium text-gray-700">
                   Motif de la demande (optionnel)
                 </label>
                 <textarea
+                  id="retriage-request-reason"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="Décrivez les changements observés chez le patient qui justifient une réévaluation..."

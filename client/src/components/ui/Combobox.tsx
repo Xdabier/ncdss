@@ -90,7 +90,7 @@ export function Combobox({
   const selectedLabel = options.find((o) => o.value === value)?.label;
 
   return (
-    <div ref={containerRef} className={cn('relative', className)} onKeyDown={handleKeyDown}>
+    <div ref={containerRef} role="presentation" className={cn('relative', className)} onKeyDown={handleKeyDown}>
       {/* Trigger button */}
       <button
         type="button"
@@ -118,6 +118,7 @@ export function Combobox({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-8 text-sm"
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- search field of a dropdown the user just opened
               autoFocus
             />
           </div>
@@ -134,7 +135,17 @@ export function Combobox({
                 <div
                   key={option.value}
                   data-combobox-item
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handleSelect(option.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      // Keep the container handler from also selecting the highlighted item
+                      e.stopPropagation();
+                      handleSelect(option.value);
+                    }
+                  }}
                   className={cn(
                     'flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-pointer',
                     'hover:bg-accent hover:text-accent-foreground',

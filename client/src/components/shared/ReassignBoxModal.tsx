@@ -109,7 +109,7 @@ export function ReassignBoxModal({
             const doctors = Array.isArray(doctorRes.data) ? doctorRes.data : [];
             return {
               ...box,
-              currentDoctors: doctors.map((d: any) => ({ doctorId: d.doctorId, doctorName: d.doctorName })),
+              currentDoctors: doctors.map((d: BoxWithDoctor['currentDoctors'][number]) => ({ doctorId: d.doctorId, doctorName: d.doctorName })),
             };
           } catch {
             return { ...box, currentDoctors: [] };
@@ -271,7 +271,7 @@ export function ReassignBoxModal({
           </DialogTitle>
           <DialogDescription>
             {patientName}
-            {orientation && ` — Orientation: ${orientationLabels[orientation] || orientation}`}
+            {orientation && ` - Orientation: ${orientationLabels[orientation] || orientation}`}
           </DialogDescription>
         </DialogHeader>
 
@@ -327,10 +327,11 @@ export function ReassignBoxModal({
 
             {/* Reason textarea */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="reassign-reason" className="block text-sm font-medium text-gray-700 mb-2">
                 Raison de la réorientation (optionnel)
               </label>
               <textarea
+                id="reassign-reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Décrivez la raison de la réorientation..."

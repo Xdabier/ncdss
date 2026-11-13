@@ -134,7 +134,7 @@ export async function getApi(): Promise<AxiosInstance> {
           isRefreshing = false;
           refreshSubscribers = [];
 
-          // Clear auth — this will redirect via ProtectedRoute/LockScreen guards
+          // Clear auth - this will redirect via ProtectedRoute/LockScreen guards
           await useAuthStore.getState().clearAuth();
 
           return Promise.reject(refreshError);

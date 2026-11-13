@@ -4,7 +4,6 @@ import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '../../components/ui/card';
@@ -24,7 +23,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { getApi } from '../../services/api';
-import { PatientStatus, API_ROUTES } from '@ncdss/shared';
+import { API_ROUTES } from '@ncdss/shared';
 import { CLIENT_ROUTES } from '../../routes';
 
 interface QueuePatient {
@@ -124,7 +123,15 @@ function QueueCard({ title, icon, queue, color, onPatientClick, emptyMessage }: 
             {sortedPatients.map((patient) => (
               <div
                 key={patient.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => onPatientClick(patient.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onPatientClick(patient.id);
+                  }
+                }}
                 className={`p-3 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors ${
                   patient.isCritical ? 'bg-red-50 border-red-200' : 'bg-white'
                 } ${patient.id === queue.longestWaitingId ? 'ring-2 ring-orange-400' : ''}`}

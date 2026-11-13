@@ -19,8 +19,6 @@ const AIRWAY_STATUS_REVERSE: Record<string, SymptomsFormData['airwayStatus']> = 
   obstructed: 'obstrue',
 };
 
-const COLOR_ITEMS = new Set(['pale', 'cyanotic', 'mottled', 'flushed', 'normal']);
-
 const SIGNES_CUTANES_TO_SKIN: Record<string, string> = {
   paleur: 'pale',
   cyanose: 'cyanotic',

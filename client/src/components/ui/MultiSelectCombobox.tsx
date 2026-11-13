@@ -118,6 +118,7 @@ export function MultiSelectCombobox({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="h-8 text-sm"
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- search field of a dropdown the user just opened
                 autoFocus
               />
             </div>

@@ -86,7 +86,7 @@ export function NotificationBell() {
       } else if (role === UserRole.NURSE || role === UserRole.NURSE_SUPERVISOR) {
         navigate(CLIENT_ROUTES.nurse.treatment.patientCare(notification.relatedPatientId));
       } else {
-        navigate(CLIENT_ROUTES.shared.patientTimeline(notification.relatedPatientId));
+        navigate(CLIENT_ROUTES.shared.patientDetail(notification.relatedPatientId));
       }
     }
   };

@@ -383,7 +383,7 @@ export default function PatientRegistration(): React.ReactElement {
                 <div className="grid gap-2">
                   <Label>Age</Label>
                   <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted px-3 py-2 text-sm">
-                    {computedAgeDisplay || '—'}
+                    {computedAgeDisplay || '-'}
                   </div>
                 </div>
               </div>

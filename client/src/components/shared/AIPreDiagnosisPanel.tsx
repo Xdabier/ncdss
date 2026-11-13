@@ -114,11 +114,14 @@ export function AILoadingAnimation({
     return () => clearInterval(timer);
   }, []);
 
+  // Jump to the last phase as soon as the response starts
+  if (responseActive && currentPhase < analysisPhases.length - 1) {
+    setCurrentPhase(analysisPhases.length - 1);
+  }
+
   // Progress through phases based on stream activity
   useEffect(() => {
-    if (responseActive && currentPhase < analysisPhases.length - 1) {
-      setCurrentPhase(analysisPhases.length - 1);
-    } else if (thinkingActive && currentPhase < analysisPhases.length - 2) {
+    if (thinkingActive && currentPhase < analysisPhases.length - 2) {
       const timer = setTimeout(() => {
         setCurrentPhase(prev => Math.min(prev + 1, analysisPhases.length - 2));
       }, 2500);
@@ -277,6 +280,7 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion, onRequestExam,
   const [streamingResponse, setStreamingResponse] = useState('');
   const [streamActivity, setStreamActivity] = useState(0); // Counter for animation reactivity
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Load saved pre-diagnosis on mount
   const loadSavedPreDiagnosis = useCallback(async () => {
@@ -303,7 +307,7 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion, onRequestExam,
   }, [patientId]);
 
   // Check AI availability on mount
-  const checkAIStatus = async () => {
+  const checkAIStatus = useCallback(async () => {
     try {
       setCheckingStatus(true);
       const api = await getApi();
@@ -315,7 +319,7 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion, onRequestExam,
     } finally {
       setCheckingStatus(false);
     }
-  };
+  }, [patientId]);
 
   // Initial load
   useEffect(() => {
@@ -328,7 +332,7 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion, onRequestExam,
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [patientId, loadSavedPreDiagnosis]);
+  }, [patientId, checkAIStatus, loadSavedPreDiagnosis]);
 
   // Poll when status is 'generating'
   useEffect(() => {
@@ -376,6 +380,8 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion, onRequestExam,
   }, [savedPreDiagnosis?.status, patientId]);
 
   const stopGeneration = () => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
     setLoading(false);
   };
 
@@ -402,12 +408,17 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion, onRequestExam,
       const url = `http://${serverUrl}/api${API_ROUTES.patients.aiPrediagnosisStream(patientId)}`;
 
       // EventSource doesn't support headers, so we use fetch with streaming
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'text/event-stream',
         },
+        signal: controller.signal,
       });
 
       if (!response.ok || !response.body) {
@@ -460,7 +471,9 @@ export function AIPreDiagnosisPanel({ patientId, onUseSuggestion, onRequestExam,
       }
 
       setLoading(false);
-    } catch (err: any) {
+    } catch (err) {
+      // Stopped by the user
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       console.error('Streaming error:', err);
       setError('Erreur lors de la generation du pre-diagnostic');
       setLoading(false);

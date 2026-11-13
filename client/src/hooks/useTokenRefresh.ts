@@ -7,7 +7,7 @@ const REFRESH_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes (tokens expire at 15 m
 /**
  * Proactively refreshes the access token before it expires.
  * Runs every 10 minutes while the user is authenticated.
- * Works regardless of lock state — keeps the session alive silently.
+ * Works regardless of lock state - keeps the session alive silently.
  */
 export function useTokenRefresh(): void {
   const { isAuthenticated } = useAuthStore();
