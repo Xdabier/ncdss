@@ -5,7 +5,6 @@ export * from './types/user';
 export * from './types/config';
 
 // Sync types
-export * from './types/sync';
 
 // Patient types
 export * from './types/patient';

@@ -15,8 +15,8 @@ export interface AirwayObservations {
   drooling?: boolean;          // Hypersalivation
   dysphagia?: boolean;         // Difficulté à avaler
   painLevel?: number;          // EVA 0-10
-  airwayStatus?: 'patent' | 'at_risk' | 'obstructed';  // P2.1 — replaces patent+obstructed booleans for new patients
-  painLocation?: ('thoracic' | 'abdominal' | 'cephalic' | 'neurologic' | 'orthopedic' | 'muscular' | 'limbs' | 'facial' | 'oral')[];  // P1.2
+  airwayStatus?: 'patent' | 'at_risk' | 'obstructed';  // Replaces patent+obstructed booleans for new patients
+  painLocation?: ('thoracic' | 'abdominal' | 'cephalic' | 'neurologic' | 'orthopedic' | 'muscular' | 'limbs' | 'facial' | 'oral')[];
   notes?: string;
 }
 
@@ -28,11 +28,11 @@ export interface BreathingObservations {
   cyanosis: boolean;
   accessoryMuscles: boolean;   // Utilisation muscles accessoires
   hemoptysis?: boolean;        // Hémoptysie (crachats de sang)
-  breathSoundsMulti?: ('normal' | 'stridor' | 'wheezing' | 'crackles' | 'snoring' | 'gurgling' | 'decreased' | 'absent' | 'gasping')[];  // P1.4 + P3.1
-  nasalFlaring?: boolean;      // P2.4 — Battement des ailes du nez
-  apnea?: boolean;             // P3.3 — Pause respiratoire
-  signesLutte?: string[];      // P6.1 — Raw "signes de lutte" array (tirage sous-costal, muscles accessoires, etc.)
-  pauseRespiratoire?: boolean; // P6.1 — Pause respiratoire (alias for apnea, kept for direct storage)
+  breathSoundsMulti?: ('normal' | 'stridor' | 'wheezing' | 'crackles' | 'snoring' | 'gurgling' | 'decreased' | 'absent' | 'gasping')[];
+  nasalFlaring?: boolean;      // Battement des ailes du nez
+  apnea?: boolean;             // Pause respiratoire
+  signesLutte?: string[];      // Raw "signes de lutte" array (tirage sous-costal, muscles accessoires, etc.)
+  pauseRespiratoire?: boolean; // Pause respiratoire (alias for apnea, kept for direct storage)
   notes?: string;
 }
 
@@ -48,10 +48,10 @@ export interface CirculationObservations {
   coldExtremities: boolean;    // Extrémités froides
   jvd?: boolean;               // Distension jugulaire
   oliguria?: boolean;          // Oligurie (faible débit urinaire)
-  bleedingType?: ('internal' | 'epistaxis' | 'hemoptysis' | 'hematemesis' | 'gingival' | 'melena' | 'hematuria' | 'otorrhagia' | 'rhinorrhagia' | 'metrorrhagia' | 'ocular' | 'other')[];  // P1.1
-  diaphoresis?: boolean;       // P1.5 — Sueurs profuses
-  cardiacAuscultation?: 'normal' | 'murmur' | 'irregular';  // P3.2
-  skinColorMulti?: ('normal' | 'pale' | 'cyanotic' | 'mottled' | 'flushed')[];  // P3.5
+  bleedingType?: ('internal' | 'epistaxis' | 'hemoptysis' | 'hematemesis' | 'gingival' | 'melena' | 'hematuria' | 'otorrhagia' | 'rhinorrhagia' | 'metrorrhagia' | 'ocular' | 'other')[];
+  diaphoresis?: boolean;       // Sueurs profuses
+  cardiacAuscultation?: 'normal' | 'murmur' | 'irregular';
+  skinColorMulti?: ('normal' | 'pale' | 'cyanotic' | 'mottled' | 'flushed')[];
   notes?: string;
 }
 
@@ -66,7 +66,7 @@ export interface DisabilityObservations {
   seizures: boolean;
   confusion: boolean;
   headache?: boolean;          // Céphalée sévère soudaine
-  pupilReactivity?: boolean;   // P2.2 — Reactive to light (true = reactive, false = non-reactive)
+  pupilReactivity?: boolean;   // Reactive to light (true = reactive, false = non-reactive)
   notes?: string;
 }
 
@@ -83,10 +83,10 @@ export interface ExposureObservations {
   diarrhea?: boolean;          // Diarrhée
   lastMeal?: string;           // Dernier repas (heure/contenu)
   findings: string[];          // Free text list of findings
-  traumaType?: ('cranial' | 'maxillofacial' | 'thoracic' | 'pelvic' | 'limbs' | 'spinal')[];  // P1.3
-  edemaType?: ('angioedema' | 'lower_limbs' | 'upper_limbs' | 'ascites')[];  // P2.3
-  electrocution?: boolean;     // P1.6
-  intoxication?: boolean;      // P1.6
+  traumaType?: ('cranial' | 'maxillofacial' | 'thoracic' | 'pelvic' | 'limbs' | 'spinal')[];
+  edemaType?: ('angioedema' | 'lower_limbs' | 'upper_limbs' | 'ascites')[];
+  electrocution?: boolean;
+  intoxication?: boolean;
   notes?: string;
 }
 

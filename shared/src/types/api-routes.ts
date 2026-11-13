@@ -109,10 +109,6 @@ export const API_ROUTES = {
     export: '/stats/export',
   },
 
-  sync: {
-    sync: '/sync',
-  },
-
   auditLog: {
     list: '/audit-log',
     users: '/audit-log/users',

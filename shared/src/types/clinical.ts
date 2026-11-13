@@ -1,5 +1,5 @@
 /**
- * Clinical Data Types — Language-Agnostic Pathology Matching
+ * Clinical Data Types - Language-Agnostic Pathology Matching
  *
  * These types support the code-based pathology matching system that replaces
  * the legacy free-text French sign matching approach.
