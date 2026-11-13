@@ -2,8 +2,7 @@ import { Router } from 'express';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../database';
 import { erConfiguration, boxes } from '../../database/schema';
-import { randomUUID } from 'crypto';
-import { BoxType } from '@ncdss/shared';
+import { buildBoxesForLayout, type BoxLayout } from '../../services/boxLayout';
 import { AuthRequest } from '../middleware/auth';
 
 const router = Router();
@@ -83,71 +82,13 @@ router.get('/boxes', async (req, res) => {
   }
 });
 
-async function regenerateBoxes(config: {
-  triageBoxes: number;
-  medicalBoxes: number;
-  surgicalBoxes: number;
-  traumaBoxes: number;
-  sauvBeds: number;
-  dechocageBeds: number;
-}) {
+async function regenerateBoxes(layout: BoxLayout): Promise<void> {
   const db = getDb();
 
   // Deactivate all existing boxes
   await db.update(boxes).set({ isActive: false });
 
-  // Create new boxes
-  const boxesToCreate: { id: string; name: string; boxType: string; isActive: boolean }[] = [];
-
-  for (let i = 1; i <= config.triageBoxes; i++) {
-    boxesToCreate.push({
-      id: randomUUID(),
-      name: `Box Triage ${i}`,
-      boxType: BoxType.TRIAGE,
-      isActive: true,
-    });
-  }
-  for (let i = 1; i <= config.medicalBoxes; i++) {
-    boxesToCreate.push({
-      id: randomUUID(),
-      name: `Box Médical ${i}`,
-      boxType: BoxType.MEDICAL,
-      isActive: true,
-    });
-  }
-  for (let i = 1; i <= config.surgicalBoxes; i++) {
-    boxesToCreate.push({
-      id: randomUUID(),
-      name: `Box Chirurgical ${i}`,
-      boxType: BoxType.SURGICAL,
-      isActive: true,
-    });
-  }
-  for (let i = 1; i <= config.traumaBoxes; i++) {
-    boxesToCreate.push({
-      id: randomUUID(),
-      name: `Box Traumato ${i}`,
-      boxType: BoxType.TRAUMA,
-      isActive: true,
-    });
-  }
-  for (let i = 1; i <= config.sauvBeds; i++) {
-    boxesToCreate.push({
-      id: randomUUID(),
-      name: `Box SAUV ${i}`,
-      boxType: BoxType.SAUV,
-      isActive: true,
-    });
-  }
-  for (let i = 1; i <= config.dechocageBeds; i++) {
-    boxesToCreate.push({
-      id: randomUUID(),
-      name: `Box Déchocage ${i}`,
-      boxType: BoxType.DECHOCAGE,
-      isActive: true,
-    });
-  }
-
+  const boxesToCreate = buildBoxesForLayout(layout);
   if (boxesToCreate.length > 0) {
     await db.insert(boxes).values(boxesToCreate);
   }

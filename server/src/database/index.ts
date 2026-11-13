@@ -6,6 +6,7 @@ import path from 'path';
 import { app } from 'electron';
 import { randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
+import { buildBoxesForLayout } from '../services/boxLayout';
 
 let db: BetterSQLite3Database<typeof schema>;
 let sqlite: Database.Database;
@@ -176,6 +177,14 @@ async function seedDefaultERConfig() {
       });
 
       console.log('✓ Default ER configuration created');
+    }
+
+    // A layout without any box cannot receive patients
+    const [layout] = await getDb().select().from(schema.erConfiguration).limit(1);
+    const existingBoxes = await getDb().select({ id: schema.boxes.id }).from(schema.boxes).limit(1);
+    if (layout && existingBoxes.length === 0) {
+      await getDb().insert(schema.boxes).values(buildBoxesForLayout(layout));
+      console.log('✓ Boxes created from the ER configuration');
     }
   } catch (error) {
     console.error('Error seeding ER config:', error);
