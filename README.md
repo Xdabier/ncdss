@@ -1,308 +1,219 @@
-# NCDSS - Nursing Clinical Decision Support System
+# NCDSS
 
-Systeme d'Aide a la Decision Clinique pour Infirmieres
+Nursing Clinical Decision Support System for emergency rooms.
 
-## Vue d'ensemble
+NCDSS helps emergency room staff register patients, run an ABCDE triage, compute clinical scores, and get suggestions for orientation and interventions. It was built for Tunisian hospitals, so the whole user interface is in French.
 
-NCDSS est une application client-serveur de gestion des urgences hospitalieres pour les etablissements de sante tunisiens. L'application fournit un support a la decision clinique base sur des regles et l'intelligence artificielle pour le triage, le traitement et le diagnostic aux urgences.
+It is made to run on a hospital local network: one desktop machine hosts the server and the database, and tablets or browsers connect to it. With a local model, nothing needs internet access.
 
-**Architecture:** Monorepo avec 3 workspaces npm
+> **Medical disclaimer.** This is research software. It is not a certified medical device and has not been clinically validated. Its suggestions do not replace the judgment of qualified staff. Do not use it for real patient care without your own validation and regulatory approval.
 
-| Workspace | Role |
-|-----------|------|
-| **server** | Application Electron + serveur API Express + base de donnees SQLite |
-| **client** | Application mobile/tablette React + Capacitor (Android/iOS) |
-| **shared** | Types TypeScript et constantes de routes partagees |
+## What it does
 
-## Fonctionnalites
+- Patient registration with chief complaint
+- ABCDE triage workflow with vital signs
+- Automatic NEWS, GCS and qSOFA scores, with an ESI level suggestion
+- AI analysis of the triage findings: likely pathologies, nursing and medical interventions, orientation (resuscitation room, medical, surgical, trauma). It runs on a local GGUF model (offline) or on the Claude API.
+- Doctor workflow: diagnoses, prescriptions, complementary exams, discharge
+- Nurse weekly schedule and doctor to box assignments
+- Live tracking board, queues, statistics and exports
+- Notifications for patient assignments, finished triage, ending shifts and patients left without a doctor
+- Audit log of clinical write operations
+- User profiles, and a PIN lock screen after inactivity
+- Server window with connection info, live logs and a switch between the local model and the Claude API
 
-### Infrastructure
-- Authentification JWT (double token : access 15min + refresh 7 jours)
-- Gestion des utilisateurs avec 5 roles hierarchiques
-- Configuration dynamique des urgences (boxes, lits SAUV)
-- Journal d'audit automatique pour la conformite medicale
-- Interface utilisateur entierement en francais
+## How it is built
 
-### Gestion des patients (workflow complet)
-- Inscription des patients avec motif de consultation
-- Triage ABCDE complet (5 categories d'evaluation)
-- Calcul automatique des scores cliniques (NEWS, GCS, qSOFA)
-- Suggestion ESI et orientation automatique
-- Prise en charge infirmiere (soins, vitaux, prescription)
-- Workflow medecin (diagnostic, prescription, sortie)
+The repository is an npm workspaces monorepo with three packages:
 
-### Aide a la decision clinique
-- Extraction de signes cliniques depuis les evaluations ABCDE
-- Correspondance automatique avec la base de pathologies
-- Suggestion d'interventions infirmieres et medicales
-- Determination de l'orientation (SAUV, Medical, Chirurgical, Trauma)
-- Pre-diagnostic IA via LLM local (Qwen3, hors-ligne, GPU)
+- `server`: Electron 28 desktop app that embeds an Express 4 REST API and a SQLite database (better-sqlite3 + Drizzle ORM). The API listens on port 3000.
+- `client`: React 18 single page app (Vite, Tailwind CSS, shadcn/ui, Zustand). It runs in a browser and can be packaged for Android and iOS with Capacitor 5.
+- `shared`: TypeScript types and route constants used by both sides.
 
-### Planification et suivi
-- Planning hebdomadaire des infirmieres (inscription, triage, soins)
-- Attribution medecin-box avec presets de garde tunisiens
-- Tableau de suivi en temps reel des patients actifs
-- Statistiques et tableaux de bord avec export CSV
-- Gestion des files d'attente (5 files)
+There is also a `finetuning` folder with the Python pipeline used to fine-tune a small local model. It is optional and separate from the app.
 
-### Notifications
-- Notifications en base de donnees (8 types)
-- Alerte patient critique (ESI 1-2)
-- Alerte fin de garde avec patients restants
-- Detection des patients orphelins (medecin parti)
-- Notification de triage complete pour infirmieres de soins
+## Requirements
 
-## Prerequis
+- Node.js 20 LTS (tested with 20.16) and npm 10
+- Windows, macOS or Linux with a desktop session (the server is an Electron app)
+- Optional: Android Studio or Xcode for mobile builds
 
-- **Node.js** 18+ et npm
-- **Windows**, macOS ou Linux
-- Pour le developpement mobile : Android Studio et/ou Xcode (macOS)
+Node 20 matters. `better-sqlite3` ships prebuilt binaries for it. On Node 24 the install tries to compile from source and fails unless C++ build tools are installed. An `.nvmrc` file is provided, so `nvm use` picks the right version.
 
-## Installation
+## Quick start
+
+Run everything from the repository root unless a step says otherwise.
 
 ```bash
-# Cloner le depot
+# 1. Get the code
 git clone <repository-url>
 cd ncdss
 
-# Installer toutes les dependances (monorepo)
-npm install --workspaces
+# 2. Install all workspaces
+npm ci
 
-# Compiler le package de types partages (requis avant server/client)
-cd shared && npm run build && cd ..
+# 3. Build the shared types (needed before the server or client can start)
+npm run build --workspace=shared
+
+# 4. Start the server (opens an Electron window)
+npm run dev:server
 ```
 
-## Configuration de l'environnement
+The server window shows the address clients must use, for example `192.168.1.100:3000`. You can check that the API is up:
 
-Copier `.env.example` vers `.env` dans le dossier server et configurer les variables :
+```bash
+curl http://localhost:3000/api/health
+# {"status":"ok","timestamp":"..."}
+```
+
+Then, in a second terminal:
+
+```bash
+# 5. Start the web client
+npm run dev:client
+```
+
+Open http://localhost:3001 and:
+
+1. Enter the server address. Use `localhost:3000` on the same machine, or the address shown in the server window from another device. Do not add `http://`.
+2. Log in with the default account: username `admin`, password `admin123`.
+
+The database is created on first start, with this admin account and a default ER layout. Change the admin password before any real use.
+
+Keep both terminals open while you work. Only one server can run at a time on a machine, since it owns port 3000 and the database.
+
+## Where suggestions come from
+
+Scores (NEWS, GCS, qSOFA), the ESI suggestion and a basic orientation suggestion based on those scores are computed in code and always work.
+
+Pathology hypotheses and interventions come from the AI analysis, so they need a model. See [AI analysis](#ai-analysis) below.
+
+The server also has an older rule-based pathology matcher. It reads pathology tables that are empty in a new database, and no dataset ships with this repository, so it returns no matches by default. If you have your own dataset, an admin can import it as an Excel file at `/admin/clinical-data/import`. That page lists the expected sheets and columns.
+
+## Configuration
+
+The server reads `server/.env` at startup. Nothing is required in development.
 
 ```bash
 cp server/.env.example server/.env
 ```
 
-### Variables d'environnement
+- `NODE_ENV`: `development` or `production`
+- `JWT_SECRET`: token signing secret. The server refuses to start in production without it.
+- `CORS_ORIGINS`: comma separated list of allowed origins in production. Every origin is allowed in development.
+- `LLAMA_MODELS_DIR`, `LLAMA_MODEL_FILE`, `LLAMA_MODEL_PATH`, `LLAMA_CONTEXT_SIZE`, `LLAMA_GPU_LAYERS`, `LLAMA_ENABLE_THINKING`: local model settings
+- `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `LLM_PROVIDER`: Claude API settings
 
-| Variable | Defaut | Description |
-|----------|--------|-------------|
-| `PORT` | `3000` | Port du serveur API |
-| `NODE_ENV` | `development` | Environnement (development/production) |
-| `JWT_SECRET` | dev default | Secret pour les tokens d'acces (min 32 caracteres en production) |
-| `JWT_REFRESH_SECRET` | dev default | Secret pour les tokens de rafraichissement |
-| `CORS_ORIGINS` | `localhost` | Origines CORS autorisees (separees par virgules) |
-| `LLAMA_MODELS_DIR` | `./models` | Repertoire contenant les modeles GGUF |
-| `LLAMA_MODEL_PATH` | auto-detect | Chemin specifique vers un modele (optionnel) |
-| `LLAMA_ENABLE_THINKING` | `true` | Activer le mode raisonnement Qwen3 |
+The database file is stored in the Electron user data folder:
 
-**Important en production :** Les variables `JWT_SECRET` et `JWT_REFRESH_SECRET` sont obligatoires. Le serveur refuse de demarrer sans elles quand `NODE_ENV=production`.
+- Windows: `%APPDATA%\ncdss-server\ncdss-server.db`
+- macOS: `~/Library/Application Support/ncdss-server/ncdss-server.db`
+- Linux: `~/.config/ncdss-server/ncdss-server.db`
 
-## Demarrage
+Delete that file to start again from an empty database.
 
-### Serveur (Electron)
+## AI analysis
 
-```bash
-cd server
-npm run dev
-```
+The app starts and the workflows run without any model, but pathology and intervention suggestions stay empty.
 
-Le serveur Electron demarrera et affichera :
-- L'adresse IP locale (ex : `192.168.1.100:3000`)
-- Le statut du serveur
+To use a local model, put a `.gguf` file in `server/models/` and restart the server. The first `.gguf` file found is loaded, or the one named in `LLAMA_MODEL_FILE`. Inference runs through `node-llama-cpp`, on the GPU when one is available.
 
-**Identifiants par defaut :** `admin` / `admin123`
+To use the Claude API instead, set `ANTHROPIC_API_KEY` in `server/.env`. Patient data is then sent to an external service, so only do this with data you are allowed to share.
 
-### Client (web)
+## Mobile builds
+
+The native projects are not committed. Create them once, then sync and open:
 
 ```bash
 cd client
-npm run dev
+npm run build
+npx cap add android   # or: npx cap add ios
+npm run android       # or: npm run ios
 ```
 
-Le client sera accessible sur `http://localhost:3001`
+## Useful scripts
 
-### Les deux simultanament (depuis la racine)
+From the root:
+
+- `npm run dev:server`: start the Electron server in dev mode
+- `npm run dev:client`: start the web client on port 3001
+- `npm run build`: build all three workspaces
+- `npm run lint`: run ESLint
+- `npm run format`: run Prettier
+
+From `server/`:
+
+- `npm run rebuild:electron`: rebuild `better-sqlite3` for Electron
+- `npm run db:generate`: create a migration after a schema change
+- `npm run db:studio`: open Drizzle Studio on the database
+- `npm run db:seed -- <file.xlsx>`: import a clinical dataset from the command line
+- `npm run build`: package the desktop app. It copies `server/.env` into the package, so that file must exist.
+
+The `db:*` scripts rebuild `better-sqlite3` for Node. Run `npm run rebuild:electron` afterwards.
+
+## Project layout
+
+```
+client/      React app (pages by role, components, stores, services, routes)
+server/      Electron main process, Express routes, services, database schema and migrations
+shared/      Types and route constants shared by client and server
+finetuning/  Python scripts to build training data, fine-tune and evaluate a local model
+```
+
+Key places in the code:
+
+- `server/src/main/server.ts`: Express app and route mounting
+- `server/src/api/routes/`: one file per API resource
+- `server/src/services/`: pathology matching, LLM providers, notifications, shift monitor
+- `server/src/database/schema.ts`: Drizzle schema
+- `client/src/routes/index.ts`: every client route
+- `shared/src/types/api-routes.ts`: every API route
+
+## User roles
+
+- `SUPER_ADMIN`: full access
+- `ADMIN`: ER configuration, users, box assignments, clinical reference data
+- `NURSE_SUPERVISOR`: weekly schedule, queues, statistics
+- `NURSE`: registration, triage and treatment
+- `DOCTOR`: diagnoses, prescriptions, discharge
+
+## Troubleshooting
+
+**`better_sqlite3.node was compiled against a different Node.js version`**
+
+The native module was built for the wrong runtime. For the Electron app:
 
 ```bash
-npm run dev
+cd server && npm run rebuild:electron
 ```
 
-## Configuration du LLM (optionnel)
+For command line tools such as `drizzle-kit`, run `npm rebuild better-sqlite3` from the root.
 
-L'application fonctionne sans modele LLM (utilise les suggestions basees sur les regles). Pour activer le pre-diagnostic IA :
+**`npm ci` fails with `Could not find any Visual Studio installation`**
 
-### Installation du modele
+You are on a Node version with no prebuilt `better-sqlite3` binary. Switch to Node 20.
 
-1. Creer le repertoire des modeles :
-```bash
-mkdir server/models
-```
+**The client cannot reach the server**
 
-2. Telecharger un modele Qwen3 au format GGUF :
-   - **Recommande :** `Qwen3-8B-Q4_K_M.gguf` (~5 Go, meilleur equilibre)
-   - **Leger :** `Qwen3-4B-Q4_K_M.gguf` (~2.5 Go)
+- Check that the server window shows a running server and an address.
+- Client and server must be on the same network.
+- The firewall must allow incoming connections on port 3000.
 
-3. Placer le fichier `.gguf` dans `server/models/`
+## Project status
 
-### GPU
+The core workflows work end to end. Known gaps:
 
-Le modele utilise automatiquement le GPU si disponible :
-- **NVIDIA** : CUDA
-- **Apple** : Metal
-- **AMD/Intel** : Vulkan
+- No automated tests yet
+- No WebSocket push, the client polls for notifications
+- No offline mode, clients need a live connection to the server
+- Role checks on patient routes are done in the client, not on the server (see [SECURITY.md](SECURITY.md))
 
-### Fonctionnalites Qwen3
-- Mode raisonnement natif (`/think` et `/no_think`)
-- Excellent support multilingue (terminologie medicale francaise)
-- Sortie JSON structuree
-- Inference hors-ligne complete (aucune connexion internet requise)
+## Contributing
 
-## Developpement mobile
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first. Report security issues as described in [SECURITY.md](SECURITY.md).
 
-```bash
-cd client
+Coding agents should start with [AGENTS.md](AGENTS.md).
 
-# Synchroniser les assets web vers les projets natifs
-npx cap sync
+## License
 
-# Ouvrir dans Android Studio
-npm run android
-
-# Ouvrir dans Xcode (macOS uniquement)
-npm run ios
-```
-
-## Commandes disponibles
-
-### Racine (monorepo)
-```bash
-npm run dev              # Lance serveur et client
-npm run build            # Build tous les packages
-npm run lint             # Lint tous les fichiers TypeScript
-npm run format           # Formate le code avec Prettier
-```
-
-### Serveur
-```bash
-cd server
-npm run dev              # Mode developpement (Vite + Electron)
-npm run build            # Build production
-npm run rebuild          # Reconstruit better-sqlite3 pour Electron
-npm run db:generate      # Generer une migration apres changement de schema
-npm run db:push          # Pousser le schema directement (dev uniquement)
-npm run db:studio        # Ouvrir l'interface de la base de donnees
-```
-
-### Client
-```bash
-cd client
-npm run dev              # Serveur de developpement (port 3001)
-npm run build            # Build production
-npm run android          # Build et ouvrir Android Studio
-npm run ios              # Build et ouvrir Xcode
-```
-
-## Roles utilisateurs
-
-| Role | Acces |
-|------|-------|
-| **SUPER_ADMIN** | Acces total au systeme, gestion de tous les utilisateurs |
-| **ADMIN** | Configuration ER, gestion utilisateurs (sauf SUPER_ADMIN), attributions boxes, donnees de reference |
-| **NURSE_SUPERVISOR** | Planning hebdomadaire des infirmieres, gestion des assignations |
-| **NURSE** | Workflows cliniques (inscription, triage, soins) selon l'assignation du jour |
-| **DOCTOR** | Diagnostic, prescriptions, auto-attribution de box, sortie patient |
-
-## Base de donnees
-
-### Tables (15)
-
-| Table | Description |
-|-------|-------------|
-| `users` | Comptes utilisateurs avec hachage bcrypt |
-| `refresh_tokens` | Tokens JWT de rafraichissement |
-| `weekly_schedule` | Assignations quotidiennes des infirmieres |
-| `er_configuration` | Configuration de la disposition des urgences |
-| `boxes` | Boxes de traitement individuels |
-| `box_assignments` | Attributions medecin-box par garde |
-| `patients` | Dossiers patients (~50 colonnes) |
-| `prescriptions` | Prescriptions medicamenteuses |
-| `diagnoses` | Diagnostics patients |
-| `ai_prediagnosis` | Resultats de pre-diagnostic IA |
-| `presenting_complaints` | Catalogue des motifs de consultation |
-| `clinical_pathologies` | Pathologies ABCDE avec interventions |
-| `notifications` | Notifications utilisateurs |
-| `sync_log` | Suivi de synchronisation |
-| `audit_log` | Journal d'audit de conformite |
-
-La base de donnees est creee automatiquement au premier demarrage.
-Emplacement : `%APPDATA%/ncdss-server/ncdss-server.db` (Windows)
-
-## Stack technique
-
-| Couche | Technologie |
-|--------|-------------|
-| Desktop | Electron 28 |
-| Mobile | Capacitor 5 (Android + iOS) |
-| UI | React 18 + shadcn/ui + Tailwind CSS 3.4 |
-| Etat | Zustand 4 |
-| HTTP | Axios |
-| Routage | React Router DOM 6 |
-| Graphiques | Recharts 3 |
-| API | Express 4 |
-| Base de donnees | SQLite (better-sqlite3) + Drizzle ORM |
-| Auth | bcryptjs + jsonwebtoken |
-| LLM | node-llama-cpp 3 (Qwen3, hors-ligne, GPU) |
-| Build | Vite 5 |
-| Langage | TypeScript 5.3 (mode strict) |
-| Excel | xlsx (SheetJS) |
-
-## Depannage
-
-### Erreur NODE_MODULE_VERSION (better-sqlite3)
-
-```bash
-# Depuis la racine du projet
-npm rebuild better-sqlite3
-```
-
-### Connexion client-serveur
-
-1. Verifier que le serveur est demarre et affiche une adresse IP
-2. S'assurer que le client et le serveur sont sur le meme reseau
-3. Verifier que le pare-feu autorise le port 3000
-4. Entrer l'adresse au format `192.168.1.100:3000` (sans `http://`)
-
-### Reconstruction pour Electron
-
-```bash
-cd server
-npm run rebuild    # Reconstruit better-sqlite3 pour Electron
-```
-
-## Securite
-
-- Mots de passe haches avec bcrypt (10 rounds de salt)
-- Systeme JWT double token avec rafraichissement automatique
-- Electron securise (contextIsolation, pas de nodeIntegration)
-- Middleware d'audit avec redaction des champs sensibles
-- Validation des entrees sur les endpoints API
-
-**En production, vous devez :**
-- Definir `JWT_SECRET` et `JWT_REFRESH_SECRET`
-- Configurer `CORS_ORIGINS`
-- Changer le mot de passe admin par defaut
-- Activer HTTPS
-- Verifier les permissions du fichier de base de donnees
-
-## Conventions de code
-
-- **TypeScript strict mode** active partout
-- **Pas de type `any`** sauf necessite absolue
-- **Interface utilisateur en francais** uniquement
-- **Composants fonctionnels React** avec hooks
-- **shadcn/ui + Tailwind CSS** (jamais de composants Ionic UI)
-- **Drizzle ORM** pour toutes les operations de base de donnees
-- **API_ROUTES** (`@ncdss/shared`) pour tous les appels API client
-- **CLIENT_ROUTES** (`client/src/routes/`) pour toute la navigation
-
-## Licence
-
-MIT
+[MIT](LICENSE)
