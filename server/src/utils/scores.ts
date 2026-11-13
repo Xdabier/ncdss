@@ -1,16 +1,16 @@
 // NEWS (National Early Warning Score) calculation
 export function calculateNEWS(vitals: {
-  respiratoryRate?: number;
-  oxygenSaturation?: number;
-  temperature?: number;
-  systolicBP?: number;
-  heartRate?: number;
-  gcsScore?: number;
+  respiratoryRate?: number | null;
+  oxygenSaturation?: number | null;
+  temperature?: number | null;
+  systolicBP?: number | null;
+  heartRate?: number | null;
+  gcsScore?: number | null;
 }): number {
   let score = 0;
   
   // Respiratory Rate
-  if (vitals.respiratoryRate !== undefined) {
+  if (vitals.respiratoryRate != null) {
     const rr = vitals.respiratoryRate;
     if (rr <= 8) score += 3;
     else if (rr <= 11) score += 1;
@@ -20,7 +20,7 @@ export function calculateNEWS(vitals: {
   }
   
   // Oxygen Saturation
-  if (vitals.oxygenSaturation !== undefined) {
+  if (vitals.oxygenSaturation != null) {
     const spo2 = vitals.oxygenSaturation;
     if (spo2 <= 91) score += 3;
     else if (spo2 <= 93) score += 2;
@@ -29,7 +29,7 @@ export function calculateNEWS(vitals: {
   }
   
   // Temperature
-  if (vitals.temperature !== undefined) {
+  if (vitals.temperature != null) {
     const temp = vitals.temperature;
     if (temp <= 35.0) score += 3;
     else if (temp <= 36.0) score += 1;
@@ -39,7 +39,7 @@ export function calculateNEWS(vitals: {
   }
   
   // Systolic BP
-  if (vitals.systolicBP !== undefined) {
+  if (vitals.systolicBP != null) {
     const sbp = vitals.systolicBP;
     if (sbp <= 90) score += 3;
     else if (sbp <= 100) score += 2;
@@ -49,7 +49,7 @@ export function calculateNEWS(vitals: {
   }
   
   // Heart Rate
-  if (vitals.heartRate !== undefined) {
+  if (vitals.heartRate != null) {
     const hr = vitals.heartRate;
     if (hr <= 40) score += 3;
     else if (hr <= 50) score += 1;
@@ -60,7 +60,7 @@ export function calculateNEWS(vitals: {
   }
   
   // Consciousness (simplified - using GCS < 15 as indicator)
-  if (vitals.gcsScore !== undefined && vitals.gcsScore < 15) {
+  if (vitals.gcsScore != null && vitals.gcsScore < 15) {
     score += 3;
   }
   
@@ -78,37 +78,15 @@ export function calculateGCS(eye?: number, verbal?: number, motor?: number): num
 
 // qSOFA (Quick Sequential Organ Failure Assessment)
 export function calculateQSOFA(
-  respiratoryRate?: number,
-  systolicBP?: number,
-  gcsScore?: number
+  respiratoryRate?: number | null,
+  systolicBP?: number | null,
+  gcsScore?: number | null
 ): number {
   let score = 0;
   
-  if (respiratoryRate !== undefined && respiratoryRate >= 22) score += 1;
-  if (systolicBP !== undefined && systolicBP <= 100) score += 1;
-  if (gcsScore !== undefined && gcsScore < 15) score += 1;
+  if (respiratoryRate != null && respiratoryRate >= 22) score += 1;
+  if (systolicBP != null && systolicBP <= 100) score += 1;
+  if (gcsScore != null && gcsScore < 15) score += 1;
   
   return score;
-}
-
-// ESI (Emergency Severity Index) suggested level based on scores
-export function suggestESI(
-  newsScore?: number,
-  gcsScore?: number,
-  chiefComplaint?: string
-): number {
-  // ESI 1: Immediate life-saving intervention required
-  if (gcsScore !== undefined && gcsScore <= 8) return 1;
-  if (newsScore !== undefined && newsScore >= 9) return 1;
-  
-  // ESI 2: High risk / confused / lethargy / severe pain
-  if (gcsScore !== undefined && gcsScore <= 12) return 2;
-  if (newsScore !== undefined && newsScore >= 7) return 2;
-  
-  // ESI 3: Likely needs multiple resources
-  if (newsScore !== undefined && newsScore >= 5) return 3;
-  
-  // ESI 4-5: Based on expected resources
-  // Default to 4 - needs 1 resource
-  return 4;
 }
