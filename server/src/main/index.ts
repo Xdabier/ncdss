@@ -21,6 +21,7 @@ import {
   getLogDirPath,
   getRecentLogsAsText,
 } from '../utils/logger';
+import { createShutdownCoordinator, shutdownApplication } from './shutdown';
 
 // Initialize logger immediately - patches console.* before any other code runs
 initLogger();
@@ -29,6 +30,19 @@ let mainWindow: BrowserWindow | null = null;
 
 const PORT = 3000;
 const isDev = process.env.NODE_ENV === 'development';
+
+const shutdownCoordinator = createShutdownCoordinator(() =>
+  shutdownApplication({
+    stopShiftMonitor,
+    stopServer,
+    disposeLLMProvider,
+    closeDatabase,
+    closeLogger,
+    onError: (step, error) =>
+      console.error(`Failed to ${step} during application shutdown:`, error),
+    quit: process.platform !== 'darwin' ? () => app.quit() : undefined,
+  })
+);
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -125,6 +139,7 @@ ipcMain.handle('get-server-status', () => {
 });
 
 ipcMain.handle('start-server', async () => {
+  await shutdownCoordinator.waitForCurrent();
   await startServer(PORT);
   const ip = getLocalIP();
   mainWindow?.webContents.send('server-status', {
@@ -134,8 +149,8 @@ ipcMain.handle('start-server', async () => {
   });
 });
 
-ipcMain.handle('stop-server', () => {
-  stopServer();
+ipcMain.handle('stop-server', async () => {
+  await stopServer();
   const ip = getLocalIP();
   mainWindow?.webContents.send('server-status', {
     running: false,
@@ -211,14 +226,10 @@ ipcMain.handle('clear-patient-data', async () => {
 });
 
 app.on('window-all-closed', () => {
-  stopShiftMonitor();
-  stopServer();
-  disposeLLMProvider();
-  closeDatabase();
-  closeLogger();
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  void shutdownCoordinator.run().catch((error: unknown) => {
+    console.error('Unexpected application shutdown failure:', error);
+    if (process.platform !== 'darwin') app.quit();
+  });
 });
 
 app.on('activate', () => {

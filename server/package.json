@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:rebuild": "npm run rebuild:electron && vite",
+    "test": "tsx --test src/main/shutdown.test.ts",
     "build": "npm run rebuild:electron && tsc && vite build && electron-builder",
     "preview": "vite preview",
     "start": "electron .",
