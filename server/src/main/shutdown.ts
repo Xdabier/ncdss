@@ -12,7 +12,42 @@ interface ShutdownOptions {
   closeDatabase: ShutdownAction;
   closeLogger: ShutdownAction;
   onError: (step: string, error: unknown) => void;
-  quit?: () => void;
+}
+
+export function shouldQuitWhenAllWindowsClosed(platform: NodeJS.Platform): boolean {
+  return platform !== 'darwin';
+}
+
+export function createBeforeQuitHandler(
+  runShutdown: () => Promise<void>,
+  onError: (error: unknown) => void,
+  quit: () => void
+): (preventQuit: () => void) => void {
+  let quitAllowed = false;
+  let shutdownStarted = false;
+
+  return (preventQuit) => {
+    if (quitAllowed) return;
+
+    preventQuit();
+    if (shutdownStarted) return;
+
+    shutdownStarted = true;
+    void runShutdown().then(
+      () => {
+        quitAllowed = true;
+        quit();
+      },
+      (error) => {
+        try {
+          onError(error);
+        } finally {
+          quitAllowed = true;
+          quit();
+        }
+      }
+    );
+  };
 }
 
 export function createShutdownCoordinator(action: () => Promise<void>): ShutdownCoordinator {
@@ -48,7 +83,6 @@ export async function shutdownApplication({
   closeDatabase,
   closeLogger,
   onError,
-  quit,
 }: ShutdownOptions): Promise<void> {
   const steps: Array<[string, ShutdownAction]> = [
     ['stop shift monitor', stopShiftMonitor],
@@ -65,6 +99,4 @@ export async function shutdownApplication({
       onError(name, error);
     }
   }
-
-  quit?.();
 }

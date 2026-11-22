@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createShutdownCoordinator, shutdownApplication } from './shutdown';
+import {
+  createBeforeQuitHandler,
+  createShutdownCoordinator,
+  shouldQuitWhenAllWindowsClosed,
+  shutdownApplication,
+} from './shutdown';
 
 function deferred() {
   let resolve!: () => void;
@@ -85,9 +90,6 @@ test('waits for each asynchronous shutdown step before continuing', async () => 
       });
     },
     onError: (step, error) => assert.fail(`Unexpected ${step} error: ${String(error)}`),
-    quit: () => {
-      events.push('quit');
-    },
   });
 
   await monitorStarted.promise;
@@ -132,7 +134,6 @@ test('waits for each asynchronous shutdown step before continuing', async () => 
     'database',
     'logger:start',
     'logger:end',
-    'quit',
   ]);
 });
 
@@ -161,9 +162,6 @@ test('continues cleanup and quits after a shutdown step fails', async () => {
     onError: (step) => {
       errors.push(step);
     },
-    quit: () => {
-      events.push('quit');
-    },
   });
 
   assert.deepEqual(errors, [
@@ -172,5 +170,68 @@ test('continues cleanup and quits after a shutdown step fails', async () => {
     'dispose LLM provider',
     'close logger',
   ]);
-  assert.deepEqual(events, ['provider', 'database', 'logger', 'quit']);
+  assert.deepEqual(events, ['provider', 'database', 'logger']);
+});
+
+test('keeps the macOS app active when its last window closes', () => {
+  assert.equal(shouldQuitWhenAllWindowsClosed('darwin'), false);
+  assert.equal(shouldQuitWhenAllWindowsClosed('win32'), true);
+  assert.equal(shouldQuitWhenAllWindowsClosed('linux'), true);
+});
+
+test('waits for shutdown before allowing quit and coalesces repeated requests', async () => {
+  const shutdown = deferred();
+  const quitCompleted = deferred();
+  let shutdownCalls = 0;
+  let preventCalls = 0;
+  let quitCalls = 0;
+  const errors: unknown[] = [];
+  const beforeQuit = createBeforeQuitHandler(
+    () => {
+      shutdownCalls += 1;
+      return shutdown.promise;
+    },
+    (error) => errors.push(error),
+    () => {
+      quitCalls += 1;
+      quitCompleted.resolve();
+    }
+  );
+
+  beforeQuit(() => {
+    preventCalls += 1;
+  });
+  beforeQuit(() => {
+    preventCalls += 1;
+  });
+
+  assert.equal(shutdownCalls, 1);
+  assert.equal(preventCalls, 2);
+  assert.equal(quitCalls, 0);
+
+  shutdown.resolve();
+  await quitCompleted.promise;
+
+  assert.deepEqual(errors, []);
+  assert.equal(quitCalls, 1);
+  beforeQuit(() => {
+    preventCalls += 1;
+  });
+  assert.equal(preventCalls, 2);
+});
+
+test('reports an unexpected shutdown rejection but still allows quit', async () => {
+  const error = new Error('shutdown coordinator failed');
+  const quitCompleted = deferred();
+  const errors: unknown[] = [];
+  const beforeQuit = createBeforeQuitHandler(
+    () => Promise.reject(error),
+    (reported) => errors.push(reported),
+    () => quitCompleted.resolve()
+  );
+
+  beforeQuit(() => undefined);
+  await quitCompleted.promise;
+
+  assert.deepEqual(errors, [error]);
 });

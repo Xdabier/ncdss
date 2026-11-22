@@ -21,7 +21,12 @@ import {
   getLogDirPath,
   getRecentLogsAsText,
 } from '../utils/logger';
-import { createShutdownCoordinator, shutdownApplication } from './shutdown';
+import {
+  createBeforeQuitHandler,
+  createShutdownCoordinator,
+  shouldQuitWhenAllWindowsClosed,
+  shutdownApplication,
+} from './shutdown';
 
 // Initialize logger immediately - patches console.* before any other code runs
 initLogger();
@@ -40,9 +45,18 @@ const shutdownCoordinator = createShutdownCoordinator(() =>
     closeLogger,
     onError: (step, error) =>
       console.error(`Failed to ${step} during application shutdown:`, error),
-    quit: process.platform !== 'darwin' ? () => app.quit() : undefined,
   })
 );
+
+const beforeQuit = createBeforeQuitHandler(
+  () => shutdownCoordinator.run(),
+  (error) => console.error('Unexpected application shutdown failure:', error),
+  () => app.quit()
+);
+
+app.on('before-quit', (event) => {
+  beforeQuit(() => event.preventDefault());
+});
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -226,10 +240,7 @@ ipcMain.handle('clear-patient-data', async () => {
 });
 
 app.on('window-all-closed', () => {
-  void shutdownCoordinator.run().catch((error: unknown) => {
-    console.error('Unexpected application shutdown failure:', error);
-    if (process.platform !== 'darwin') app.quit();
-  });
+  if (shouldQuitWhenAllWindowsClosed(process.platform)) app.quit();
 });
 
 app.on('activate', () => {
