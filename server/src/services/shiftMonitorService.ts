@@ -10,27 +10,42 @@ import {
 import { NotificationType, NotificationPriority } from '@ncdss/shared';
 
 let monitorInterval: NodeJS.Timeout | null = null;
+let monitorStopping = false;
+const activeChecks = new Set<Promise<void>>();
+
+function runShiftCheck(errorMessage: string): void {
+  if (monitorStopping) return;
+
+  const check = checkShifts().catch((error) => console.error(errorMessage, error));
+  activeChecks.add(check);
+  void check.then(() => activeChecks.delete(check));
+}
 
 export function startShiftMonitor(): void {
   if (monitorInterval) return;
+  monitorStopping = false;
 
   // Check every 5 minutes
   monitorInterval = setInterval(() => {
-    checkShifts().catch((err) => console.error('Shift monitor error:', err));
+    runShiftCheck('Shift monitor error:');
   }, 5 * 60 * 1000);
 
   // Run immediately on startup
-  checkShifts().catch((err) => console.error('Shift monitor initial check error:', err));
+  runShiftCheck('Shift monitor initial check error:');
 
   console.log('✓ Shift monitor started (5-minute interval)');
 }
 
-export function stopShiftMonitor(): void {
+export async function stopShiftMonitor(): Promise<void> {
+  monitorStopping = true;
+  const wasRunning = monitorInterval !== null;
   if (monitorInterval) {
     clearInterval(monitorInterval);
     monitorInterval = null;
-    console.log('✓ Shift monitor stopped');
   }
+
+  await Promise.all(activeChecks);
+  if (wasRunning) console.log('✓ Shift monitor stopped');
 }
 
 async function checkShifts(): Promise<void> {

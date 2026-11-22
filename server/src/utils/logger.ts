@@ -116,11 +116,16 @@ export function setLogWindow(win: BrowserWindow): void {
   });
 }
 
-export function closeLogger(): void {
-  if (logStream) {
-    logStream.end();
-    logStream = null;
-  }
+export function closeLogger(): Promise<void> {
+  if (!logStream) return Promise.resolve();
+
+  const stream = logStream;
+  logStream = null;
+
+  return new Promise<void>((resolve, reject) => {
+    stream.once('error', reject);
+    stream.end(resolve);
+  });
 }
 
 export function getRecentLogs(): LogEntry[] {

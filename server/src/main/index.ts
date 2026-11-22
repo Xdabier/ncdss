@@ -21,6 +21,12 @@ import {
   getLogDirPath,
   getRecentLogsAsText,
 } from '../utils/logger';
+import {
+  createBeforeQuitHandler,
+  createShutdownCoordinator,
+  shouldQuitWhenAllWindowsClosed,
+  shutdownApplication,
+} from './shutdown';
 
 // Initialize logger immediately - patches console.* before any other code runs
 initLogger();
@@ -29,6 +35,28 @@ let mainWindow: BrowserWindow | null = null;
 
 const PORT = 3000;
 const isDev = process.env.NODE_ENV === 'development';
+
+const shutdownCoordinator = createShutdownCoordinator(() =>
+  shutdownApplication({
+    stopShiftMonitor,
+    stopServer,
+    disposeLLMProvider,
+    closeDatabase,
+    closeLogger,
+    onError: (step, error) =>
+      console.error(`Failed to ${step} during application shutdown:`, error),
+  })
+);
+
+const beforeQuit = createBeforeQuitHandler(
+  () => shutdownCoordinator.run(),
+  (error) => console.error('Unexpected application shutdown failure:', error),
+  () => app.quit()
+);
+
+app.on('before-quit', (event) => {
+  beforeQuit(() => event.preventDefault());
+});
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -125,6 +153,7 @@ ipcMain.handle('get-server-status', () => {
 });
 
 ipcMain.handle('start-server', async () => {
+  await shutdownCoordinator.waitForCurrent();
   await startServer(PORT);
   const ip = getLocalIP();
   mainWindow?.webContents.send('server-status', {
@@ -134,8 +163,8 @@ ipcMain.handle('start-server', async () => {
   });
 });
 
-ipcMain.handle('stop-server', () => {
-  stopServer();
+ipcMain.handle('stop-server', async () => {
+  await stopServer();
   const ip = getLocalIP();
   mainWindow?.webContents.send('server-status', {
     running: false,
@@ -211,14 +240,7 @@ ipcMain.handle('clear-patient-data', async () => {
 });
 
 app.on('window-all-closed', () => {
-  stopShiftMonitor();
-  stopServer();
-  disposeLLMProvider();
-  closeDatabase();
-  closeLogger();
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  if (shouldQuitWhenAllWindowsClosed(process.platform)) app.quit();
 });
 
 app.on('activate', () => {

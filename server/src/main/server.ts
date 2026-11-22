@@ -22,6 +22,7 @@ import { initDatabase } from '../database';
 import { getActiveProviderType } from '../services/llm';
 
 let server: Server | null = null;
+let serverClosePromise: Promise<void> | null = null;
 
 // CORS Configuration
 const allowedOrigins = process.env.CORS_ORIGINS
@@ -29,6 +30,8 @@ const allowedOrigins = process.env.CORS_ORIGINS
   : ['http://localhost:3001', 'http://localhost:5173', 'capacitor://localhost'];
 
 export async function startServer(port: number): Promise<void> {
+  if (serverClosePromise) await serverClosePromise;
+
   // Initialize database
   await initDatabase();
 
@@ -94,12 +97,27 @@ export async function startServer(port: number): Promise<void> {
   });
 }
 
-export function stopServer(): void {
-  if (server) {
-    server.close();
-    server = null;
-    console.log('✓ Server stopped');
-  }
+export function stopServer(): Promise<void> {
+  if (serverClosePromise) return serverClosePromise;
+  if (!server) return Promise.resolve();
+
+  const serverToClose = server;
+  serverClosePromise = new Promise<void>((resolve, reject) => {
+    serverToClose.close((error?: Error) => {
+      if (server === serverToClose) server = null;
+      serverClosePromise = null;
+
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      console.log('✓ Server stopped');
+      resolve();
+    });
+  });
+
+  return serverClosePromise;
 }
 
 export function getServerStatus() {
